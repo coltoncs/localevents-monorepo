@@ -71,6 +71,7 @@ function EventDetailPage() {
   const navigate = useNavigate()
   const deleteEvent = useDeleteEvent()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const { data: backendUser } = useUser()
 
   if (isLoading) {
     return (
@@ -84,7 +85,6 @@ function EventDetailPage() {
     )
   }
 
-  const { data: backendUser } = useUser()
   const canEdit =
     isSignedIn &&
     (isAdmin || (isAuthor && event.SubmittedBy && backendUser?.ID === event.SubmittedBy))
