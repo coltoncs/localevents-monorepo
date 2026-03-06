@@ -25,11 +25,11 @@ class ApiError extends Error {
 
 function resolveUrl(path: string): string {
   if (path.startsWith('http')) return path
-  if (typeof window === 'undefined') {
-    const base = process.env.API_BASE_URL ?? 'http://localhost:8080'
-    return `${base}${path}`
-  }
-  return path
+  const base =
+    (typeof window !== 'undefined'
+      ? (import.meta as Record<string, any>).env?.VITE_API_URL
+      : process.env.VITE_API_URL) || ''
+  return `${base}${path}`
 }
 
 export async function apiClient<T>(
