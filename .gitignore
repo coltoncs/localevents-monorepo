@@ -1,0 +1,53 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Keep examples
+!.env.example
+!**/.env.example
+
+# Go
+server/tmp/
+server/vendor/
+
+# Binary
+server/cmd/server/server
+
+# Node
+node_modules/
+
+# Frontend build
+frontend/dist/
+frontend/.tanstack/
+frontend/.wrangler/
+frontend/.output/
+frontend/.nitro/
+frontend/.vinxi/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# Claude Code
+.claude/
+
+# Docker
+pgdata/
+
+# Misc
+*.log
+__unconfig*
+todos.json
+mcp-todos.json
+claude-absolute-url-plan.md

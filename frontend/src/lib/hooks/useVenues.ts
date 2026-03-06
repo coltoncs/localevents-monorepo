@@ -1,0 +1,28 @@
+import { queryOptions, useQuery } from '@tanstack/react-query'
+import { apiClient } from '#/lib/api'
+import { queryKeys } from '#/lib/query-keys'
+import type { VenueListResponse } from '#/lib/types'
+
+interface VenueFilters {
+  lat: number
+  lng: number
+  radius?: number
+}
+
+export function venueListOptions(filters: VenueFilters) {
+  const params = new URLSearchParams({
+    lat: String(filters.lat),
+    lng: String(filters.lng),
+  })
+  if (filters.radius) params.set('radius', String(filters.radius))
+
+  return queryOptions({
+    queryKey: queryKeys.venues.list(filters),
+    queryFn: () =>
+      apiClient<VenueListResponse>(`/api/venues?${params.toString()}`),
+  })
+}
+
+export function useVenues(filters: VenueFilters, enabled = true) {
+  return useQuery({ ...venueListOptions(filters), enabled })
+}

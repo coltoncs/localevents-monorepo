@@ -1,0 +1,120 @@
+export interface Event {
+  ID: string
+  ExternalID?: string
+  Source: string
+  Title: string
+  Description?: string
+  VenueName?: string
+  Address?: string
+  City?: string
+  State?: string
+  Zip?: string
+  Latitude: number
+  Longitude: number
+  StartTime: string
+  EndTime?: string
+  Category?: string
+  ImageUrl?: string
+  TicketUrl?: string
+  PriceMin?: number
+  PriceMax?: number
+  SubmittedBy?: string
+  CreatedAt: string
+  UpdatedAt: string
+}
+
+export interface User {
+  ID: string
+  ClerkID: string
+  Username?: string
+  Email?: string
+  DefaultLatitude?: number
+  DefaultLongitude?: number
+  DefaultRadiusMiles?: number
+  CreatedAt: string
+  UpdatedAt: string
+}
+
+export interface SavedEvent {
+  ID: string
+  UserID: string
+  EventID: string
+  CreatedAt: string
+}
+
+export interface EventListResponse {
+  events: Event[]
+  total: number
+}
+
+export interface EventFilters {
+  lat: number
+  lng: number
+  radius?: number
+  date?: string
+  category?: string
+  venueName?: string
+  search?: string
+  limit?: number
+  page?: number
+}
+
+export interface CreateEventInput {
+  title: string
+  description?: string
+  venue_name?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  latitude: number
+  longitude: number
+  start_time: string
+  end_time?: string
+  category?: string
+  image_url?: string
+  ticket_url?: string
+  price_min?: number
+  price_max?: number
+}
+
+export interface Venue {
+  VenueName: string
+  Address: string
+  City: string
+  State: string
+  Zip: string
+  Latitude: number
+  Longitude: number
+}
+
+export interface VenueListResponse {
+  venues: Venue[]
+}
+
+export interface UpdateUserInput {
+  default_latitude?: number
+  default_longitude?: number
+  default_radius_miles?: number
+}
+
+export interface AuthorApplication {
+  ID: string
+  ClerkID: string
+  FullName: string
+  Email: string
+  Bio: string
+  Experience: string
+  Status: 'pending' | 'approved' | 'rejected'
+  SubmittedAt: string
+  ReviewedAt?: string
+  ReviewedBy?: string
+  ReviewNotes?: string
+}
+
+export interface SubmitApplicationInput {
+  full_name: string
+  email: string
+  bio: string
+  experience: string
+}
