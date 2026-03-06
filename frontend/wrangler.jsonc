@@ -3,5 +3,8 @@
   "name": "localevents",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+  "main": "@tanstack/react-start/server-entry",
+  "vars": {
+    "VITE_API_URL": "https://localevents-production.up.railway.app"
+  }
 }
