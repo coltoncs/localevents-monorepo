@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
+import { Route as MyEventsRouteImport } from './routes/my-events'
 import { Route as ApplyAuthorRouteImport } from './routes/apply-author'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
@@ -35,6 +36,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SavedRoute = SavedRouteImport.update({
   id: '/saved',
   path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyEventsRoute = MyEventsRouteImport.update({
+  id: '/my-events',
+  path: '/my-events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplyAuthorRoute = ApplyAuthorRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/apply-author': typeof ApplyAuthorRoute
+  '/my-events': typeof MyEventsRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/apply-author': typeof ApplyAuthorRoute
+  '/my-events': typeof MyEventsRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/apply-author': typeof ApplyAuthorRoute
+  '/my-events': typeof MyEventsRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/apply-author'
+    | '/my-events'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/apply-author'
+    | '/my-events'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/apply-author'
+    | '/my-events'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   ApplyAuthorRoute: typeof ApplyAuthorRoute
+  MyEventsRoute: typeof MyEventsRoute
   SavedRoute: typeof SavedRoute
   SettingsRoute: typeof SettingsRoute
   SubmitRoute: typeof SubmitRoute
@@ -203,6 +216,13 @@ declare module '@tanstack/react-router' {
       path: '/saved'
       fullPath: '/saved'
       preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-events': {
+      id: '/my-events'
+      path: '/my-events'
+      fullPath: '/my-events'
+      preLoaderRoute: typeof MyEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/apply-author': {
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   ApplyAuthorRoute: ApplyAuthorRoute,
+  MyEventsRoute: MyEventsRoute,
   SavedRoute: SavedRoute,
   SettingsRoute: SettingsRoute,
   SubmitRoute: SubmitRoute,

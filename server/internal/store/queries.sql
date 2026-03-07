@@ -82,6 +82,11 @@ INSERT INTO events (
     $15, $16, $17, $18
 ) RETURNING *;
 
+-- name: ListEventsBySubmitter :many
+SELECT * FROM events
+WHERE submitted_by = $1
+ORDER BY start_time ASC;
+
 -- name: ListSavedEvents :many
 SELECT e.*
 FROM events e

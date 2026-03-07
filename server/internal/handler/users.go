@@ -92,6 +92,33 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(updated)
 }
 
+func (h *UserHandler) ListMyEvents(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	events, err := h.queries.ListEventsBySubmitter(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to list events"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if events == nil {
+		events = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
 func (h *UserHandler) ListSaved(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {

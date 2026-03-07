@@ -43,6 +43,13 @@ export function useEvent(id: string) {
   return useQuery(eventDetailOptions(id))
 }
 
+export function useMyEvents() {
+  return useQuery({
+    queryKey: queryKeys.user.myEvents,
+    queryFn: () => apiClient<Event[]>('/api/me/events'),
+  })
+}
+
 export function useCreateEvent() {
   const queryClient = useQueryClient()
   return useMutation({

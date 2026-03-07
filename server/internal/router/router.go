@@ -38,6 +38,7 @@ func New(queries *store.Queries, corsOrigins string) *chi.Mux {
 			r.Use(middleware.RequireAuth())
 			r.Get("/me", userHandler.GetMe)
 			r.Put("/me", userHandler.UpdateMe)
+			r.Get("/me/events", userHandler.ListMyEvents)
 			r.Get("/me/saved", userHandler.ListSaved)
 			r.Post("/me/saved/{eventId}", userHandler.SaveEvent)
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)

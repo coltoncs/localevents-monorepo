@@ -1,0 +1,48 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
+import { useMyEvents } from '#/lib/hooks/useEvents'
+import { EventCard } from '#/components/EventCard'
+
+export const Route = createFileRoute('/my-events')({
+  component: MyEventsPage,
+})
+
+function MyEventsPage() {
+  return (
+    <RoleProtectedRoute roles={['author', 'admin']}>
+      <MyEventsContent />
+    </RoleProtectedRoute>
+  )
+}
+
+function MyEventsContent() {
+  const { data: events = [], isLoading } = useMyEvents()
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">My Submitted Events</h1>
+        <Link
+          to="/submit"
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          Submit Event
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="py-12 text-center text-[var(--sea-ink-soft)]">Loading...</div>
+      ) : events.length === 0 ? (
+        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+          You haven't submitted any events yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {events.map((event) => (
+            <EventCard key={event.ID} event={event} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

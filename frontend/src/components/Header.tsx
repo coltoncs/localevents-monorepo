@@ -38,6 +38,16 @@ export default function Header() {
           Submit Event
         </Link>
       )}
+      {isSignedIn && canCreateEvent && (
+        <Link
+          to="/my-events"
+          className="nav-link"
+          activeProps={{ className: 'nav-link is-active' }}
+          onClick={() => setMenuOpen(false)}
+        >
+          My Events
+        </Link>
+      )}
       {isSignedIn && isUser && (
         <Link
           to="/apply-author"

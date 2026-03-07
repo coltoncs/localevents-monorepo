@@ -18,6 +18,7 @@ export const queryKeys = {
   },
   user: {
     me: ['user', 'me'] as const,
+    myEvents: ['user', 'myEvents'] as const,
   },
   savedEvents: {
     all: ['savedEvents'] as const,

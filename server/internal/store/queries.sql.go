@@ -584,6 +584,55 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 	return items, nil
 }
 
+const listEventsBySubmitter = `-- name: ListEventsBySubmitter :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at FROM events
+WHERE submitted_by = $1
+ORDER BY start_time ASC
+`
+
+func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.UUID) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsBySubmitter, submittedBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Category,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingApplications = `-- name: ListPendingApplications :many
 SELECT id, clerk_id, full_name, email, bio, experience, status, submitted_at, reviewed_at, reviewed_by, review_notes FROM author_applications
 WHERE status = 'pending'
