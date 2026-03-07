@@ -49,13 +49,16 @@ const columns = [
   }),
   col.accessor('StartTime', {
     header: 'Date',
-    cell: (info) =>
-      new Date(info.getValue()).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }),
+    cell: (info) => {
+      const d = new Date(info.getValue())
+      const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      return (
+        <span className="whitespace-nowrap">
+          {date}, {time}
+        </span>
+      )
+    },
   }),
   col.accessor('VenueName', {
     header: 'Venue',
