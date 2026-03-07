@@ -500,6 +500,90 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 	return items, nil
 }
 
+const listEventsByLocationDateSorted = `-- name: ListEventsByLocationDateSorted :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at
+FROM events
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+AND start_time >= $4::timestamptz
+AND start_time < $5::timestamptz
+AND ($6::text IS NULL OR category = $6::text)
+AND ($7::text IS NULL OR venue_name = $7::text)
+AND ($8::text IS NULL OR title ILIKE '%' || $8::text || '%' OR venue_name ILIKE '%' || $8::text || '%')
+ORDER BY start_time ASC
+LIMIT $10 OFFSET $9
+`
+
+type ListEventsByLocationDateSortedParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+	StartDate    pgtype.Timestamptz
+	EndDate      pgtype.Timestamptz
+	Category     pgtype.Text
+	VenueName    pgtype.Text
+	Search       pgtype.Text
+	EventOffset  int32
+	EventLimit   int32
+}
+
+func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEventsByLocationDateSortedParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsByLocationDateSorted,
+		arg.Lng,
+		arg.Lat,
+		arg.RadiusMeters,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Category,
+		arg.VenueName,
+		arg.Search,
+		arg.EventOffset,
+		arg.EventLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Category,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingApplications = `-- name: ListPendingApplications :many
 SELECT id, clerk_id, full_name, email, bio, experience, status, submitted_at, reviewed_at, reviewed_by, review_notes FROM author_applications
 WHERE status = 'pending'

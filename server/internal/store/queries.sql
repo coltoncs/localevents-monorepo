@@ -55,6 +55,22 @@ ORDER BY ST_Distance(
 ) ASC, start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
 
+-- name: ListEventsByLocationDateSorted :many
+SELECT *
+FROM events
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography,
+    @radius_meters::float
+)
+AND start_time >= @start_date::timestamptz
+AND start_time < @end_date::timestamptz
+AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
+AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
+AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY start_time ASC
+LIMIT @event_limit OFFSET @event_offset;
+
 -- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,

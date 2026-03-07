@@ -121,7 +121,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := h.queries.ListEventsByLocation(r.Context(), store.ListEventsByLocationParams{
+	listParams := store.ListEventsByLocationParams{
 		Lng:          locParams.Lng,
 		Lat:          locParams.Lat,
 		RadiusMeters: locParams.RadiusMeters,
@@ -132,7 +132,27 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		Search:       locParams.Search,
 		EventLimit:   limit,
 		EventOffset:  offset,
-	})
+	}
+
+	var events []store.Event
+	if dateStr == "" {
+		// No date filter: sort by date so upcoming events appear in order
+		events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
+			Lng:          listParams.Lng,
+			Lat:          listParams.Lat,
+			RadiusMeters: listParams.RadiusMeters,
+			StartDate:    listParams.StartDate,
+			EndDate:      listParams.EndDate,
+			Category:     listParams.Category,
+			VenueName:    listParams.VenueName,
+			Search:       listParams.Search,
+			EventLimit:   listParams.EventLimit,
+			EventOffset:  listParams.EventOffset,
+		})
+	} else {
+		// Date filter: sort by proximity since all events are on the same day
+		events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
+	}
 	if err != nil {
 		http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
 		return
