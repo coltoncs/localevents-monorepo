@@ -1,23 +1,24 @@
-import { Link } from '@tanstack/react-router'
-import type { Event } from '#/lib/types'
+import { Link } from "@tanstack/react-router";
+import type { Event } from "#/lib/types";
+import { SaveButton } from "./SaveButton";
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatPrice(event: Event) {
-  if (event.PriceMin == null && event.PriceMax == null) return 'Free'
+  if (event.PriceMin == null && event.PriceMax == null) return "Free";
   if (event.PriceMin != null && event.PriceMax != null) {
-    if (event.PriceMin === event.PriceMax) return `$${event.PriceMin}`
-    return `$${event.PriceMin} - $${event.PriceMax}`
+    if (event.PriceMin === event.PriceMax) return `$${event.PriceMin}`;
+    return `$${event.PriceMin} - $${event.PriceMax}`;
   }
-  return `$${event.PriceMin ?? event.PriceMax}`
+  return `$${event.PriceMin ?? event.PriceMax}`;
 }
 
 export function EventCard({ event }: { event: Event }) {
@@ -41,7 +42,9 @@ export function EventCard({ event }: { event: Event }) {
           </span>
         )}
         <h3 className="font-semibold text-[var(--sea-ink)]">{event.Title}</h3>
-        <p className="text-sm text-[var(--sea-ink-soft)]">{formatDate(event.StartTime)}</p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          {formatDate(event.StartTime)}
+        </p>
         {event.VenueName && (
           <p className="text-sm text-[var(--sea-ink-soft)]">
             <Link
@@ -59,5 +62,5 @@ export function EventCard({ event }: { event: Event }) {
         </p>
       </div>
     </Link>
-  )
+  );
 }

@@ -75,6 +75,7 @@ const columns = [
         </Link>
       )
     },
+    meta: { cellClassName: 'min-w-[8rem]' },
   }),
   col.accessor('City', {
     header: 'City',
@@ -120,7 +121,7 @@ export function EventTable({ events }: { events: Event[] }) {
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className={`cursor-pointer px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-[var(--sea-ink-soft)] select-none sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''}`}
+                    className={`cursor-pointer px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-[var(--sea-ink-soft)] select-none sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''} ${(header.column.columnDef.meta as any)?.cellClassName ?? ''}`}
                   >
                     {flexRender(
                       header.column.columnDef.header,
@@ -153,7 +154,7 @@ export function EventTable({ events }: { events: Event[] }) {
                   return (
                     <td
                       key={cell.id}
-                      className={`px-3 py-2 text-sm text-[var(--sea-ink-soft)] sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''}`}
+                      className={`px-3 py-2 text-sm text-[var(--sea-ink-soft)] sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''} ${(cell.column.columnDef.meta as any)?.cellClassName ?? ''}`}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>

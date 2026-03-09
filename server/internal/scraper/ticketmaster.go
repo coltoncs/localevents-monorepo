@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -75,6 +76,9 @@ func (t *Ticketmaster) FetchEvents(ctx context.Context, loc Location) ([]RawEven
 		}
 
 		for _, ev := range tmResp.Embedded.Events {
+			if isPlaceholderEvent(ev) {
+				continue
+			}
 			raw, err := mapTMEvent(ev)
 			if err != nil {
 				continue
@@ -93,6 +97,51 @@ func (t *Ticketmaster) FetchEvents(ctx context.Context, loc Location) ([]RawEven
 	}
 
 	return allEvents, nil
+}
+
+// isPlaceholderEvent detects internal/administrative Ticketmaster events
+// like season ticket renewals, ticket bank holds, and accounting entries.
+func isPlaceholderEvent(ev tmEvent) bool {
+	name := strings.ToLower(ev.Name)
+
+	// Known administrative keywords
+	placeholderKeywords := []string{
+		"renew",
+		"retax",
+		"ticket bank",
+		"accounting charge",
+		"resell move",
+		"stm digital",
+		"holding event",
+		"parking pass",
+		"suite rental",
+		"deposit",
+		"executive vouchers",
+		"staff vouchers",
+		"stm skate",
+		"edunhock",
+		"canes cash",
+		"shell event",
+		"template",
+		"gift certificates",
+		"president's club guest passes",
+	}
+	for _, kw := range placeholderKeywords {
+		if strings.Contains(name, kw) {
+			return true
+		}
+	}
+
+	// Events with no description, no price, and a "Miscellaneous" or "Undefined"
+	// segment are almost always internal placeholder entries.
+	if ev.Info == "" && len(ev.PriceRanges) == 0 && len(ev.Classifications) > 0 {
+		seg := strings.ToLower(ev.Classifications[0].Segment.Name)
+		if seg == "miscellaneous" || seg == "undefined" || seg == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func mapTMEvent(ev tmEvent) (RawEvent, error) {
@@ -241,12 +290,12 @@ type tmEventEmbedded struct {
 }
 
 type tmVenue struct {
-	Name       string     `json:"name"`
-	PostalCode string     `json:"postalCode"`
-	Address    tmAddress  `json:"address"`
+	Name       string      `json:"name"`
+	PostalCode string      `json:"postalCode"`
+	Address    tmAddress   `json:"address"`
 	City       tmNamedItem `json:"city"`
-	State      tmState    `json:"state"`
-	Location   tmLocation `json:"location"`
+	State      tmState     `json:"state"`
+	Location   tmLocation  `json:"location"`
 }
 
 type tmAddress struct {
