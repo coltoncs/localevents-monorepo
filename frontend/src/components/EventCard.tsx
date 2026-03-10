@@ -32,6 +32,8 @@ export function EventCard({ event }: { event: Event }) {
         <img
           src={event.ImageUrl}
           alt={event.Title}
+          loading="lazy"
+          decoding="async"
           className="mb-3 h-40 w-full rounded-md object-cover"
         />
       )}

@@ -163,6 +163,8 @@ function EventDetailPage() {
             <img
               src={event.ImageUrl}
               alt={event.Title}
+              loading="lazy"
+              decoding="async"
               className="w-full rounded-lg object-cover"
             />
           )}

@@ -23,6 +23,8 @@ const columns = [
         <img
           src={url}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="h-10 w-14 rounded object-cover"
         />
       )
