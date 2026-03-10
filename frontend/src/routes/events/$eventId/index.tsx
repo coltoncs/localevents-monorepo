@@ -139,14 +139,14 @@ function EventDetailPage() {
                     type="button"
                     onClick={handleDelete}
                     disabled={deleteEvent.isPending}
-                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    className="rounded-md text-nowrap bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {deleteEvent.isPending ? 'Deleting...' : 'Confirm'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm font-medium text-[var(--sea-ink)] hover:bg-[var(--surface)]"
+                    className="rounded-md text-nowrap border border-[var(--line)] px-3 py-1.5 text-sm font-medium text-[var(--sea-ink)] hover:bg-[var(--surface)]"
                   >
                     Cancel
                   </button>
