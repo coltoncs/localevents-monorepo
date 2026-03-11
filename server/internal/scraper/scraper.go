@@ -196,7 +196,6 @@ func (r *Runner) Run(ctx context.Context) {
 func enrichPriorityEvent(pe, ae *RawEvent) {
 	// Take the aggregator's time if it has an actual time component
 	// (not midnight), since local sources often lack precise times.
-	log.Printf("tm hour/minute: %v / %v, vr datetime: %v / %v", ae.StartTime.Hour(), ae.StartTime.Minute(), pe.StartTime.Hour(), pe.StartTime.Minute())
 	if ae.StartTime.Hour() != 0 || ae.StartTime.Minute() != 0 {
 		pe.StartTime = ae.StartTime
 	}

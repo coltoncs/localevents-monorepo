@@ -23,28 +23,29 @@ type AuthorApplication struct {
 }
 
 type Event struct {
-	ID          pgtype.UUID
-	ExternalID  pgtype.Text
-	Source      string
-	Title       string
-	Description pgtype.Text
-	VenueName   pgtype.Text
-	Address     pgtype.Text
-	City        pgtype.Text
-	State       pgtype.Text
-	Zip         pgtype.Text
-	Latitude    float64
-	Longitude   float64
-	StartTime   pgtype.Timestamptz
-	EndTime     pgtype.Timestamptz
-	Category    pgtype.Text
-	ImageUrl    pgtype.Text
-	TicketUrl   pgtype.Text
-	PriceMin    pgtype.Numeric
-	PriceMax    pgtype.Numeric
-	SubmittedBy pgtype.UUID
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID             pgtype.UUID
+	ExternalID     pgtype.Text
+	Source         string
+	Title          string
+	Description    pgtype.Text
+	VenueName      pgtype.Text
+	Address        pgtype.Text
+	City           pgtype.Text
+	State          pgtype.Text
+	Zip            pgtype.Text
+	Latitude       float64
+	Longitude      float64
+	StartTime      pgtype.Timestamptz
+	EndTime        pgtype.Timestamptz
+	Category       pgtype.Text
+	ImageUrl       pgtype.Text
+	TicketUrl      pgtype.Text
+	PriceMin       pgtype.Numeric
+	PriceMax       pgtype.Numeric
+	SubmittedBy    pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	ManuallyEdited bool
 }
 
 type Image struct {

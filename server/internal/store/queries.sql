@@ -128,6 +128,7 @@ UPDATE events SET
     ticket_url = $15,
     price_min = $16,
     price_max = $17,
+    manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
@@ -216,4 +217,5 @@ DO UPDATE SET
     category=EXCLUDED.category, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
     price_max=EXCLUDED.price_max, updated_at=NOW()
+WHERE NOT events.manually_edited
 RETURNING *;
