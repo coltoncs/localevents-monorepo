@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useAuth } from '@clerk/clerk-react'
 import { useEvent, eventDetailOptions, useEvents, useDeleteEvent } from '#/lib/hooks/useEvents'
 import { useUserRole } from '#/lib/hooks/useUserRole'
@@ -68,7 +68,7 @@ function EventDetailPage() {
   const { data: event, isLoading } = useEvent(eventId)
   const { isSignedIn } = useAuth()
   const { isAdmin, isAuthor } = useUserRole()
-  const navigate = useNavigate()
+  const router = useRouter()
   const deleteEvent = useDeleteEvent()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const { data: backendUser } = useUser()
@@ -91,17 +91,18 @@ function EventDetailPage() {
 
   const handleDelete = async () => {
     await deleteEvent.mutateAsync(event.ID)
-    navigate({ to: '/events' })
+    router.history.back()
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        to="/events"
-        className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+      <button
+        type="button"
+        onClick={() => router.history.back()}
+        className="cursor-pointer text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
       >
-        &larr; Back to events
-      </Link>
+        &larr; Back
+      </button>
 
       <div className="flex items-start justify-between">
         <div>
