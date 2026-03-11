@@ -118,3 +118,20 @@ export interface SubmitApplicationInput {
   bio: string
   experience: string
 }
+
+export interface UserImage {
+  ID: string
+  UserID: string
+  R2Key: string
+  Url: string
+  Filename: string
+  ContentType: string
+  SizeBytes: number | null
+  CreatedAt: string
+}
+
+export interface PresignResponse {
+  upload_url: string
+  public_url: string
+  key: string
+}

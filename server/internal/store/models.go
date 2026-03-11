@@ -47,6 +47,17 @@ type Event struct {
 	UpdatedAt   pgtype.Timestamptz
 }
 
+type Image struct {
+	ID          pgtype.UUID
+	UserID      pgtype.UUID
+	R2Key       string
+	Url         string
+	Filename    string
+	ContentType string
+	SizeBytes   pgtype.Int8
+	CreatedAt   pgtype.Timestamptz
+}
+
 type SavedEvent struct {
 	ID        pgtype.UUID
 	UserID    pgtype.UUID

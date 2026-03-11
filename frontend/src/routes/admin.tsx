@@ -69,7 +69,7 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
             approve.mutate({ id: app.ID, review_notes: reviewNotes })
           }
           disabled={approve.isPending}
-          className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          className="cursor-pointer rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
         >
           {approve.isPending ? 'Approving...' : 'Approve'}
         </button>
@@ -77,7 +77,7 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
           <button
             type="button"
             onClick={() => setShowReject(true)}
-            className="rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+            className="cursor-pointer rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
           >
             Reject
           </button>
@@ -88,7 +88,7 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
               reject.mutate({ id: app.ID, review_notes: reviewNotes })
             }
             disabled={reject.isPending}
-            className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            className="cursor-pointer rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {reject.isPending ? 'Rejecting...' : 'Confirm Reject'}
           </button>

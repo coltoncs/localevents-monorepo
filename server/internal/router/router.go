@@ -4,23 +4,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/handler"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
-func New(queries *store.Queries, corsOrigins string) *chi.Mux {
+func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RealIP)
-	r.Use(middleware.CORS(corsOrigins))
+	r.Use(middleware.CORS(cfg.CORSOrigins))
 
 	eventHandler := handler.NewEventHandler(queries)
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries)
+	imageHandler := handler.NewImageHandler(queries, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
@@ -44,6 +46,10 @@ func New(queries *store.Queries, corsOrigins string) *chi.Mux {
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)
 			r.Get("/me/application", appHandler.GetMyApplication)
+			r.Post("/images/presign", imageHandler.Presign)
+			r.Post("/images/confirm", imageHandler.Confirm)
+			r.Get("/images", imageHandler.List)
+			r.Delete("/images/{id}", imageHandler.Delete)
 		})
 
 		// Author/Admin routes

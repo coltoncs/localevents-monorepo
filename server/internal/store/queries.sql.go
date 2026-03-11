@@ -209,12 +209,64 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 	return i, err
 }
 
+const createImage = `-- name: CreateImage :one
+INSERT INTO images (user_id, r2_key, url, filename, content_type, size_bytes)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, user_id, r2_key, url, filename, content_type, size_bytes, created_at
+`
+
+type CreateImageParams struct {
+	UserID      pgtype.UUID
+	R2Key       string
+	Url         string
+	Filename    string
+	ContentType string
+	SizeBytes   pgtype.Int8
+}
+
+func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (Image, error) {
+	row := q.db.QueryRow(ctx, createImage,
+		arg.UserID,
+		arg.R2Key,
+		arg.Url,
+		arg.Filename,
+		arg.ContentType,
+		arg.SizeBytes,
+	)
+	var i Image
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.R2Key,
+		&i.Url,
+		&i.Filename,
+		&i.ContentType,
+		&i.SizeBytes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteEvent = `-- name: DeleteEvent :exec
 DELETE FROM events WHERE id = $1
 `
 
 func (q *Queries) DeleteEvent(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteEvent, id)
+	return err
+}
+
+const deleteImage = `-- name: DeleteImage :exec
+DELETE FROM images WHERE id = $1 AND user_id = $2
+`
+
+type DeleteImageParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) DeleteImage(ctx context.Context, arg DeleteImageParams) error {
+	_, err := q.db.Exec(ctx, deleteImage, arg.ID, arg.UserID)
 	return err
 }
 
@@ -310,6 +362,26 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.SubmittedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getImage = `-- name: GetImage :one
+SELECT id, user_id, r2_key, url, filename, content_type, size_bytes, created_at FROM images WHERE id = $1
+`
+
+func (q *Queries) GetImage(ctx context.Context, id pgtype.UUID) (Image, error) {
+	row := q.db.QueryRow(ctx, getImage, id)
+	var i Image
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.R2Key,
+		&i.Url,
+		&i.Filename,
+		&i.ContentType,
+		&i.SizeBytes,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -622,6 +694,41 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.SubmittedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImagesByUser = `-- name: ListImagesByUser :many
+SELECT id, user_id, r2_key, url, filename, content_type, size_bytes, created_at FROM images
+WHERE user_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListImagesByUser(ctx context.Context, userID pgtype.UUID) ([]Image, error) {
+	rows, err := q.db.Query(ctx, listImagesByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Image
+	for rows.Next() {
+		var i Image
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.R2Key,
+			&i.Url,
+			&i.Filename,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

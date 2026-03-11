@@ -51,13 +51,14 @@ func main() {
 	// Set up event scraper cron job
 	if cfg.ScraperEnabled {
 		var sources []scraper.EventSource
+		// Local sources run first so their events take priority during dedup
+		sources = append(sources, scraper.NewCityOfRaleigh())
+		sources = append(sources, scraper.NewDiscoverDurham())
 		if cfg.TicketmasterAPIKey != "" {
 			sources = append(sources, scraper.NewTicketmaster(cfg.TicketmasterAPIKey))
 		} else {
 			log.Println("TICKETMASTER_API_KEY not set, Ticketmaster scraper disabled")
 		}
-		sources = append(sources, scraper.NewCityOfRaleigh())
-		sources = append(sources, scraper.NewDiscoverDurham())
 		if cfg.SeatGeekClientID != "" {
 			sources = append(sources, scraper.NewSeatGeek(cfg.SeatGeekClientID))
 		} else {
@@ -96,7 +97,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, cfg.CORSOrigins)
+	r := router.New(queries, cfg)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

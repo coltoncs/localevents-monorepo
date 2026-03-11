@@ -12,13 +12,15 @@ function formatDate(iso: string) {
   });
 }
 
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
 function formatPrice(event: Event) {
   if (event.PriceMin == null && event.PriceMax == null) return "Free";
   if (event.PriceMin != null && event.PriceMax != null) {
-    if (event.PriceMin === event.PriceMax) return `$${event.PriceMin}`;
-    return `$${event.PriceMin} - $${event.PriceMax}`;
+    if (event.PriceMin === event.PriceMax) return usd.format(event.PriceMin);
+    return `${usd.format(event.PriceMin)} - ${usd.format(event.PriceMax)}`;
   }
-  return `$${event.PriceMin ?? event.PriceMax}`;
+  return usd.format((event.PriceMin ?? event.PriceMax)!);
 }
 
 export function EventCard({ event }: { event: Event }) {

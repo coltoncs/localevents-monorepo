@@ -99,9 +99,19 @@ func (t *Ticketmaster) FetchEvents(ctx context.Context, loc Location) ([]RawEven
 	return allEvents, nil
 }
 
+// Ticketmaster placeholder image that appears on internal/non-public events.
+const tmPlaceholderImage = "https://s1.ticketm.net/dam/c/8cf/a6653880-7899-4f67-8067-1f95f4d158cf_124761_TABLET_LANDSCAPE_16_9.jpg"
+
 // isPlaceholderEvent detects internal/administrative Ticketmaster events
 // like season ticket renewals, ticket bank holds, and accounting entries.
 func isPlaceholderEvent(ev tmEvent) bool {
+	// Check for the known placeholder image
+	for _, img := range ev.Images {
+		if img.URL == tmPlaceholderImage {
+			return true
+		}
+	}
+
 	name := strings.ToLower(ev.Name)
 
 	// Known administrative keywords

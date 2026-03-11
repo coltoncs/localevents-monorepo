@@ -17,6 +17,11 @@ type Config struct {
 	BandsintownAppID    string
 	ScraperCronSchedule string
 	ScraperEnabled      bool
+	R2AccountID         string
+	R2AccessKeyID       string
+	R2SecretAccessKey   string
+	R2PublicURL         string
+	R2Bucket            string
 }
 
 func Load() *Config {
@@ -34,6 +39,11 @@ func Load() *Config {
 		BandsintownAppID:    getEnv("BANDSINTOWN_APP_ID", ""),
 		ScraperCronSchedule: getEnv("SCRAPER_CRON_SCHEDULE", "0 */6 * * *"),
 		ScraperEnabled:      getEnv("SCRAPER_ENABLED", "true") == "true",
+		R2AccountID:         getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKeyID:       getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretAccessKey:   getEnv("R2_SECRET_ACCESS_KEY", ""),
+		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
+		R2Bucket:            getEnv("R2_BUCKET", "localevents-images"),
 	}
 }
 

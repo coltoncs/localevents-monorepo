@@ -30,4 +30,8 @@ export const queryKeys = {
     pending: ['applications', 'pending'] as const,
     mine: ['applications', 'mine'] as const,
   },
+  images: {
+    all: ['images'] as const,
+    list: ['images', 'list'] as const,
+  },
 }

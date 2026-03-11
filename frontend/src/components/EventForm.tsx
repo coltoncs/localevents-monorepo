@@ -4,6 +4,7 @@ import { useCreateEvent } from '#/lib/hooks/useEvents'
 import type { CreateEventInput, Venue } from '#/lib/types'
 import { LocationPickerMap } from '#/components/LocationPickerMap'
 import { VenueCombobox } from '#/components/VenueCombobox'
+import { ImageUpload } from '#/components/ImageUpload'
 import { getSavedLocation } from '#/components/LocationSearch'
 
 const CATEGORIES = [
@@ -365,21 +366,16 @@ export function EventForm() {
           )}
         </form.Field>
 
-        <form.Field name="image_url">
-          {(field) => (
-            <div>
-              <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
-                Image URL
-              </label>
-              <input
-                type="url"
+        <div className="sm:col-span-2">
+          <form.Field name="image_url">
+            {(field) => (
+              <ImageUpload
                 value={field.state.value as string}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                onChange={(url) => field.handleChange(url)}
               />
-            </div>
-          )}
-        </form.Field>
+            )}
+          </form.Field>
+        </div>
 
         <form.Field name="ticket_url">
           {(field) => (

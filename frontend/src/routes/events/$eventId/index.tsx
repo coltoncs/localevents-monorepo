@@ -202,11 +202,14 @@ function EventDetailPage() {
               <div>
                 <h3 className="text-sm font-medium text-[var(--sea-ink-soft)]">Price</h3>
                 <p className="text-[var(--sea-ink)]">
-                  {event.PriceMin != null && event.PriceMax != null
-                    ? event.PriceMin === event.PriceMax
-                      ? `$${event.PriceMin}`
-                      : `$${event.PriceMin} - $${event.PriceMax}`
-                    : `$${event.PriceMin ?? event.PriceMax}`}
+                  {(() => {
+                    const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+                    if (event.PriceMin != null && event.PriceMax != null)
+                      return event.PriceMin === event.PriceMax
+                        ? fmt.format(event.PriceMin)
+                        : `${fmt.format(event.PriceMin)} - ${fmt.format(event.PriceMax)}`;
+                    return fmt.format((event.PriceMin ?? event.PriceMax)!);
+                  })()}
                 </p>
               </div>
             )}
