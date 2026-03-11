@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useForm } from '@tanstack/react-form'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import { useEvent, eventDetailOptions, useUpdateEvent } from '#/lib/hooks/useEvents'
@@ -46,7 +46,7 @@ function EditEventContent() {
   const { eventId } = Route.useParams()
   const { data: event, isLoading } = useEvent(eventId)
   const updateEvent = useUpdateEvent()
-  const navigate = useNavigate()
+  const router = useRouter()
 
   const form = useForm({
     defaultValues: {
@@ -90,7 +90,7 @@ function EditEventContent() {
       if (value.price_max) data.price_max = Number(value.price_max)
 
       await updateEvent.mutateAsync({ id: eventId, data })
-      navigate({ to: '/events/$eventId', params: { eventId } })
+      router.history.back()
     },
   })
 
@@ -485,11 +485,7 @@ function EditEventContent() {
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() =>
-                navigate({
-                  to: '/events/$eventId',
-                  params: { eventId },
-                })
+              onClick={() => router.history.back()
               }
               className="rounded-md border border-[var(--line)] px-6 py-2 text-sm font-semibold text-[var(--sea-ink)] hover:bg-[var(--surface)]"
             >
