@@ -1,0 +1,31 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+
+.tiptap.ProseMirror {
+  font-family: "DM Sans", sans-serif;
+}
+
+.simple-editor-wrapper {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--surface-strong);
+
+  .tiptap-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+}
+
+.simple-editor-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  padding: 0.75rem 1rem;
+  min-height: 150px;
+  outline: none;
+}

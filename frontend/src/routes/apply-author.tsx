@@ -47,7 +47,7 @@ function ApplyAuthorContent() {
 
   if (!isLoaded || appLoading) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+      <div className="py-12 text-center text-(--sea-ink-soft)">
         Loading...
       </div>
     )
@@ -58,13 +58,13 @@ function ApplyAuthorContent() {
   if (application) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">
+        <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
           Author Application
         </h1>
-        <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
+        <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
           <div className="space-y-3">
             <div>
-              <span className="text-sm font-medium text-[var(--sea-ink-soft)]">
+              <span className="text-sm font-medium text-(--sea-ink-soft)">
                 Status:{' '}
               </span>
               <span
@@ -79,16 +79,16 @@ function ApplyAuthorContent() {
                 {application.Status}
               </span>
             </div>
-            <p className="text-sm text-[var(--sea-ink-soft)]">
+            <p className="text-sm text-(--sea-ink-soft)">
               Submitted on{' '}
               {new Date(application.SubmittedAt).toLocaleDateString()}
             </p>
             {application.ReviewNotes && (
               <div>
-                <span className="text-sm font-medium text-[var(--sea-ink-soft)]">
+                <span className="text-sm font-medium text-(--sea-ink-soft)">
                   Review notes:{' '}
                 </span>
-                <p className="text-sm text-[var(--sea-ink)]">
+                <p className="text-sm text-(--sea-ink)">
                   {application.ReviewNotes}
                 </p>
               </div>
@@ -101,14 +101,14 @@ function ApplyAuthorContent() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">
+      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
         Apply to be an Author
       </h1>
-      <p className="mb-6 text-[var(--sea-ink-soft)]">
+      <p className="mb-6 text-(--sea-ink-soft)">
         Authors can create, edit, and delete their own events. Fill out the form
         below and an admin will review your application.
       </p>
-      <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
+      <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -125,7 +125,7 @@ function ApplyAuthorContent() {
           >
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                <label className="block text-sm font-medium text-(--sea-ink-soft)">
                   Full Name *
                 </label>
                 <input
@@ -133,7 +133,7 @@ function ApplyAuthorContent() {
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
-                  className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                 />
                 {field.state.meta.errors?.length > 0 && (
                   <p className="mt-1 text-sm text-red-600">
@@ -153,7 +153,7 @@ function ApplyAuthorContent() {
           >
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                <label className="block text-sm font-medium text-(--sea-ink-soft)">
                   Email *
                 </label>
                 <input
@@ -161,7 +161,7 @@ function ApplyAuthorContent() {
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
-                  className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                 />
                 {field.state.meta.errors?.length > 0 && (
                   <p className="mt-1 text-sm text-red-600">
@@ -172,30 +172,18 @@ function ApplyAuthorContent() {
             )}
           </form.Field>
 
-          <form.Field
-            name="bio"
-            validators={{
-              onChange: ({ value }) =>
-                !value ? 'Bio is required' : undefined,
-            }}
-          >
+          <form.Field name="bio">
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
-                  Bio *
+                <label className="block text-sm font-medium text-(--sea-ink-soft)">
+                  Bio (optional)
                 </label>
                 <textarea
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
                   rows={3}
-                  className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                 />
-                {field.state.meta.errors?.length > 0 && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {field.state.meta.errors[0]}
-                  </p>
-                )}
               </div>
             )}
           </form.Field>
@@ -209,16 +197,17 @@ function ApplyAuthorContent() {
           >
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                <label className="block text-sm font-medium text-(--sea-ink-soft)">
                   Relevant Experience *
                 </label>
+                <p className='text-xs text-(--sea-ink-soft)'>(Venue/work/event affiliation will suffice)</p>
                 <textarea
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
                   rows={3}
                   placeholder="Tell us about your experience with local events..."
-                  className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                 />
                 {field.state.meta.errors?.length > 0 && (
                   <p className="mt-1 text-sm text-red-600">
@@ -239,7 +228,7 @@ function ApplyAuthorContent() {
             <button
               type="submit"
               disabled={submitApplication.isPending}
-              className="rounded-md bg-[var(--lagoon-deep)] px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--lagoon)] disabled:opacity-50"
+              className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
             >
               {submitApplication.isPending
                 ? 'Submitting...'

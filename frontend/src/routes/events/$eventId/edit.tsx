@@ -6,6 +6,7 @@ import type { CreateEventInput, Venue } from '#/lib/types'
 import { LocationPickerMap } from '#/components/LocationPickerMap'
 import { VenueCombobox } from '#/components/VenueCombobox'
 import { ImageUpload } from '#/components/ImageUpload'
+import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
 
 const CATEGORIES = [
   'Music',
@@ -106,7 +107,7 @@ function EditEventContent() {
 
   if (isLoading) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+      <div className="py-12 text-center text-(--sea-ink-soft)">
         Loading event...
       </div>
     )
@@ -114,7 +115,7 @@ function EditEventContent() {
 
   if (!event) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+      <div className="py-12 text-center text-(--sea-ink-soft)">
         Event not found.
       </div>
     )
@@ -122,10 +123,10 @@ function EditEventContent() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">
+      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
         Edit Event
       </h1>
-      <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
+      <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -144,7 +145,7 @@ function EditEventContent() {
               >
                 {(field) => (
                   <div>
-                    <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
                       Title *
                     </label>
                     <input
@@ -152,7 +153,7 @@ function EditEventContent() {
                       value={field.state.value as string}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
-                      className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                     />
                     {field.state.meta.errors?.length > 0 && (
                       <p className="mt-1 text-sm text-red-600">
@@ -171,12 +172,12 @@ function EditEventContent() {
                     <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
                       Description
                     </label>
-                    <textarea
-                      value={field.state.value as string}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      rows={4}
-                      className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
-                    />
+                    <div className="mt-1">
+                      <SimpleEditor
+                        content={field.state.value as string}
+                        onChange={(html) => field.handleChange(html)}
+                      />
+                    </div>
                   </div>
                 )}
               </form.Field>
@@ -247,12 +248,15 @@ function EditEventContent() {
                     <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
                       State
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={field.state.value as string}
                       onChange={(e) => field.handleChange(e.target.value)}
                       className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
-                    />
+                    >
+                      <option value="NC">NC</option>
+                      <option value="SC">SC</option>
+                      <option value="VA">VA</option>
+                    </select>
                   </div>
                 )}
               </form.Field>

@@ -38,12 +38,12 @@ function VenueName({ event }: { event: Event }) {
 
   return (
     <div>
-      <p className="text-[var(--sea-ink)]">
+      <p className="text-(--sea-ink)">
         {hasVenuePage ? (
           <Link
             to="/venues/$venueName"
             params={{ venueName: event.VenueName! }}
-            className="hover:text-[var(--lagoon-deep)] hover:underline"
+            className="hover:text-(--lagoon-deep) hover:underline"
           >
             {event.VenueName}
           </Link>
@@ -52,7 +52,7 @@ function VenueName({ event }: { event: Event }) {
         )}
       </p>
       {event.Address && (
-        <p className="text-sm text-[var(--sea-ink-soft)]">
+        <p className="text-sm text-(--sea-ink-soft)">
           {event.Address}
           {event.City && `, ${event.City}`}
           {event.State && ` ${event.State}`}
@@ -75,13 +75,13 @@ function EventDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">Loading event...</div>
+      <div className="py-12 text-center text-(--sea-ink-soft)">Loading event...</div>
     )
   }
 
   if (!event) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">Event not found.</div>
+      <div className="py-12 text-center text-(--sea-ink-soft)">Event not found.</div>
     )
   }
 
@@ -99,7 +99,7 @@ function EventDetailPage() {
       <button
         type="button"
         onClick={() => router.history.back()}
-        className="cursor-pointer text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+        className="cursor-pointer text-sm text-(--lagoon-deep) hover:text-(--lagoon)"
       >
         &larr; Back
       </button>
@@ -107,11 +107,11 @@ function EventDetailPage() {
       <div className="flex items-start justify-between">
         <div>
           {event.Category && (
-            <span className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-3 py-1 text-sm font-medium text-[var(--lagoon-deep)]">
+            <span className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-3 py-1 text-sm font-medium text-(--lagoon-deep)">
               {event.Category}
             </span>
           )}
-          <h1 className="mt-2 text-3xl font-bold text-[var(--sea-ink)]">
+          <h1 className="mt-2 text-3xl font-bold text-(--sea-ink)">
             {event.Title}
           </h1>
         </div>
@@ -147,7 +147,7 @@ function EventDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="rounded-md text-nowrap border border-[var(--line)] px-3 py-1.5 text-sm font-medium text-[var(--sea-ink)] hover:bg-[var(--surface)]"
+                    className="rounded-md text-nowrap border border-(--line) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
                   >
                     Cancel
                   </button>
@@ -171,22 +171,22 @@ function EventDetailPage() {
           )}
 
           <div>
-            <h2 className="text-lg font-semibold text-[var(--sea-ink)]">About</h2>
+            <h2 className="text-lg font-semibold text-(--sea-ink)">About</h2>
             {event.Description ? (
-              <p className="mt-1 text-[var(--sea-ink-soft)]">{event.Description}</p>
+              <div className="prose mt-1 max-w-none text-(--sea-ink-soft)" dangerouslySetInnerHTML={{ __html: event.Description }} />
             ) : (
-              <p className="mt-1 text-[var(--sea-ink-soft)]">No description found for this event :(</p>
+              <p className="mt-1 text-(--sea-ink-soft)">No description found for this event :(</p>
             )}
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4">
+          <div className="space-y-3 rounded-lg border border-(--line) bg-(--surface-strong) p-4">
             <div>
-              <h3 className="text-sm font-medium text-[var(--sea-ink-soft)]">When</h3>
-              <p className="text-[var(--sea-ink)]">{formatDate(event.StartTime)}</p>
+              <h3 className="text-sm font-medium text-(--sea-ink-soft)">When</h3>
+              <p className="text-(--sea-ink)">{formatDate(event.StartTime)}</p>
               {event.EndTime && (
-                <p className="text-sm text-[var(--sea-ink-soft)]">
+                <p className="text-sm text-(--sea-ink-soft)">
                   Until {formatDate(event.EndTime)}
                 </p>
               )}
@@ -194,15 +194,15 @@ function EventDetailPage() {
 
             {event.VenueName && (
               <div>
-                <h3 className="text-sm font-medium text-[var(--sea-ink-soft)]">Where</h3>
+                <h3 className="text-sm font-medium text-(--sea-ink-soft)">Where</h3>
                 <VenueName event={event} />
               </div>
             )}
 
             {(event.PriceMin != null || event.PriceMax != null) && (
               <div>
-                <h3 className="text-sm font-medium text-[var(--sea-ink-soft)]">Price</h3>
-                <p className="text-[var(--sea-ink)]">
+                <h3 className="text-sm font-medium text-(--sea-ink-soft)">Price</h3>
+                <p className="text-(--sea-ink)">
                   {(() => {
                     const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
                     if (event.PriceMin != null && event.PriceMax != null)
