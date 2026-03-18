@@ -313,6 +313,26 @@ a {
   font-size: 13px;
 }
 
+/* Override Tailwind Typography prose colors to respect theme variables */
+.prose {
+  --tw-prose-body: var(--sea-ink-soft);
+  --tw-prose-headings: var(--sea-ink);
+  --tw-prose-lead: var(--sea-ink-soft);
+  --tw-prose-links: var(--lagoon-deep);
+  --tw-prose-bold: var(--sea-ink);
+  --tw-prose-counters: var(--sea-ink-soft);
+  --tw-prose-bullets: var(--sea-ink-soft);
+  --tw-prose-hr: var(--line);
+  --tw-prose-quotes: var(--sea-ink);
+  --tw-prose-quote-borders: var(--line);
+  --tw-prose-captions: var(--sea-ink-soft);
+  --tw-prose-code: var(--sea-ink);
+  --tw-prose-pre-code: var(--sea-ink-soft);
+  --tw-prose-pre-bg: var(--surface-strong);
+  --tw-prose-th-borders: var(--line);
+  --tw-prose-td-borders: var(--line);
+}
+
 .rise-in {
   animation: rise-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
