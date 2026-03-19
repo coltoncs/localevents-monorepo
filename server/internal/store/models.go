@@ -22,6 +22,12 @@ type AuthorApplication struct {
 	ReviewNotes pgtype.Text
 }
 
+type DeletedExternalEvent struct {
+	Source     string
+	ExternalID string
+	DeletedAt  pgtype.Timestamptz
+}
+
 type Event struct {
 	ID             pgtype.UUID
 	ExternalID     pgtype.Text

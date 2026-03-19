@@ -46,6 +46,19 @@ func (q *Queries) ApproveApplication(ctx context.Context, arg ApproveApplication
 	return i, err
 }
 
+const cleanOldDeletedExternalEvents = `-- name: CleanOldDeletedExternalEvents :execrows
+DELETE FROM deleted_external_events
+WHERE deleted_at < NOW() - INTERVAL '90 days'
+`
+
+func (q *Queries) CleanOldDeletedExternalEvents(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, cleanOldDeletedExternalEvents)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countEventsByLocation = `-- name: CountEventsByLocation :one
 SELECT COUNT(*)
 FROM events
@@ -500,10 +513,10 @@ AND start_time < $5::timestamptz
 AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::text IS NULL OR title ILIKE '%' || $8::text || '%' OR venue_name ILIKE '%' || $8::text || '%')
-ORDER BY ST_Distance(
+ORDER BY start_time ASC, ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
-) ASC, start_time ASC
+) ASC
 LIMIT $10 OFFSET $9
 `
 
@@ -894,6 +907,22 @@ func (q *Queries) SaveEvent(ctx context.Context, arg SaveEventParams) (SavedEven
 	return i, err
 }
 
+const trackDeletedExternalEvent = `-- name: TrackDeletedExternalEvent :exec
+INSERT INTO deleted_external_events (source, external_id)
+VALUES ($1, $2)
+ON CONFLICT (source, external_id) DO NOTHING
+`
+
+type TrackDeletedExternalEventParams struct {
+	Source     string
+	ExternalID string
+}
+
+func (q *Queries) TrackDeletedExternalEvent(ctx context.Context, arg TrackDeletedExternalEventParams) error {
+	_, err := q.db.Exec(ctx, trackDeletedExternalEvent, arg.Source, arg.ExternalID)
+	return err
+}
+
 const unsaveEvent = `-- name: UnsaveEvent :exec
 DELETE FROM saved_events WHERE user_id = $1 AND event_id = $2
 `
@@ -1045,7 +1074,11 @@ INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
     ticket_url, price_min, price_max
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+WHERE NOT EXISTS (
+    SELECT 1 FROM deleted_external_events d
+    WHERE d.source = $2 AND d.external_id = $1
+)
 ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL
 DO UPDATE SET
     title=EXCLUDED.title, description=EXCLUDED.description,

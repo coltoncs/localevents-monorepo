@@ -150,7 +150,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			EventOffset:  listParams.EventOffset,
 		})
 	} else {
-		// Date filter: sort by proximity since all events are on the same day
+		// Date filter: sort by time, then proximity as tiebreaker
 		events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
 	}
 	if err != nil {
@@ -439,6 +439,14 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if !middleware.CanModifyEvent(role, ownerClerkID, clerkID) {
 		http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 		return
+	}
+
+	// Track the deletion so scraped events don't get re-inserted
+	if event.ExternalID.Valid && event.ExternalID.String != "" {
+		_ = h.queries.TrackDeletedExternalEvent(r.Context(), store.TrackDeletedExternalEventParams{
+			Source:     event.Source,
+			ExternalID: event.ExternalID.String,
+		})
 	}
 
 	if err := h.queries.DeleteEvent(r.Context(), pgID); err != nil {

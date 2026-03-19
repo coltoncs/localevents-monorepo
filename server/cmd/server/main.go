@@ -38,14 +38,20 @@ func main() {
 
 	c := cron.New()
 
-	// Cleanup: delete past events daily at 3 AM
+	// Cleanup: delete past events and stale deletion records daily at 3 AM
 	c.AddFunc("0 3 * * *", func() {
 		deleted, err := queries.DeletePastEvents(context.Background())
 		if err != nil {
 			log.Printf("Event cleanup failed: %v", err)
-			return
+		} else {
+			log.Printf("Event cleanup: deleted %d past events", deleted)
 		}
-		log.Printf("Event cleanup: deleted %d past events", deleted)
+		cleaned, err := queries.CleanOldDeletedExternalEvents(context.Background())
+		if err != nil {
+			log.Printf("Deletion records cleanup failed: %v", err)
+		} else if cleaned > 0 {
+			log.Printf("Deletion records cleanup: removed %d stale records", cleaned)
+		}
 	})
 
 	// Set up event scraper cron job

@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math/big"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coltonsweeney/localevents/server/internal/store"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -180,6 +182,10 @@ func (r *Runner) Run(ctx context.Context) {
 			PriceMin:    numericFromFloat(e.PriceMin),
 			PriceMax:    numericFromFloat(e.PriceMax),
 		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Event was previously deleted by an admin; skip silently
+			continue
+		}
 		if err != nil {
 			log.Printf("[%s] error upserting event %s: %v", e.Source, e.ExternalID, err)
 			continue

@@ -92,9 +92,9 @@ function EventsPage() {
   if (!search.lat || !search.lng) {
     return (
       <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">Explore Events</h1>
+        <h1 className="text-2xl font-bold text-(--sea-ink)">Explore Events</h1>
         <div className="flex flex-col items-center gap-4 py-16">
-          <p className="text-[var(--sea-ink-soft)]">
+          <p className="text-(--sea-ink-soft)">
             Search for a city to find events near you.
           </p>
           <LocationSearch />
@@ -171,7 +171,7 @@ function EventsList({
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">Explore Events</h1>
+        <h1 className="text-2xl font-bold text-(--sea-ink)">Explore Events</h1>
         <LocationSearch compact />
       </div>
 
@@ -186,25 +186,25 @@ function EventsList({
       />
 
       {(locationName || search.date || search.category || search.search) && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--sea-ink-soft)]">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-(--sea-ink-soft)">
           <span>Showing events</span>
           {search.search && (
-            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-[var(--lagoon-deep)]">
+            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               "{search.search}"
             </span>
           )}
           {locationName && (
-            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-[var(--lagoon-deep)]">
+            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               {locationName}
             </span>
           )}
           {search.date && (
-            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-[var(--lagoon-deep)]">
+            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               {new Date(search.date + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
           {search.category && (
-            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-[var(--lagoon-deep)]">
+            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               {search.category}
             </span>
           )}
@@ -218,7 +218,7 @@ function EventsList({
                   replace: true,
                 })
               }
-              className="ml-1 cursor-pointer rounded-full border border-[var(--line)] px-2.5 py-0.5 font-medium text-[var(--sea-ink-soft)] hover:border-[var(--lagoon-deep)] hover:text-[var(--lagoon-deep)]"
+              className="ml-1 cursor-pointer rounded-full border border-(--line) px-2.5 py-0.5 font-medium text-(--sea-ink-soft) hover:border-(--lagoon-deep) hover:text-(--lagoon-deep)"
             >
               Clear filters ×
             </button>
@@ -240,19 +240,19 @@ function EventsList({
       {view === 'map' && !hasDate ? (
         <div className="relative">
           <EventMap events={[]} center={center} radiusMiles={search.radius ?? 25} />
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--bg-base)]/60 backdrop-blur-sm">
-            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-strong)] px-8 py-6 text-center shadow-lg">
-              <p className="text-lg font-semibold text-[var(--sea-ink)]">
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-(--bg-base)/60 backdrop-blur-sm">
+            <div className="rounded-xl border border-(--line) bg-(--surface-strong) px-8 py-6 text-center shadow-lg">
+              <p className="text-lg font-semibold text-(--sea-ink)">
                 Select a date to view events on the map
               </p>
-              <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
+              <p className="mt-1 text-sm text-(--sea-ink-soft)">
                 Or view the list to see all events
               </p>
             </div>
           </div>
           <button
             onClick={() => setFullscreen(true)}
-            className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] backdrop-blur-lg text-[var(--sea-ink)] shadow-lg hover:bg-[var(--surface)] cursor-pointer"
+            className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) backdrop-blur-lg text-(--sea-ink) shadow-lg hover:bg-(--surface) cursor-pointer"
             aria-label="Fullscreen map"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -261,7 +261,7 @@ function EventsList({
           </button>
         </div>
       ) : isLoading ? (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+        <div className="py-12 text-center text-(--sea-ink-soft)">
           Loading events...
         </div>
       ) : view === 'map' ? (
@@ -270,7 +270,7 @@ function EventsList({
             <EventMap events={mapEvents} center={center} radiusMiles={search.radius ?? 25} />
             <button
               onClick={() => setFullscreen(true)}
-              className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] backdrop-blur-lg text-[var(--sea-ink)] shadow-lg hover:bg-[var(--surface)] cursor-pointer"
+              className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) backdrop-blur-lg text-(--sea-ink) shadow-lg hover:bg-(--surface) cursor-pointer"
               aria-label="Fullscreen map"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

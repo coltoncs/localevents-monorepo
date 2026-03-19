@@ -49,10 +49,10 @@ AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
-ORDER BY ST_Distance(
+ORDER BY start_time ASC, ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography
-) ASC, start_time ASC
+) ASC
 LIMIT @event_limit OFFSET @event_offset;
 
 -- name: ListEventsByLocationDateSorted :many
@@ -201,12 +201,25 @@ SELECT * FROM images WHERE id = $1;
 -- name: DeleteImage :exec
 DELETE FROM images WHERE id = $1 AND user_id = $2;
 
+-- name: TrackDeletedExternalEvent :exec
+INSERT INTO deleted_external_events (source, external_id)
+VALUES ($1, $2)
+ON CONFLICT (source, external_id) DO NOTHING;
+
+-- name: CleanOldDeletedExternalEvents :execrows
+DELETE FROM deleted_external_events
+WHERE deleted_at < NOW() - INTERVAL '90 days';
+
 -- name: UpsertExternalEvent :one
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
     ticket_url, price_min, price_max
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+WHERE NOT EXISTS (
+    SELECT 1 FROM deleted_external_events d
+    WHERE d.source = $2 AND d.external_id = $1
+)
 ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL
 DO UPDATE SET
     title=EXCLUDED.title, description=EXCLUDED.description,
