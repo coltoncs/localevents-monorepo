@@ -8,13 +8,14 @@ import {
   type SortingState,
   type FilterFn,
 } from '@tanstack/react-table'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Event } from '#/lib/types'
 import { isAllDay } from '#/lib/date-utils'
 
 const col = createColumnHelper<Event>()
 
-const columns = [
+function buildColumns(venueNameToId: Map<string, string>) {
+  return [
   col.accessor('ImageUrl', {
     header: '',
     cell: (info) => {
@@ -71,7 +72,7 @@ const columns = [
     header: 'Venue',
     cell: (info) => {
       const venue = info.getValue()
-      const venueId = info.row.original.VenueID
+      const venueId = info.row.original.VenueID ?? (venue ? venueNameToId.get(venue.toLowerCase()) : undefined)
       if (!venue) return '\u2014'
       if (venueId) {
         return (
@@ -102,10 +103,23 @@ const columns = [
     },
     meta: { hideOnMobile: true },
   }),
-]
+  ]
+}
 
 export function EventTable({ events }: { events: Event[] }) {
   const [sorting, setSorting] = useState<SortingState>([])
+
+  const venueNameToId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const event of events) {
+      if (event.VenueID && event.VenueName) {
+        map.set(event.VenueName.toLowerCase(), event.VenueID)
+      }
+    }
+    return map
+  }, [events])
+
+  const columns = useMemo(() => buildColumns(venueNameToId), [venueNameToId])
 
   const table = useReactTable({
     data: events,
