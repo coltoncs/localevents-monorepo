@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import type { Event } from "#/lib/types";
-import { SaveButton } from "./SaveButton";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -51,14 +50,18 @@ export function EventCard({ event }: { event: Event }) {
         </p>
         {event.VenueName && (
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            <Link
-              to="/venues/$venueName"
-              params={{ venueName: event.VenueName }}
-              className="hover:text-[var(--lagoon-deep)] hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {event.VenueName}
-            </Link>
+            {event.VenueID ? (
+              <Link
+                to="/venues/$venueId"
+                params={{ venueId: event.VenueID }}
+                className="hover:text-[var(--lagoon-deep)] hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {event.VenueName}
+              </Link>
+            ) : (
+              event.VenueName
+            )}
           </p>
         )}
         <p className="text-sm font-medium text-[var(--sea-ink)]">

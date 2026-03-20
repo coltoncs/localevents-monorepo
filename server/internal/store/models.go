@@ -52,6 +52,7 @@ type Event struct {
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 	ManuallyEdited bool
+	VenueID        pgtype.UUID
 }
 
 type Image struct {
@@ -82,4 +83,19 @@ type User struct {
 	DefaultRadiusMiles pgtype.Int4
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+}
+
+type Venue struct {
+	ID          pgtype.UUID
+	Name        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Hours       pgtype.Text
+	Description pgtype.Text
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }

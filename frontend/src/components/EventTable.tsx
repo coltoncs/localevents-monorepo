@@ -66,16 +66,20 @@ const columns = [
     header: 'Venue',
     cell: (info) => {
       const venue = info.getValue()
+      const venueId = info.row.original.VenueID
       if (!venue) return '\u2014'
-      return (
-        <Link
-          to="/venues/$venueName"
-          params={{ venueName: venue }}
-          className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)] hover:underline"
-        >
-          {venue}
-        </Link>
-      )
+      if (venueId) {
+        return (
+          <Link
+            to="/venues/$venueId"
+            params={{ venueId }}
+            className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)] hover:underline"
+          >
+            {venue}
+          </Link>
+        )
+      }
+      return venue
     },
     meta: { cellClassName: 'min-w-[8rem]' },
   }),

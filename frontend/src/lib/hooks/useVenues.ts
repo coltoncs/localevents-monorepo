@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { apiClient } from '#/lib/api'
 import { queryKeys } from '#/lib/query-keys'
-import type { VenueListResponse } from '#/lib/types'
+import type { Venue, VenueListResponse } from '#/lib/types'
 
 interface VenueFilters {
   lat: number
@@ -23,6 +23,18 @@ export function venueListOptions(filters: VenueFilters) {
   })
 }
 
+export function venueDetailOptions(id: string) {
+  return queryOptions({
+    queryKey: queryKeys.venues.detail(id),
+    queryFn: () => apiClient<Venue>(`/api/venues/${id}`),
+    enabled: !!id,
+  })
+}
+
 export function useVenues(filters: VenueFilters, enabled = true) {
   return useQuery({ ...venueListOptions(filters), enabled })
+}
+
+export function useVenue(id: string) {
+  return useQuery(venueDetailOptions(id))
 }

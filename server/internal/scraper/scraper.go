@@ -162,6 +162,25 @@ func (r *Runner) Run(ctx context.Context) {
 	// Phase 4: upsert all events.
 	total := 0
 	for _, e := range append(priorityEvents, survivingAggregator...) {
+		// Upsert venue if event has a venue name, then link it
+		var venueID pgtype.UUID
+		if e.VenueName != "" {
+			venue, err := r.Queries.UpsertVenue(ctx, store.UpsertVenueParams{
+				Name:      e.VenueName,
+				Address:   textFromStr(e.Address),
+				City:      textFromStr(e.City),
+				State:     textFromStr(e.State),
+				Zip:       textFromStr(e.Zip),
+				Latitude:  e.Latitude,
+				Longitude: e.Longitude,
+			})
+			if err != nil {
+				log.Printf("[%s] error upserting venue %s: %v", e.Source, e.VenueName, err)
+			} else {
+				venueID = venue.ID
+			}
+		}
+
 		_, err := r.Queries.UpsertExternalEvent(ctx, store.UpsertExternalEventParams{
 			ExternalID:  textFromStr(e.ExternalID),
 			Source:      e.Source,
@@ -181,6 +200,7 @@ func (r *Runner) Run(ctx context.Context) {
 			TicketUrl:   textFromStr(e.TicketURL),
 			PriceMin:    numericFromFloat(e.PriceMin),
 			PriceMax:    numericFromFloat(e.PriceMax),
+			VenueID:     venueID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Event was previously deleted by an admin; skip silently

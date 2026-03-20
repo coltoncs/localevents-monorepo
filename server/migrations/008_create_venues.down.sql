@@ -1,0 +1,2 @@
+ALTER TABLE events DROP COLUMN IF EXISTS venue_id;
+DROP TABLE IF EXISTS venues;

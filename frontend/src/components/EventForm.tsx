@@ -30,6 +30,7 @@ export function EventForm() {
       title: '',
       description: '',
       venue_name: '',
+      venue_id: '',
       address: '',
       city: '',
       state: 'NC',
@@ -65,6 +66,7 @@ export function EventForm() {
       if (value.ticket_url) data.ticket_url = value.ticket_url as string
       if (value.price_min) data.price_min = Number(value.price_min)
       if (value.price_max) data.price_max = Number(value.price_max)
+      if (value.venue_id) data.venue_id = value.venue_id as string
 
       const event = await createEvent.mutateAsync(data)
       navigate({ to: '/events/$eventId', params: { eventId: event.ID } })
@@ -73,6 +75,7 @@ export function EventForm() {
 
   function handleVenueSelect(venue: Venue) {
     form.setFieldValue('venue_name', venue.VenueName)
+    form.setFieldValue('venue_id', venue.ID)
     form.setFieldValue('address', venue.Address || '')
     form.setFieldValue('city', venue.City || '')
     form.setFieldValue('state', venue.State || '')
@@ -445,14 +448,14 @@ export function EventForm() {
         <button
           type="button"
           onClick={() => router.history.back()}
-          className="rounded-md border border-(--line) px-6 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
+          className="cursor-pointer rounded-md border border-(--line) px-6 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={createEvent.isPending}
-          className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
+          className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
         >
           {createEvent.isPending ? 'Submitting...' : 'Submit Event'}
         </button>

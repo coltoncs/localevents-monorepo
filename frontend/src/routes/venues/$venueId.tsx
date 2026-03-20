@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
+import { useVenue, venueDetailOptions } from '#/lib/hooks/useVenues'
 import { useUnsaveEvent, useSaveEvent, useSavedEvents } from '#/lib/hooks/useSavedEvents'
 import { EventCard } from '#/components/EventCard'
 import { Pagination } from '#/components/Pagination'
@@ -13,7 +14,7 @@ interface VenueSearch {
   page?: number
 }
 
-export const Route = createFileRoute('/venues/$venueName')({
+export const Route = createFileRoute('/venues/$venueId')({
   validateSearch: (search: Record<string, unknown>): VenueSearch => ({
     page: search.page ? Number(search.page) : undefined,
   }),
@@ -21,24 +22,26 @@ export const Route = createFileRoute('/venues/$venueName')({
   loader: async ({ context, params, deps }) => {
     const loc = getSavedLocation()
     const { lat, lng } = loc ?? RALEIGH
-    await context.queryClient.prefetchQuery(
-      eventListOptions({
-        lat,
-        lng,
-        radius: WIDE_RADIUS,
-        venueName: decodeURIComponent(params.venueName),
-        page: deps.page,
-      }),
-    )
+    await Promise.all([
+      context.queryClient.prefetchQuery(venueDetailOptions(params.venueId)),
+      context.queryClient.prefetchQuery(
+        eventListOptions({
+          lat,
+          lng,
+          radius: WIDE_RADIUS,
+          venueId: params.venueId,
+          page: deps.page,
+        }),
+      ),
+    ])
   },
   component: VenuePage,
 })
 
 function VenuePage() {
-  const { venueName: rawVenueName } = Route.useParams()
+  const { venueId } = Route.useParams()
   const { page: searchPage } = Route.useSearch()
   const navigate = useNavigate()
-  const venueName = decodeURIComponent(rawVenueName)
   const loc = getSavedLocation()
   const unsave = useUnsaveEvent()
   const save = useSaveEvent()
@@ -46,21 +49,23 @@ function VenuePage() {
   const { lat, lng } = loc ?? RALEIGH
   const page = searchPage ?? 1
 
-  const { data, isLoading } = useEvents({
+  const { data: venue, isLoading: venueLoading } = useVenue(venueId)
+  const { data, isLoading: eventsLoading } = useEvents({
     lat,
     lng,
     radius: WIDE_RADIUS,
-    venueName,
+    venueId,
     page,
   })
   const events = data?.events ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const isLoading = venueLoading || eventsLoading
 
   function goToPage(p: number) {
     navigate({
-      to: '/venues/$venueName',
-      params: { venueName: rawVenueName },
+      to: '/venues/$venueId',
+      params: { venueId },
       search: { page: p > 1 ? p : undefined },
       replace: true,
       resetScroll: false,
@@ -76,7 +81,24 @@ function VenuePage() {
         &larr; Back to events
       </Link>
 
-      <h1 className="text-2xl font-bold text-[var(--sea-ink)]">{venueName}</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">
+          {venue?.VenueName ?? 'Venue'}
+        </h1>
+        {venue && (
+          <div className="mt-1 space-y-1 text-sm text-[var(--sea-ink-soft)]">
+            {(venue.Address || venue.City) && (
+              <p>
+                {[venue.Address, venue.City, venue.State, venue.Zip]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            )}
+            {venue.Hours && <p>Hours: {venue.Hours}</p>}
+            {venue.Description && <p className="mt-2">{venue.Description}</p>}
+          </div>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="py-12 text-center text-[var(--sea-ink-soft)]">

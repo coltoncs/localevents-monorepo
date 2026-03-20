@@ -15,6 +15,7 @@ export const queryKeys = {
   venues: {
     all: ['venues'] as const,
     list: (filters: VenueFilters) => ['venues', 'list', filters] as const,
+    detail: (id: string) => ['venues', 'detail', id] as const,
   },
   user: {
     me: ['user', 'me'] as const,

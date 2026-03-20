@@ -71,7 +71,8 @@ AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
 AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
-AND ($8::text IS NULL OR title ILIKE '%' || $8::text || '%' OR venue_name ILIKE '%' || $8::text || '%')
+AND ($8::uuid IS NULL OR venue_id = $8::uuid)
+AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
 `
 
 type CountEventsByLocationParams struct {
@@ -82,6 +83,7 @@ type CountEventsByLocationParams struct {
 	EndDate      pgtype.Timestamptz
 	Category     pgtype.Text
 	VenueName    pgtype.Text
+	VenueID      pgtype.UUID
 	Search       pgtype.Text
 }
 
@@ -94,6 +96,7 @@ func (q *Queries) CountEventsByLocation(ctx context.Context, arg CountEventsByLo
 		arg.EndDate,
 		arg.Category,
 		arg.VenueName,
+		arg.VenueID,
 		arg.Search,
 	)
 	var count int64
@@ -144,12 +147,12 @@ const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
-    ticket_url, price_min, price_max, submitted_by
+    ticket_url, price_min, price_max, submitted_by, venue_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18
-) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited
+    $15, $16, $17, $18, $19
+) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 `
 
 type CreateEventParams struct {
@@ -171,6 +174,7 @@ type CreateEventParams struct {
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
 	SubmittedBy pgtype.UUID
+	VenueID     pgtype.UUID
 }
 
 func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error) {
@@ -193,6 +197,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		arg.PriceMin,
 		arg.PriceMax,
 		arg.SubmittedBy,
+		arg.VenueID,
 	)
 	var i Event
 	err := row.Scan(
@@ -219,6 +224,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
+		&i.VenueID,
 	)
 	return i, err
 }
@@ -257,6 +263,54 @@ func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (Image
 		&i.ContentType,
 		&i.SizeBytes,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createVenue = `-- name: CreateVenue :one
+INSERT INTO venues (name, address, city, state, zip, latitude, longitude, hours, description)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+`
+
+type CreateVenueParams struct {
+	Name        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Hours       pgtype.Text
+	Description pgtype.Text
+}
+
+func (q *Queries) CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue, error) {
+	row := q.db.QueryRow(ctx, createVenue,
+		arg.Name,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Hours,
+		arg.Description,
+	)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Hours,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -347,7 +401,7 @@ func (q *Queries) GetAuthorApplicationByClerkID(ctx context.Context, clerkID str
 }
 
 const getEvent = `-- name: GetEvent :one
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited FROM events WHERE id = $1
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id FROM events WHERE id = $1
 `
 
 func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
@@ -377,6 +431,7 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
+		&i.VenueID,
 	)
 	return i, err
 }
@@ -443,65 +498,32 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
-const listDistinctVenues = `-- name: ListDistinctVenues :many
-SELECT DISTINCT ON (venue_name)
-    venue_name, address, city, state, zip, latitude, longitude
-FROM events
-WHERE venue_name IS NOT NULL AND venue_name != ''
-AND ST_DWithin(
-    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
-    $3::float
-)
-ORDER BY venue_name ASC
+const getVenue = `-- name: GetVenue :one
+SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at FROM venues WHERE id = $1
 `
 
-type ListDistinctVenuesParams struct {
-	Lng          float64
-	Lat          float64
-	RadiusMeters float64
-}
-
-type ListDistinctVenuesRow struct {
-	VenueName pgtype.Text
-	Address   pgtype.Text
-	City      pgtype.Text
-	State     pgtype.Text
-	Zip       pgtype.Text
-	Latitude  float64
-	Longitude float64
-}
-
-func (q *Queries) ListDistinctVenues(ctx context.Context, arg ListDistinctVenuesParams) ([]ListDistinctVenuesRow, error) {
-	rows, err := q.db.Query(ctx, listDistinctVenues, arg.Lng, arg.Lat, arg.RadiusMeters)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDistinctVenuesRow
-	for rows.Next() {
-		var i ListDistinctVenuesRow
-		if err := rows.Scan(
-			&i.VenueName,
-			&i.Address,
-			&i.City,
-			&i.State,
-			&i.Zip,
-			&i.Latitude,
-			&i.Longitude,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
+	row := q.db.QueryRow(ctx, getVenue, id)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Hours,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const listEventsByLocation = `-- name: ListEventsByLocation :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -512,12 +534,13 @@ AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
 AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
-AND ($8::text IS NULL OR title ILIKE '%' || $8::text || '%' OR venue_name ILIKE '%' || $8::text || '%')
+AND ($8::uuid IS NULL OR venue_id = $8::uuid)
+AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
 ORDER BY start_time ASC, ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
 ) ASC
-LIMIT $10 OFFSET $9
+LIMIT $11 OFFSET $10
 `
 
 type ListEventsByLocationParams struct {
@@ -528,6 +551,7 @@ type ListEventsByLocationParams struct {
 	EndDate      pgtype.Timestamptz
 	Category     pgtype.Text
 	VenueName    pgtype.Text
+	VenueID      pgtype.UUID
 	Search       pgtype.Text
 	EventOffset  int32
 	EventLimit   int32
@@ -542,6 +566,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 		arg.EndDate,
 		arg.Category,
 		arg.VenueName,
+		arg.VenueID,
 		arg.Search,
 		arg.EventOffset,
 		arg.EventLimit,
@@ -577,6 +602,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
+			&i.VenueID,
 		); err != nil {
 			return nil, err
 		}
@@ -589,7 +615,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 }
 
 const listEventsByLocationDateSorted = `-- name: ListEventsByLocationDateSorted :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -600,9 +626,10 @@ AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
 AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
-AND ($8::text IS NULL OR title ILIKE '%' || $8::text || '%' OR venue_name ILIKE '%' || $8::text || '%')
+AND ($8::uuid IS NULL OR venue_id = $8::uuid)
+AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
 ORDER BY start_time ASC
-LIMIT $10 OFFSET $9
+LIMIT $11 OFFSET $10
 `
 
 type ListEventsByLocationDateSortedParams struct {
@@ -613,6 +640,7 @@ type ListEventsByLocationDateSortedParams struct {
 	EndDate      pgtype.Timestamptz
 	Category     pgtype.Text
 	VenueName    pgtype.Text
+	VenueID      pgtype.UUID
 	Search       pgtype.Text
 	EventOffset  int32
 	EventLimit   int32
@@ -627,6 +655,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 		arg.EndDate,
 		arg.Category,
 		arg.VenueName,
+		arg.VenueID,
 		arg.Search,
 		arg.EventOffset,
 		arg.EventLimit,
@@ -662,6 +691,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
+			&i.VenueID,
 		); err != nil {
 			return nil, err
 		}
@@ -674,7 +704,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 }
 
 const listEventsBySubmitter = `-- name: ListEventsBySubmitter :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id FROM events
 WHERE submitted_by = $1
 ORDER BY start_time ASC
 `
@@ -712,6 +742,7 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
+			&i.VenueID,
 		); err != nil {
 			return nil, err
 		}
@@ -797,7 +828,7 @@ func (q *Queries) ListPendingApplications(ctx context.Context) ([]AuthorApplicat
 }
 
 const listSavedEvents = `-- name: ListSavedEvents :many
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.category, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.category, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id
 FROM events e
 JOIN saved_events se ON se.event_id = e.id
 WHERE se.user_id = $1
@@ -837,6 +868,57 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
+			&i.VenueID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVenuesByLocation = `-- name: ListVenuesByLocation :many
+SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+FROM venues
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+ORDER BY name ASC
+`
+
+type ListVenuesByLocationParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+}
+
+func (q *Queries) ListVenuesByLocation(ctx context.Context, arg ListVenuesByLocationParams) ([]Venue, error) {
+	rows, err := q.db.Query(ctx, listVenuesByLocation, arg.Lng, arg.Lat, arg.RadiusMeters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Venue
+	for rows.Next() {
+		var i Venue
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Hours,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -955,10 +1037,11 @@ UPDATE events SET
     ticket_url = $15,
     price_min = $16,
     price_max = $17,
+    venue_id = $18,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 `
 
 type UpdateEventParams struct {
@@ -979,6 +1062,7 @@ type UpdateEventParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	VenueID     pgtype.UUID
 }
 
 func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event, error) {
@@ -1000,6 +1084,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.VenueID,
 	)
 	var i Event
 	err := row.Scan(
@@ -1026,6 +1111,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
+		&i.VenueID,
 	)
 	return i, err
 }
@@ -1069,12 +1155,72 @@ func (q *Queries) UpdateUserSettings(ctx context.Context, arg UpdateUserSettings
 	return i, err
 }
 
+const updateVenue = `-- name: UpdateVenue :one
+UPDATE venues SET
+    name = $2,
+    address = $3,
+    city = $4,
+    state = $5,
+    zip = $6,
+    latitude = $7,
+    longitude = $8,
+    hours = $9,
+    description = $10,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+`
+
+type UpdateVenueParams struct {
+	ID          pgtype.UUID
+	Name        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Hours       pgtype.Text
+	Description pgtype.Text
+}
+
+func (q *Queries) UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue, error) {
+	row := q.db.QueryRow(ctx, updateVenue,
+		arg.ID,
+		arg.Name,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Hours,
+		arg.Description,
+	)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Hours,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertExternalEvent = `-- name: UpsertExternalEvent :one
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
-    ticket_url, price_min, price_max
-) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+    ticket_url, price_min, price_max, venue_id
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
 WHERE NOT EXISTS (
     SELECT 1 FROM deleted_external_events d
     WHERE d.source = $2 AND d.external_id = $1
@@ -1088,9 +1234,9 @@ DO UPDATE SET
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
     category=EXCLUDED.category, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
-    price_max=EXCLUDED.price_max, updated_at=NOW()
+    price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 `
 
 type UpsertExternalEventParams struct {
@@ -1112,6 +1258,7 @@ type UpsertExternalEventParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	VenueID     pgtype.UUID
 }
 
 func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEventParams) (Event, error) {
@@ -1134,6 +1281,7 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.VenueID,
 	)
 	var i Event
 	err := row.Scan(
@@ -1160,6 +1308,7 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
+		&i.VenueID,
 	)
 	return i, err
 }
@@ -1191,6 +1340,57 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.DefaultLatitude,
 		&i.DefaultLongitude,
 		&i.DefaultRadiusMiles,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertVenue = `-- name: UpsertVenue :one
+INSERT INTO venues (name, address, city, state, zip, latitude, longitude)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (LOWER(TRIM(name)), latitude, longitude)
+DO UPDATE SET
+    address = COALESCE(NULLIF(EXCLUDED.address, ''), venues.address),
+    city = COALESCE(NULLIF(EXCLUDED.city, ''), venues.city),
+    state = COALESCE(NULLIF(EXCLUDED.state, ''), venues.state),
+    zip = COALESCE(NULLIF(EXCLUDED.zip, ''), venues.zip),
+    updated_at = NOW()
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+`
+
+type UpsertVenueParams struct {
+	Name      string
+	Address   pgtype.Text
+	City      pgtype.Text
+	State     pgtype.Text
+	Zip       pgtype.Text
+	Latitude  float64
+	Longitude float64
+}
+
+func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue, error) {
+	row := q.db.QueryRow(ctx, upsertVenue,
+		arg.Name,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+	)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Hours,
+		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

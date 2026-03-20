@@ -19,6 +19,7 @@ export interface Event {
   PriceMin?: number
   PriceMax?: number
   SubmittedBy?: string
+  VenueID?: string
   CreatedAt: string
   UpdatedAt: string
 }
@@ -54,6 +55,7 @@ export interface EventFilters {
   date?: string
   category?: string
   venueName?: string
+  venueId?: string
   search?: string
   limit?: number
   page?: number
@@ -76,9 +78,11 @@ export interface CreateEventInput {
   ticket_url?: string
   price_min?: number
   price_max?: number
+  venue_id?: string
 }
 
 export interface Venue {
+  ID: string
   VenueName: string
   Address: string
   City: string
@@ -86,6 +90,8 @@ export interface Venue {
   Zip: string
   Latitude: number
   Longitude: number
+  Hours?: string
+  Description?: string
 }
 
 export interface VenueListResponse {

@@ -360,14 +360,14 @@ function EditEventContent() {
             >
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Start Time *
                   </label>
                   <input
                     type="datetime-local"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                   {field.state.meta.errors?.length > 0 && (
                     <p className="mt-1 text-sm text-red-600">
@@ -381,14 +381,14 @@ function EditEventContent() {
             <form.Field name="end_time">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     End Time
                   </label>
                   <input
                     type="datetime-local"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -397,13 +397,13 @@ function EditEventContent() {
             <form.Field name="category">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Category
                   </label>
                   <select
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   >
                     <option value="">Select a category</option>
                     {CATEGORIES.map((c) => (
@@ -430,14 +430,14 @@ function EditEventContent() {
             <form.Field name="ticket_url">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Ticket URL
                   </label>
                   <input
                     type="url"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -446,7 +446,7 @@ function EditEventContent() {
             <form.Field name="price_min">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Min Price ($)
                   </label>
                   <input
@@ -455,7 +455,7 @@ function EditEventContent() {
                     min="0"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -464,7 +464,7 @@ function EditEventContent() {
             <form.Field name="price_max">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Max Price ($)
                   </label>
                   <input
@@ -473,7 +473,7 @@ function EditEventContent() {
                     min="0"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -491,14 +491,14 @@ function EditEventContent() {
               type="button"
               onClick={() => router.history.back()
               }
-              className="rounded-md border border-[var(--line)] px-6 py-2 text-sm font-semibold text-[var(--sea-ink)] hover:bg-[var(--surface)]"
+              className="cursor-pointer rounded-md border border-(--line) px-6 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={updateEvent.isPending}
-              className="rounded-md bg-[var(--lagoon-deep)] px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--lagoon)] disabled:opacity-50"
+              className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
             >
               {updateEvent.isPending ? 'Saving...' : 'Save Changes'}
             </button>

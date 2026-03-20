@@ -18,7 +18,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
-import { Route as VenuesVenueNameRouteImport } from './routes/venues/$venueName'
+import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
 import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
@@ -68,9 +68,9 @@ const EventsIndexRoute = EventsIndexRouteImport.update({
   path: '/events/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VenuesVenueNameRoute = VenuesVenueNameRouteImport.update({
-  id: '/venues/$venueName',
-  path: '/venues/$venueName',
+const VenuesVenueIdRoute = VenuesVenueIdRouteImport.update({
+  id: '/venues/$venueId',
+  path: '/venues/$venueId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsEventIdRoute = EventsEventIdRouteImport.update({
@@ -99,7 +99,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
-  '/venues/$venueName': typeof VenuesVenueNameRoute
+  '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events/': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
@@ -113,7 +113,7 @@ export interface FileRoutesByTo {
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
-  '/venues/$venueName': typeof VenuesVenueNameRoute
+  '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId': typeof EventsEventIdIndexRoute
@@ -129,7 +129,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
-  '/venues/$venueName': typeof VenuesVenueNameRoute
+  '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events/': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
@@ -146,7 +146,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/submit'
     | '/events/$eventId'
-    | '/venues/$venueName'
+    | '/venues/$venueId'
     | '/events/'
     | '/events/$eventId/edit'
     | '/events/$eventId/'
@@ -160,7 +160,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/settings'
     | '/submit'
-    | '/venues/$venueName'
+    | '/venues/$venueId'
     | '/events'
     | '/events/$eventId/edit'
     | '/events/$eventId'
@@ -175,7 +175,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/submit'
     | '/events/$eventId'
-    | '/venues/$venueName'
+    | '/venues/$venueId'
     | '/events/'
     | '/events/$eventId/edit'
     | '/events/$eventId/'
@@ -191,7 +191,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SubmitRoute: typeof SubmitRoute
   EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
-  VenuesVenueNameRoute: typeof VenuesVenueNameRoute
+  VenuesVenueIdRoute: typeof VenuesVenueIdRoute
   EventsIndexRoute: typeof EventsIndexRoute
 }
 
@@ -260,11 +260,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/venues/$venueName': {
-      id: '/venues/$venueName'
-      path: '/venues/$venueName'
-      fullPath: '/venues/$venueName'
-      preLoaderRoute: typeof VenuesVenueNameRouteImport
+    '/venues/$venueId': {
+      id: '/venues/$venueId'
+      path: '/venues/$venueId'
+      fullPath: '/venues/$venueId'
+      preLoaderRoute: typeof VenuesVenueIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events/$eventId': {
@@ -315,7 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SubmitRoute: SubmitRoute,
   EventsEventIdRoute: EventsEventIdRouteWithChildren,
-  VenuesVenueNameRoute: VenuesVenueNameRoute,
+  VenuesVenueIdRoute: VenuesVenueIdRoute,
   EventsIndexRoute: EventsIndexRoute,
 }
 export const routeTree = rootRouteImport

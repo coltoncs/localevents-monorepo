@@ -33,6 +33,7 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 			r.Get("/events", eventHandler.List)
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Get("/venues", venueHandler.List)
+			r.Get("/venues/{id}", venueHandler.Get)
 		})
 
 		// Authenticated routes (any signed-in user)
@@ -59,6 +60,8 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 			r.Post("/events", eventHandler.Create)
 			r.Put("/events/{id}", eventHandler.Update)
 			r.Delete("/events/{id}", eventHandler.Delete)
+			r.Post("/venues", venueHandler.Create)
+			r.Put("/venues/{id}", venueHandler.Update)
 		})
 
 		// Admin routes

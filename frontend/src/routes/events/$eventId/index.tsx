@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useAuth } from '@clerk/clerk-react'
-import { useEvent, eventDetailOptions, useEvents, useDeleteEvent } from '#/lib/hooks/useEvents'
+import { useEvent, eventDetailOptions, useDeleteEvent } from '#/lib/hooks/useEvents'
 import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventMap } from '#/components/EventMap'
 import { SaveButton } from '#/components/SaveButton'
@@ -29,20 +29,13 @@ function formatDate(iso: string) {
 }
 
 function VenueName({ event }: { event: Event }) {
-  const { data } = useEvents(
-    { lat: event.Latitude, lng: event.Longitude, radius: 50, venueName: event.VenueName },
-    !!event.VenueName,
-  )
-
-  const hasVenuePage = (data?.total ?? 0) > 0
-
   return (
     <div>
       <p className="text-(--sea-ink)">
-        {hasVenuePage ? (
+        {event.VenueID ? (
           <Link
-            to="/venues/$venueName"
-            params={{ venueName: event.VenueName! }}
+            to="/venues/$venueId"
+            params={{ venueId: event.VenueID }}
             className="hover:text-(--lagoon-deep) hover:underline"
           >
             {event.VenueName}

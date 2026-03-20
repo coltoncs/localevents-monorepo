@@ -34,6 +34,7 @@ AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
+AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%');
 
 -- name: ListEventsByLocation :many
@@ -48,6 +49,7 @@ AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
+AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY start_time ASC, ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -67,6 +69,7 @@ AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
+AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
@@ -75,11 +78,11 @@ LIMIT @event_limit OFFSET @event_offset;
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
-    ticket_url, price_min, price_max, submitted_by
+    ticket_url, price_min, price_max, submitted_by, venue_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18
+    $15, $16, $17, $18, $19
 ) RETURNING *;
 
 -- name: ListEventsBySubmitter :many
@@ -128,6 +131,7 @@ UPDATE events SET
     ticket_url = $15,
     price_min = $16,
     price_max = $17,
+    venue_id = $18,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
@@ -173,17 +177,50 @@ UPDATE author_applications SET
 WHERE id = $1
 RETURNING *;
 
--- name: ListDistinctVenues :many
-SELECT DISTINCT ON (venue_name)
-    venue_name, address, city, state, zip, latitude, longitude
-FROM events
-WHERE venue_name IS NOT NULL AND venue_name != ''
-AND ST_DWithin(
+-- name: GetVenue :one
+SELECT * FROM venues WHERE id = $1;
+
+-- name: ListVenuesByLocation :many
+SELECT *
+FROM venues
+WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography,
     @radius_meters::float
 )
-ORDER BY venue_name ASC;
+ORDER BY name ASC;
+
+-- name: UpsertVenue :one
+INSERT INTO venues (name, address, city, state, zip, latitude, longitude)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (LOWER(TRIM(name)), latitude, longitude)
+DO UPDATE SET
+    address = COALESCE(NULLIF(EXCLUDED.address, ''), venues.address),
+    city = COALESCE(NULLIF(EXCLUDED.city, ''), venues.city),
+    state = COALESCE(NULLIF(EXCLUDED.state, ''), venues.state),
+    zip = COALESCE(NULLIF(EXCLUDED.zip, ''), venues.zip),
+    updated_at = NOW()
+RETURNING *;
+
+-- name: CreateVenue :one
+INSERT INTO venues (name, address, city, state, zip, latitude, longitude, hours, description)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: UpdateVenue :one
+UPDATE venues SET
+    name = $2,
+    address = $3,
+    city = $4,
+    state = $5,
+    zip = $6,
+    latitude = $7,
+    longitude = $8,
+    hours = $9,
+    description = $10,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: CreateImage :one
 INSERT INTO images (user_id, r2_key, url, filename, content_type, size_bytes)
@@ -214,8 +251,8 @@ WHERE deleted_at < NOW() - INTERVAL '90 days';
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, category, image_url,
-    ticket_url, price_min, price_max
-) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+    ticket_url, price_min, price_max, venue_id
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
 WHERE NOT EXISTS (
     SELECT 1 FROM deleted_external_events d
     WHERE d.source = $2 AND d.external_id = $1
@@ -229,6 +266,6 @@ DO UPDATE SET
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
     category=EXCLUDED.category, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
-    price_max=EXCLUDED.price_max, updated_at=NOW()
+    price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
 RETURNING *;

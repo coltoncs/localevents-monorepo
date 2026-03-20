@@ -58,7 +58,7 @@ export function VenueCombobox({ lat, lng, onSelect }: VenueComboboxProps) {
         {open && filtered.length > 0 && (
           <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--surface-strong)] py-1 shadow-lg">
             {filtered.slice(0, 20).map((venue) => (
-              <li key={`${venue.VenueName}-${venue.Latitude}-${venue.Longitude}`}>
+              <li key={venue.ID}>
                 <button
                   type="button"
                   onClick={() => handleSelect(venue)}

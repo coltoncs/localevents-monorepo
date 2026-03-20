@@ -88,6 +88,14 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		search = pgtype.Text{String: s, Valid: true}
 	}
 
+	var venueID pgtype.UUID
+	if v := r.URL.Query().Get("venue_id"); v != "" {
+		id, err := uuid.Parse(v)
+		if err == nil {
+			venueID = pgtype.UUID{Bytes: id, Valid: true}
+		}
+	}
+
 	limit := int32(20)
 	if v := r.URL.Query().Get("limit"); v != "" {
 		l, err := strconv.Atoi(v)
@@ -112,6 +120,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
 		Category:     category,
 		VenueName:    venueName,
+		VenueID:      venueID,
 		Search:       search,
 	}
 
@@ -129,6 +138,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		EndDate:      locParams.EndDate,
 		Category:     locParams.Category,
 		VenueName:    locParams.VenueName,
+		VenueID:      locParams.VenueID,
 		Search:       locParams.Search,
 		EventLimit:   limit,
 		EventOffset:  offset,
@@ -145,6 +155,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			EndDate:      listParams.EndDate,
 			Category:     listParams.Category,
 			VenueName:    listParams.VenueName,
+			VenueID:      listParams.VenueID,
 			Search:       listParams.Search,
 			EventLimit:   listParams.EventLimit,
 			EventOffset:  listParams.EventOffset,
@@ -204,6 +215,7 @@ type createEventRequest struct {
 	TicketURL   *string  `json:"ticket_url"`
 	PriceMin    *float64 `json:"price_min"`
 	PriceMax    *float64 `json:"price_max"`
+	VenueID     *string  `json:"venue_id"`
 }
 
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +287,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
 		SubmittedBy: user.ID,
+		VenueID:     uuidFromPtr(req.VenueID),
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to create event"}`, http.StatusInternalServerError)
@@ -303,6 +316,17 @@ func numericFromFloat(f *float64) pgtype.Numeric {
 		Exp:   -2,
 		Valid: true,
 	}
+}
+
+func uuidFromPtr(s *string) pgtype.UUID {
+	if s == nil || *s == "" {
+		return pgtype.UUID{}
+	}
+	id, err := uuid.Parse(*s)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
 func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +415,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
+		VenueID:     uuidFromPtr(req.VenueID),
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to update event"}`, http.StatusInternalServerError)
