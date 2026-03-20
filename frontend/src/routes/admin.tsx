@@ -7,6 +7,7 @@ import {
   useRejectApplication,
 } from '#/lib/hooks/useApplications'
 import type { AuthorApplication } from '#/lib/types'
+import { Spinner } from '#/components/Spinner'
 
 export const Route = createFileRoute('/admin')({
   component: AdminPage,
@@ -27,37 +28,37 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
   const [showReject, setShowReject] = useState(false)
 
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4 space-y-3">
+    <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-3">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="font-semibold text-[var(--sea-ink)]">{app.FullName}</h3>
-          <p className="text-sm text-[var(--sea-ink-soft)]">{app.Email}</p>
+          <h3 className="font-semibold text-(--sea-ink)">{app.FullName}</h3>
+          <p className="text-sm text-(--sea-ink-soft)">{app.Email}</p>
         </div>
-        <span className="text-xs text-[var(--sea-ink-soft)]">
+        <span className="text-xs text-(--sea-ink-soft)">
           {new Date(app.SubmittedAt).toLocaleDateString()}
         </span>
       </div>
 
       <div>
-        <h4 className="text-sm font-medium text-[var(--sea-ink-soft)]">Bio</h4>
-        <p className="text-sm text-[var(--sea-ink)]">{app.Bio}</p>
+        <h4 className="text-sm font-medium text-(--sea-ink-soft)">Bio</h4>
+        <p className="text-sm text-(--sea-ink)">{app.Bio}</p>
       </div>
 
       <div>
-        <h4 className="text-sm font-medium text-[var(--sea-ink-soft)]">Experience</h4>
-        <p className="text-sm text-[var(--sea-ink)]">{app.Experience}</p>
+        <h4 className="text-sm font-medium text-(--sea-ink-soft)">Experience</h4>
+        <p className="text-sm text-(--sea-ink)">{app.Experience}</p>
       </div>
 
       {showReject && (
         <div>
-          <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+          <label className="block text-sm font-medium text-(--sea-ink-soft)">
             Review Notes (optional)
           </label>
           <textarea
             value={reviewNotes}
             onChange={(e) => setReviewNotes(e.target.value)}
             rows={2}
-            className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+            className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
           />
         </div>
       )}
@@ -103,18 +104,16 @@ function AdminContent() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">
+      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
         Admin - Pending Applications
       </h1>
 
       {isLoading && (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
-          Loading...
-        </div>
+        <Spinner className="py-12" />
       )}
 
       {applications && applications.length === 0 && (
-        <p className="py-12 text-center text-[var(--sea-ink-soft)]">
+        <p className="py-12 text-center text-(--sea-ink-soft)">
           No pending applications.
         </p>
       )}

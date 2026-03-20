@@ -7,6 +7,7 @@ import { LocationPickerMap } from '#/components/LocationPickerMap'
 import { VenueCombobox } from '#/components/VenueCombobox'
 import { ImageUpload } from '#/components/ImageUpload'
 import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
+import { Spinner } from '#/components/Spinner'
 
 const CATEGORIES = [
   'Music',
@@ -106,11 +107,7 @@ function EditEventContent() {
   }
 
   if (isLoading) {
-    return (
-      <div className="py-12 text-center text-(--sea-ink-soft)">
-        Loading event...
-      </div>
-    )
+    return <Spinner className="py-12" />
   }
 
   if (!event) {
@@ -169,7 +166,7 @@ function EditEventContent() {
               <form.Field name="description">
                 {(field) => (
                   <div>
-                    <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
                       Description
                     </label>
                     <div className="mt-1">
@@ -196,14 +193,14 @@ function EditEventContent() {
             <form.Field name="venue_name">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Venue Name
                   </label>
                   <input
                     type="text"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -212,14 +209,14 @@ function EditEventContent() {
             <form.Field name="address">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Address
                   </label>
                   <input
                     type="text"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -228,14 +225,14 @@ function EditEventContent() {
             <form.Field name="city">
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     City
                   </label>
                   <input
                     type="text"
                     value={field.state.value as string}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                 </div>
               )}
@@ -245,13 +242,13 @@ function EditEventContent() {
               <form.Field name="state">
                 {(field) => (
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
                       State
                     </label>
                     <select
                       value={field.state.value as string}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                     >
                       <option value="NC">NC</option>
                       <option value="SC">SC</option>
@@ -263,14 +260,14 @@ function EditEventContent() {
               <form.Field name="zip">
                 {(field) => (
                   <div className="w-28">
-                    <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
                       ZIP
                     </label>
                     <input
                       type="text"
                       value={field.state.value as string}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                     />
                   </div>
                 )}
@@ -278,7 +275,7 @@ function EditEventContent() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-[var(--sea-ink-soft)] mb-1">
+              <label className="block text-sm font-medium text-(--sea-ink-soft) mb-1">
                 Event Location *
               </label>
               <form.Subscribe selector={(s) => [s.values.latitude, s.values.longitude]}>
@@ -304,7 +301,7 @@ function EditEventContent() {
             >
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Latitude *
                   </label>
                   <input
@@ -312,7 +309,7 @@ function EditEventContent() {
                     step="any"
                     value={field.state.value as number}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                   {field.state.meta.errors?.length > 0 && (
                     <p className="mt-1 text-sm text-red-600">
@@ -332,7 +329,7 @@ function EditEventContent() {
             >
               {(field) => (
                 <div>
-                  <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
                     Longitude *
                   </label>
                   <input
@@ -340,7 +337,7 @@ function EditEventContent() {
                     step="any"
                     value={field.state.value as number}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
                   />
                   {field.state.meta.errors?.length > 0 && (
                     <p className="mt-1 text-sm text-red-600">

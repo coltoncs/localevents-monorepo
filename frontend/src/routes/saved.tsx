@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ProtectedRoute } from '#/components/ProtectedRoute'
 import { useSavedEvents, useUnsaveEvent } from '#/lib/hooks/useSavedEvents'
 import { EventCard } from '#/components/EventCard'
+import { Spinner } from '#/components/Spinner'
 
 export const Route = createFileRoute('/saved')({
   component: SavedPage,
@@ -21,12 +22,12 @@ function SavedContent() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">Saved Events</h1>
+      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">Saved Events</h1>
 
       {isLoading ? (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">Loading...</div>
+        <Spinner className="py-12" />
       ) : events.length === 0 ? (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+        <div className="py-12 text-center text-(--sea-ink-soft)">
           No saved events yet. Browse events and save ones you&apos;re
           interested in!
         </div>
@@ -38,7 +39,7 @@ function SavedContent() {
               <button
                 onClick={() => unsave.mutate(event.ID)}
                 disabled={unsave.isPending}
-                className="absolute right-2 top-2 rounded-md bg-[var(--surface-strong)]/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
+                className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
               >
                 Unsave
               </button>

@@ -14,7 +14,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isLoaded) {
     return (
-      <div className="py-12 text-center text-[var(--sea-ink-soft)]">Loading...</div>
+      <div className="py-12 text-center text-(--sea-ink-soft)">Loading...</div>
     )
   }
 

@@ -10,6 +10,7 @@ import { EventMap } from '#/components/EventMap'
 import { FullscreenMap } from '#/components/FullscreenMap'
 import { LocationSearch, getSavedLocation } from '#/components/LocationSearch'
 import { Pagination } from '#/components/Pagination'
+import { Spinner } from '#/components/Spinner'
 
 interface EventsSearch {
   lat?: number
@@ -261,9 +262,7 @@ function EventsList({
           </button>
         </div>
       ) : isLoading ? (
-        <div className="py-12 text-center text-(--sea-ink-soft)">
-          Loading events...
-        </div>
+        <Spinner className="py-12" />
       ) : view === 'map' ? (
         <div className="space-y-4">
           <div className="relative">

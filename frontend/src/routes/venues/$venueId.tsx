@@ -7,6 +7,7 @@ import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventCard } from '#/components/EventCard'
 import { Pagination } from '#/components/Pagination'
 import { getSavedLocation } from '#/components/LocationSearch'
+import { Spinner } from '#/components/Spinner'
 import type { Venue } from '#/lib/types'
 
 const RALEIGH = { lat: 35.7796, lng: -78.6382 }
@@ -74,8 +75,8 @@ function VenueEditForm({ venue, onClose }: { venue: Venue; onClose: () => void }
   const labelClass = "block text-sm font-medium text-[var(--sea-ink-soft)]"
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4 space-y-4">
-      <h2 className="text-lg font-semibold text-[var(--sea-ink)]">Edit Venue</h2>
+    <form onSubmit={handleSubmit} className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-4">
+      <h2 className="text-lg font-semibold text-(--sea-ink)">Edit Venue</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={labelClass}>Name *</label>
@@ -120,14 +121,14 @@ function VenueEditForm({ venue, onClose }: { venue: Venue; onClose: () => void }
         <button
           type="button"
           onClick={onClose}
-          className="cursor-pointer rounded-md border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] hover:bg-[var(--surface)]"
+          className="cursor-pointer rounded-md border border-(--line) px-4 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={updateVenue.isPending}
-          className="cursor-pointer rounded-md bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--lagoon)] disabled:opacity-50"
+          className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
         >
           {updateVenue.isPending ? 'Saving...' : 'Save'}
         </button>
@@ -176,7 +177,7 @@ function VenuePage() {
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <Link
         to="/events"
-        className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+        className="text-sm text-(--lagoon-deep) hover:text-(--lagoon)"
       >
         &larr; Back to events
       </Link>
@@ -186,7 +187,7 @@ function VenuePage() {
       ) : (
         <div>
           <div className="flex items-start justify-between">
-            <h1 className="text-2xl font-bold text-[var(--sea-ink)]">
+            <h1 className="text-2xl font-bold text-(--sea-ink)">
               {venue?.VenueName ?? 'Venue'}
             </h1>
             {isAdmin && venue && (
@@ -200,7 +201,7 @@ function VenuePage() {
             )}
           </div>
           {venue && (
-            <div className="mt-1 space-y-1 text-sm text-[var(--sea-ink-soft)]">
+            <div className="mt-1 space-y-1 text-sm text-(--sea-ink-soft)">
               {(venue.Address || venue.City) && (
                 <p>
                   {[venue.Address, venue.City, venue.State, venue.Zip]
@@ -216,11 +217,9 @@ function VenuePage() {
       )}
 
       {isLoading ? (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
-          Loading events...
-        </div>
+        <Spinner className="py-12" />
       ) : events.length === 0 ? (
-        <div className="py-12 text-center text-[var(--sea-ink-soft)]">
+        <div className="py-12 text-center text-(--sea-ink-soft)">
           No upcoming events found at this venue.
         </div>
       ) : (
@@ -233,13 +232,13 @@ function VenuePage() {
               {isSaved ? (<button
                 onClick={() => unsave.mutate(event.ID)}
                 disabled={unsave.isPending}
-                className="absolute right-2 top-2 rounded-md bg-[var(--surface-strong)]/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
+                className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
               >
                 Unsave
               </button>) : (<button
                 onClick={() => save.mutate(event.ID)}
                 disabled={save.isPending}
-                className="absolute right-2 top-2 rounded-md bg-[var(--surface-strong)]/90 px-2 py-1 text-xs font-medium text-green-600 shadow-sm hover:bg-green-50"
+                className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-green-600 shadow-sm hover:bg-green-50"
               >
                 Save
               </button>)}

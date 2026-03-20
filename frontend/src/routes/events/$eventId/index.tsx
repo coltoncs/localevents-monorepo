@@ -6,6 +6,7 @@ import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventMap } from '#/components/EventMap'
 import { SaveButton } from '#/components/SaveButton'
 import { useUser } from '#/lib/hooks/useUser'
+import { Spinner } from '#/components/Spinner'
 import { isAllDay, formatDateLong } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
 
@@ -57,9 +58,7 @@ function EventDetailPage() {
   const { data: backendUser } = useUser()
 
   if (isLoading) {
-    return (
-      <div className="py-12 text-center text-(--sea-ink-soft)">Loading event...</div>
-    )
+    return <Spinner className="py-12" />
   }
 
   if (!event) {
