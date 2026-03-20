@@ -23,9 +23,11 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries)
 	imageHandler := handler.NewImageHandler(queries, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
+	sitemapHandler := handler.NewSitemapHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
+		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
 
 		// Public routes with optional auth
 		r.Group(func(r chi.Router) {

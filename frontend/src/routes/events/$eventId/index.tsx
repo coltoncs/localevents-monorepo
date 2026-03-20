@@ -8,13 +8,50 @@ import { SaveButton } from '#/components/SaveButton'
 import { useUser } from '#/lib/hooks/useUser'
 import { Spinner } from '#/components/Spinner'
 import { isAllDay, formatDateLong } from '#/lib/date-utils'
+import { stripHtml, truncate, eventJsonLd } from '#/lib/seo'
 import type { Event } from '#/lib/types'
 
 export const Route = createFileRoute('/events/$eventId/')({
   loader: async ({ context, params }) => {
-    await context.queryClient.prefetchQuery(
+    return await context.queryClient.ensureQueryData(
       eventDetailOptions(params.eventId),
     )
+  },
+  head: ({ loaderData }) => {
+    const event = loaderData as Event | undefined
+    if (!event) return {}
+    const description = event.Description
+      ? truncate(stripHtml(event.Description), 160)
+      : event.VenueName
+        ? `Event at ${event.VenueName}`
+        : 'View event details on 919Events'
+    return {
+      meta: [
+        { title: `${event.Title} | 919Events` },
+        { name: 'description', content: description },
+        { property: 'og:title', content: event.Title },
+        { property: 'og:description', content: description },
+        { property: 'og:type', content: 'event' },
+        ...(event.ImageUrl
+          ? [
+              { property: 'og:image', content: event.ImageUrl },
+              { name: 'twitter:card', content: 'summary_large_image' },
+              { name: 'twitter:image', content: event.ImageUrl },
+            ]
+          : []),
+        { name: 'twitter:title', content: event.Title },
+        { name: 'twitter:description', content: description },
+      ],
+      links: [
+        { rel: 'canonical', href: `https://919events.com/events/${event.ID}` },
+      ],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(eventJsonLd(event)),
+        },
+      ],
+    }
   },
   component: EventDetailPage,
 })

@@ -522,6 +522,35 @@ func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
 	return i, err
 }
 
+const listEventIDsForSitemap = `-- name: ListEventIDsForSitemap :many
+SELECT id, updated_at FROM events WHERE start_time >= NOW() ORDER BY start_time ASC
+`
+
+type ListEventIDsForSitemapRow struct {
+	ID        pgtype.UUID
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListEventIDsForSitemap(ctx context.Context) ([]ListEventIDsForSitemapRow, error) {
+	rows, err := q.db.Query(ctx, listEventIDsForSitemap)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEventIDsForSitemapRow
+	for rows.Next() {
+		var i ListEventIDsForSitemapRow
+		if err := rows.Scan(&i.ID, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEventsByLocation = `-- name: ListEventsByLocation :many
 SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
 FROM events
@@ -875,6 +904,35 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 			&i.ManuallyEdited,
 			&i.VenueID,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVenueIDsForSitemap = `-- name: ListVenueIDsForSitemap :many
+SELECT id, updated_at FROM venues ORDER BY id ASC
+`
+
+type ListVenueIDsForSitemapRow struct {
+	ID        pgtype.UUID
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListVenueIDsForSitemap(ctx context.Context) ([]ListVenueIDsForSitemapRow, error) {
+	rows, err := q.db.Query(ctx, listVenueIDsForSitemap)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVenueIDsForSitemapRow
+	for rows.Next() {
+		var i ListVenueIDsForSitemapRow
+		if err := rows.Scan(&i.ID, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

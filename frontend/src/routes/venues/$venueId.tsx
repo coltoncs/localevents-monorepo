@@ -8,6 +8,7 @@ import { EventCard } from '#/components/EventCard'
 import { Pagination } from '#/components/Pagination'
 import { getSavedLocation } from '#/components/LocationSearch'
 import { Spinner } from '#/components/Spinner'
+import { venueJsonLd } from '#/lib/seo'
 import type { Venue } from '#/lib/types'
 
 const RALEIGH = { lat: 35.7796, lng: -78.6382 }
@@ -26,8 +27,8 @@ export const Route = createFileRoute('/venues/$venueId')({
   loader: async ({ context, params, deps }) => {
     const loc = getSavedLocation()
     const { lat, lng } = loc ?? RALEIGH
-    await Promise.all([
-      context.queryClient.prefetchQuery(venueDetailOptions(params.venueId)),
+    const [venue] = await Promise.all([
+      context.queryClient.ensureQueryData(venueDetailOptions(params.venueId)),
       context.queryClient.prefetchQuery(
         eventListOptions({
           lat,
@@ -38,6 +39,32 @@ export const Route = createFileRoute('/venues/$venueId')({
         }),
       ),
     ])
+    return venue
+  },
+  head: ({ loaderData }) => {
+    const venue = loaderData as Venue | undefined
+    if (!venue) return {}
+    const parts = [venue.Address, venue.City, venue.State].filter(Boolean)
+    const description = parts.length
+      ? `Upcoming events at ${venue.VenueName} — ${parts.join(', ')}`
+      : `Upcoming events at ${venue.VenueName}`
+    return {
+      meta: [
+        { title: `${venue.VenueName} | 919Events` },
+        { name: 'description', content: description },
+        { property: 'og:title', content: venue.VenueName },
+        { property: 'og:description', content: description },
+      ],
+      links: [
+        { rel: 'canonical', href: `https://919events.com/venues/${venue.ID}` },
+      ],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(venueJsonLd(venue)),
+        },
+      ],
+    }
   },
   component: VenuePage,
 })

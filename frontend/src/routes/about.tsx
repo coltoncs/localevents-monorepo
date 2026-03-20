@@ -1,6 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/about')({
+  head: () => ({
+    meta: [
+      { title: 'About | 919Events' },
+      { name: 'description', content: 'Learn about 919Events and our mission to help you discover local events.' },
+      { property: 'og:title', content: 'About | 919Events' },
+      { property: 'og:description', content: 'Learn about 919Events and our mission to help you discover local events.' },
+    ],
+    links: [
+      { rel: 'canonical', href: 'https://919events.com/about' },
+    ],
+  }),
   component: About,
 })
 

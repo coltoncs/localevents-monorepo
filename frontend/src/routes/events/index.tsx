@@ -25,6 +25,17 @@ interface EventsSearch {
 }
 
 export const Route = createFileRoute('/events/')({
+  head: () => ({
+    meta: [
+      { title: 'Explore Events | 919Events' },
+      { name: 'description', content: 'Browse upcoming events near you — concerts, festivals, meetups, and more.' },
+      { property: 'og:title', content: 'Explore Events | 919Events' },
+      { property: 'og:description', content: 'Browse upcoming events near you — concerts, festivals, meetups, and more.' },
+    ],
+    links: [
+      { rel: 'canonical', href: 'https://919events.com/events' },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>): EventsSearch => ({
     lat: search.lat ? Number(search.lat) : undefined,
     lng: search.lng ? Number(search.lng) : undefined,

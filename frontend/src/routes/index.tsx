@@ -4,6 +4,17 @@ import { useEffect, useRef, useState } from 'react'
 import { LocationSearch } from '#/components/LocationSearch'
 
 export const Route = createFileRoute('/')({
+  head: () => ({
+    meta: [
+      { title: '919Events - Discover Local Events Near You' },
+      { name: 'description', content: 'Find local concerts, meetups, festivals, and more happening in your area. Never miss out on what\'s going on nearby.' },
+      { property: 'og:title', content: '919Events - Discover Local Events Near You' },
+      { property: 'og:description', content: 'Find local concerts, meetups, festivals, and more happening in your area.' },
+    ],
+    links: [
+      { rel: 'canonical', href: 'https://919events.com/' },
+    ],
+  }),
   component: HomePage,
 })
 

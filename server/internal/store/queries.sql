@@ -274,3 +274,9 @@ DO UPDATE SET
     price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
 RETURNING *;
+
+-- name: ListEventIDsForSitemap :many
+SELECT id, updated_at FROM events WHERE start_time >= NOW() ORDER BY start_time ASC;
+
+-- name: ListVenueIDsForSitemap :many
+SELECT id, updated_at FROM venues ORDER BY id ASC;
