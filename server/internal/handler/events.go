@@ -58,6 +58,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	eastern, _ := time.LoadLocation("America/New_York")
 
 	dateStr := r.URL.Query().Get("date")
+	endDateStr := r.URL.Query().Get("end_date")
 	var startDate, endDate time.Time
 	if dateStr != "" {
 		startDate, err = time.ParseInLocation("2006-01-02", dateStr, eastern)
@@ -65,7 +66,17 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"invalid date format, use YYYY-MM-DD"}`, http.StatusBadRequest)
 			return
 		}
-		endDate = startDate.Add(24 * time.Hour)
+		if endDateStr != "" {
+			endDate, err = time.ParseInLocation("2006-01-02", endDateStr, eastern)
+			if err != nil {
+				http.Error(w, `{"error":"invalid end_date format, use YYYY-MM-DD"}`, http.StatusBadRequest)
+				return
+			}
+			// Include the full end date day
+			endDate = endDate.Add(24 * time.Hour)
+		} else {
+			endDate = startDate.Add(24 * time.Hour)
+		}
 	} else {
 		// No date specified: return all events from today forward
 		now := time.Now().In(eastern)
@@ -145,8 +156,9 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var events []store.Event
-	if dateStr == "" {
-		// No date filter: sort by date so upcoming events appear in order
+	multiDay := dateStr == "" || endDateStr != ""
+	if multiDay {
+		// Multi-day results: sort by day, then proximity, then time
 		events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
 			Lng:          listParams.Lng,
 			Lat:          listParams.Lat,

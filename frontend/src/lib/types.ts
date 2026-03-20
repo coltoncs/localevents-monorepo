@@ -53,6 +53,7 @@ export interface EventFilters {
   lng: number
   radius?: number
   date?: string
+  endDate?: string
   category?: string
   venueName?: string
   venueId?: string

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 
 const CATEGORIES = [
   'Music',
@@ -15,6 +17,7 @@ const CATEGORIES = [
 interface EventFiltersProps {
   category?: string
   date?: string
+  endDate?: string
   radius?: number
   search?: string
   view: 'list' | 'map'
@@ -22,9 +25,22 @@ interface EventFiltersProps {
   lng: number
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function formatDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export function EventFilters({
   category,
   date,
+  endDate,
   radius,
   search,
   view,
@@ -40,6 +56,18 @@ export function EventFilters({
       search: (prev) => ({ ...prev, lat, lng, view, page: undefined, ...updates }),
       replace: true,
     })
+  }
+
+  const startDate = date ? parseLocalDate(date) : null
+  const endDateObj = endDate ? parseLocalDate(endDate) : null
+
+  function handleDateChange(update: [Date | null, Date | null]) {
+    const [start, end] = update
+    const updates: Record<string, string | undefined> = {
+      date: start ? formatDateStr(start) : undefined,
+      endDate: end ? formatDateStr(end) : undefined,
+    }
+    updateSearch(updates)
   }
 
   return (
@@ -72,11 +100,16 @@ export function EventFilters({
         )}
       </form>
 
-      <input
-        type="date"
-        value={date ?? ''}
-        onChange={(e) => updateSearch({ date: e.target.value || undefined })}
-        className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm sm:w-auto"
+      <DatePicker
+        selectsRange
+        startDate={startDate}
+        endDate={endDateObj}
+        onChange={handleDateChange}
+        isClearable
+        placeholderText="Select dates..."
+        dateFormat="MMM d, yyyy"
+        className="w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm sm:w-52"
+        calendarClassName="event-datepicker"
       />
 
       <select
@@ -122,7 +155,7 @@ export function EventFilters({
             const updates: Record<string, string | undefined> = { view: 'map' }
             if (!date) {
               const today = new Date()
-              updates.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+              updates.date = formatDateStr(today)
             }
             updateSearch(updates)
           }}

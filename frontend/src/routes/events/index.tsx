@@ -17,6 +17,7 @@ interface EventsSearch {
   lng?: number
   radius?: number
   date?: string
+  endDate?: string
   category?: string
   search?: string
   view?: 'map' | 'list'
@@ -29,6 +30,7 @@ export const Route = createFileRoute('/events/')({
     lng: search.lng ? Number(search.lng) : undefined,
     radius: search.radius ? Number(search.radius) : undefined,
     date: (search.date as string) || undefined,
+    endDate: (search.endDate as string) || undefined,
     category: search.category as string | undefined,
     search: (search.search as string) || undefined,
     view: (search.view as 'map' | 'list') || undefined,
@@ -43,6 +45,7 @@ export const Route = createFileRoute('/events/')({
           lng: deps.lng,
           radius: deps.radius,
           date: deps.date,
+          endDate: deps.endDate,
           category: deps.category,
           search: deps.search,
           page: deps.page,
@@ -136,6 +139,7 @@ function EventsList({
     lng: search.lng,
     radius: search.radius,
     date: search.date,
+    endDate: search.endDate,
     category: search.category,
     search: search.search,
     page,
@@ -151,6 +155,7 @@ function EventsList({
     lng: search.lng,
     radius: search.radius,
     date: search.date,
+    endDate: search.endDate,
     category: search.category,
     search: search.search,
     limit: 500,
@@ -179,6 +184,7 @@ function EventsList({
       <EventFilters
         category={search.category}
         date={search.date}
+        endDate={search.endDate}
         radius={search.radius}
         search={search.search}
         view={view}
@@ -202,6 +208,9 @@ function EventsList({
           {search.date && (
             <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               {new Date(search.date + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {search.endDate && search.endDate !== search.date && (
+                <> &ndash; {new Date(search.endDate + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>
+              )}
             </span>
           )}
           {search.category && (
@@ -215,7 +224,7 @@ function EventsList({
               onClick={() =>
                 navigate({
                   to: '/events',
-                  search: (prev) => ({ ...prev, date: undefined, category: undefined, radius: undefined, search: undefined, page: undefined }),
+                  search: (prev) => ({ ...prev, date: undefined, endDate: undefined, category: undefined, radius: undefined, search: undefined, page: undefined }),
                   replace: true,
                 })
               }

@@ -71,10 +71,12 @@ AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::te
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
-ORDER BY ST_Distance(
-    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography
-) ASC, start_time ASC
+ORDER BY (start_time AT TIME ZONE 'America/New_York')::date ASC,
+    ST_Distance(
+        ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography
+    ) ASC,
+    start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
 
 -- name: CreateEvent :one
