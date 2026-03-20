@@ -536,10 +536,10 @@ AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::uuid IS NULL OR venue_id = $8::uuid)
 AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
-ORDER BY start_time ASC, ST_Distance(
+ORDER BY ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
-) ASC
+) ASC, start_time ASC
 LIMIT $11 OFFSET $10
 `
 
@@ -628,7 +628,10 @@ AND ($6::text IS NULL OR category = $6::text)
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::uuid IS NULL OR venue_id = $8::uuid)
 AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
-ORDER BY start_time ASC
+ORDER BY ST_Distance(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
+) ASC, start_time ASC
 LIMIT $11 OFFSET $10
 `
 
