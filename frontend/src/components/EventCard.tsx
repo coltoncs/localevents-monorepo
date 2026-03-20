@@ -1,15 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Event } from "#/lib/types";
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatEventTime } from "#/lib/date-utils";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -46,7 +37,7 @@ export function EventCard({ event }: { event: Event }) {
         )}
         <h3 className="font-semibold text-[var(--sea-ink)]">{event.Title}</h3>
         <p className="text-sm text-[var(--sea-ink-soft)]">
-          {formatDate(event.StartTime)}
+          {formatEventTime(event)}
         </p>
         {event.VenueName && (
           <p className="text-sm text-[var(--sea-ink-soft)]">

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import type { Map as MapboxMap } from 'mapbox-gl'
 import { EventMap } from '#/components/EventMap'
 import { useEvents } from '#/lib/hooks/useEvents'
+import { isAllDay } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
 
 const CATEGORIES = [
@@ -194,10 +195,12 @@ export function FullscreenMap({
 }
 
 function EventRow({ event, map }: { event: Event; map: MapboxMap | null }) {
-  const time = new Date(event.StartTime).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  const time = isAllDay(event)
+    ? 'All Day'
+    : new Date(event.StartTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
 
   function handleClick() {
     map?.flyTo({

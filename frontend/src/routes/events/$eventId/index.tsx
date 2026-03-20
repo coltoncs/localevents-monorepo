@@ -6,6 +6,7 @@ import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventMap } from '#/components/EventMap'
 import { SaveButton } from '#/components/SaveButton'
 import { useUser } from '#/lib/hooks/useUser'
+import { isAllDay, formatDateLong } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
 
 export const Route = createFileRoute('/events/$eventId/')({
@@ -16,17 +17,6 @@ export const Route = createFileRoute('/events/$eventId/')({
   },
   component: EventDetailPage,
 })
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
 
 function VenueName({ event }: { event: Event }) {
   return (
@@ -177,11 +167,19 @@ function EventDetailPage() {
           <div className="space-y-3 rounded-lg border border-(--line) bg-(--surface-strong) p-4">
             <div>
               <h3 className="text-sm font-medium text-(--sea-ink-soft)">When</h3>
-              <p className="text-(--sea-ink)">{formatDate(event.StartTime)}</p>
-              {event.EndTime && (
-                <p className="text-sm text-(--sea-ink-soft)">
-                  Until {formatDate(event.EndTime)}
+              {isAllDay(event) ? (
+                <p className="text-(--sea-ink)">
+                  {new Date(event.StartTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · All Day
                 </p>
+              ) : (
+                <>
+                  <p className="text-(--sea-ink)">{formatDateLong(event.StartTime)}</p>
+                  {event.EndTime && (
+                    <p className="text-sm text-(--sea-ink-soft)">
+                      Until {formatDateLong(event.EndTime)}
+                    </p>
+                  )}
+                </>
               )}
             </div>
 

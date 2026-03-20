@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-table'
 import { useState } from 'react'
 import type { Event } from '#/lib/types'
+import { isAllDay } from '#/lib/date-utils'
 
 const col = createColumnHelper<Event>()
 
@@ -52,8 +53,12 @@ const columns = [
   col.accessor('StartTime', {
     header: 'Date',
     cell: (info) => {
+      const event = info.row.original
       const d = new Date(info.getValue())
       const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      if (isAllDay(event)) {
+        return <span className="whitespace-nowrap">{date}, All Day</span>
+      }
       const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       return (
         <span className="whitespace-nowrap">
