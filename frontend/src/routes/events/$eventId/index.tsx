@@ -102,6 +102,13 @@ function EventDetailPage() {
           {canEdit && (
             <>
               <Link
+                to="/submit"
+                search={{ from: event.ID }}
+                className="text-nowrap rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 hover:bg-(--surface)"
+              >
+                <span className='text-sm font-medium text-(--sea-ink)'>Copy</span>
+              </Link>
+              <Link
                 to="/events/$eventId/edit"
                 params={{ eventId: event.ID }}
                 className="text-nowrap rounded-md bg-blue-600 px-3 py-1.5 hover:bg-blue-700"

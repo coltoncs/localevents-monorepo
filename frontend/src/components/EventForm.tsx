@@ -19,7 +19,27 @@ const CATEGORIES = [
   'Nightlife',
 ]
 
-export function EventForm() {
+interface EventFormProps {
+  initialValues?: {
+    title?: string
+    description?: string
+    venue_name?: string
+    venue_id?: string
+    address?: string
+    city?: string
+    state?: string
+    zip?: string
+    latitude?: number
+    longitude?: number
+    category?: string
+    image_url?: string
+    ticket_url?: string
+    price_min?: number
+    price_max?: number
+  }
+}
+
+export function EventForm({ initialValues }: EventFormProps = {}) {
   const navigate = useNavigate()
   const router = useRouter()
   const createEvent = useCreateEvent()
@@ -27,23 +47,23 @@ export function EventForm() {
 
   const form = useForm({
     defaultValues: {
-      title: '',
-      description: '',
-      venue_name: '',
-      venue_id: '',
-      address: '',
-      city: '',
-      state: 'NC',
-      zip: '',
-      latitude: savedLocation?.lat ?? 0,
-      longitude: savedLocation?.lng ?? 0,
+      title: initialValues?.title ?? '',
+      description: initialValues?.description ?? '',
+      venue_name: initialValues?.venue_name ?? '',
+      venue_id: initialValues?.venue_id ?? '',
+      address: initialValues?.address ?? '',
+      city: initialValues?.city ?? '',
+      state: initialValues?.state ?? 'NC',
+      zip: initialValues?.zip ?? '',
+      latitude: initialValues?.latitude ?? savedLocation?.lat ?? 0,
+      longitude: initialValues?.longitude ?? savedLocation?.lng ?? 0,
       start_time: '',
       end_time: '',
-      category: '',
-      image_url: '',
-      ticket_url: '',
-      price_min: '',
-      price_max: '',
+      category: initialValues?.category ?? '',
+      image_url: initialValues?.image_url ?? '',
+      ticket_url: initialValues?.ticket_url ?? '',
+      price_min: initialValues?.price_min != null ? String(initialValues.price_min) : '',
+      price_max: initialValues?.price_max != null ? String(initialValues.price_max) : '',
     } as Record<string, string | number>,
     onSubmit: async ({ value }) => {
       const data: CreateEventInput = {
