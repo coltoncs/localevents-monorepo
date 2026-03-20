@@ -1,7 +1,7 @@
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '#/lib/api'
 import { queryKeys } from '#/lib/query-keys'
-import type { Venue, VenueListResponse } from '#/lib/types'
+import type { Venue, VenueListResponse, UpdateVenueInput } from '#/lib/types'
 
 interface VenueFilters {
   lat: number
@@ -37,4 +37,21 @@ export function useVenues(filters: VenueFilters, enabled = true) {
 
 export function useVenue(id: string) {
   return useQuery(venueDetailOptions(id))
+}
+
+export function useUpdateVenue() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateVenueInput }) =>
+      apiClient<Venue>(`/api/venues/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.venues.all })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.venues.detail(variables.id),
+      })
+    },
+  })
 }

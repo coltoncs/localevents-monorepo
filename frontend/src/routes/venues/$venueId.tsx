@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
-import { useVenue, venueDetailOptions } from '#/lib/hooks/useVenues'
+import { useVenue, venueDetailOptions, useUpdateVenue } from '#/lib/hooks/useVenues'
 import { useUnsaveEvent, useSaveEvent, useSavedEvents } from '#/lib/hooks/useSavedEvents'
+import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventCard } from '#/components/EventCard'
 import { Pagination } from '#/components/Pagination'
 import { getSavedLocation } from '#/components/LocationSearch'
+import type { Venue } from '#/lib/types'
 
 const RALEIGH = { lat: 35.7796, lng: -78.6382 }
 const WIDE_RADIUS = 100
@@ -38,6 +41,101 @@ export const Route = createFileRoute('/venues/$venueId')({
   component: VenuePage,
 })
 
+function VenueEditForm({ venue, onClose }: { venue: Venue; onClose: () => void }) {
+  const updateVenue = useUpdateVenue()
+  const [name, setName] = useState(venue.VenueName)
+  const [address, setAddress] = useState(venue.Address || '')
+  const [city, setCity] = useState(venue.City || '')
+  const [state, setState] = useState(venue.State || '')
+  const [zip, setZip] = useState(venue.Zip || '')
+  const [hours, setHours] = useState(venue.Hours || '')
+  const [description, setDescription] = useState(venue.Description || '')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    await updateVenue.mutateAsync({
+      id: venue.ID,
+      data: {
+        name,
+        address: address || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        zip: zip || undefined,
+        latitude: venue.Latitude,
+        longitude: venue.Longitude,
+        hours: hours || undefined,
+        description: description || undefined,
+      },
+    })
+    onClose()
+  }
+
+  const inputClass = "mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]"
+  const labelClass = "block text-sm font-medium text-[var(--sea-ink-soft)]"
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4 space-y-4">
+      <h2 className="text-lg font-semibold text-[var(--sea-ink)]">Edit Venue</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className={labelClass}>Name *</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass}>Address</label>
+          <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>City</label>
+          <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
+        </div>
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className={labelClass}>State</label>
+            <select value={state} onChange={(e) => setState(e.target.value)} className={inputClass}>
+              <option value="">--</option>
+              <option value="NC">NC</option>
+              <option value="SC">SC</option>
+              <option value="VA">VA</option>
+            </select>
+          </div>
+          <div className="w-28">
+            <label className={labelClass}>ZIP</label>
+            <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} className={inputClass} />
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass}>Hours</label>
+          <input type="text" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. Mon-Fri 9am-5pm" className={inputClass} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass}>Description</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inputClass} />
+        </div>
+      </div>
+      {updateVenue.isError && (
+        <p className="text-sm text-red-600">Failed to update venue. Please try again.</p>
+      )}
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="cursor-pointer rounded-md border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] hover:bg-[var(--surface)]"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={updateVenue.isPending}
+          className="cursor-pointer rounded-md bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--lagoon)] disabled:opacity-50"
+        >
+          {updateVenue.isPending ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function VenuePage() {
   const { venueId } = Route.useParams()
   const { page: searchPage } = Route.useSearch()
@@ -46,6 +144,8 @@ function VenuePage() {
   const unsave = useUnsaveEvent()
   const save = useSaveEvent()
   const { data: savedEvents } = useSavedEvents()
+  const { isAdmin } = useUserRole()
+  const [editing, setEditing] = useState(false)
   const { lat, lng } = loc ?? RALEIGH
   const page = searchPage ?? 1
 
@@ -81,24 +181,39 @@ function VenuePage() {
         &larr; Back to events
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">
-          {venue?.VenueName ?? 'Venue'}
-        </h1>
-        {venue && (
-          <div className="mt-1 space-y-1 text-sm text-[var(--sea-ink-soft)]">
-            {(venue.Address || venue.City) && (
-              <p>
-                {[venue.Address, venue.City, venue.State, venue.Zip]
-                  .filter(Boolean)
-                  .join(', ')}
-              </p>
+      {editing && venue ? (
+        <VenueEditForm venue={venue} onClose={() => setEditing(false)} />
+      ) : (
+        <div>
+          <div className="flex items-start justify-between">
+            <h1 className="text-2xl font-bold text-[var(--sea-ink)]">
+              {venue?.VenueName ?? 'Venue'}
+            </h1>
+            {isAdmin && venue && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Edit
+              </button>
             )}
-            {venue.Hours && <p>Hours: {venue.Hours}</p>}
-            {venue.Description && <p className="mt-2">{venue.Description}</p>}
           </div>
-        )}
-      </div>
+          {venue && (
+            <div className="mt-1 space-y-1 text-sm text-[var(--sea-ink-soft)]">
+              {(venue.Address || venue.City) && (
+                <p>
+                  {[venue.Address, venue.City, venue.State, venue.Zip]
+                    .filter(Boolean)
+                    .join(', ')}
+                </p>
+              )}
+              {venue.Hours && <p>Hours: {venue.Hours}</p>}
+              {venue.Description && <p className="mt-2">{venue.Description}</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="py-12 text-center text-[var(--sea-ink-soft)]">

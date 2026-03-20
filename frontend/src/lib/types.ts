@@ -98,6 +98,18 @@ export interface VenueListResponse {
   venues: Venue[]
 }
 
+export interface UpdateVenueInput {
+  name: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  latitude: number
+  longitude: number
+  hours?: string
+  description?: string
+}
+
 export interface UpdateUserInput {
   default_latitude?: number
   default_longitude?: number
