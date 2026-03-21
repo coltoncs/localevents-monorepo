@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate, useRouter } from '@tanstack/react-router'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import { useCreateEvent } from '#/lib/hooks/useEvents'
 import type { CreateEventInput, Venue } from '#/lib/types'
 import { LocationPickerMap } from '#/components/LocationPickerMap'
@@ -18,6 +21,8 @@ const CATEGORIES = [
   'Outdoors',
   'Nightlife',
 ]
+
+type DateMode = 'single' | 'range' | 'multiple'
 
 interface EventFormProps {
   initialValues?: {
@@ -39,11 +44,68 @@ interface EventFormProps {
   }
 }
 
+function combineDateAndTime(date: Date, time: Date | null): Date {
+  const result = new Date(date)
+  if (time) {
+    result.setHours(time.getHours(), time.getMinutes(), 0, 0)
+  } else {
+    result.setHours(0, 0, 0, 0)
+  }
+  return result
+}
+
+function formatDateStr(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+const inputClass = "mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+const labelClass = "block text-sm font-medium text-(--sea-ink-soft)"
+
 export function EventForm({ initialValues }: EventFormProps = {}) {
   const navigate = useNavigate()
   const router = useRouter()
   const createEvent = useCreateEvent()
   const savedLocation = getSavedLocation()
+
+  const [dateMode, setDateMode] = useState<DateMode>('single')
+  const [singleDate, setSingleDate] = useState<Date | null>(null)
+  const [rangeStart, setRangeStart] = useState<Date | null>(null)
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
+  const [multipleDates, setMultipleDates] = useState<Date[]>([])
+  const [startTime, setStartTime] = useState<Date | null>(null)
+  const [endTime, setEndTime] = useState<Date | null>(null)
+  const [sameTimeAllDays, setSameTimeAllDays] = useState(true)
+  const [perDateTimes, setPerDateTimes] = useState<Map<number, { start: Date | null; end: Date | null }>>(new Map())
+  const [dateError, setDateError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  function setPerDateTime(dateKey: number, field: 'start' | 'end', value: Date | null) {
+    setPerDateTimes((prev) => {
+      const next = new Map(prev)
+      const entry = next.get(dateKey) ?? { start: null, end: null }
+      next.set(dateKey, { ...entry, [field]: value })
+      return next
+    })
+  }
+
+  function getEventDates(): Date[] {
+    switch (dateMode) {
+      case 'single':
+        return singleDate ? [singleDate] : []
+      case 'range': {
+        if (!rangeStart || !rangeEnd) return []
+        const dates: Date[] = []
+        const current = new Date(rangeStart)
+        while (current <= rangeEnd) {
+          dates.push(new Date(current))
+          current.setDate(current.getDate() + 1)
+        }
+        return dates
+      }
+      case 'multiple':
+        return [...multipleDates].sort((a, b) => a.getTime() - b.getTime())
+    }
+  }
 
   const form = useForm({
     defaultValues: {
@@ -57,8 +119,6 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
       zip: initialValues?.zip ?? '',
       latitude: initialValues?.latitude ?? savedLocation?.lat ?? 0,
       longitude: initialValues?.longitude ?? savedLocation?.lng ?? 0,
-      start_time: '',
-      end_time: '',
       category: initialValues?.category ?? '',
       image_url: initialValues?.image_url ?? '',
       ticket_url: initialValues?.ticket_url ?? '',
@@ -66,30 +126,94 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
       price_max: initialValues?.price_max != null ? String(initialValues.price_max) : '',
     } as Record<string, string | number>,
     onSubmit: async ({ value }) => {
-      const data: CreateEventInput = {
-        title: value.title as string,
-        latitude: Number(value.latitude),
-        longitude: Number(value.longitude),
-        start_time: new Date(value.start_time as string).toISOString(),
+      const eventDates = getEventDates()
+      if (eventDates.length === 0) {
+        setDateError('At least one date is required')
+        return
       }
+      const usePerDate = dateMode === 'multiple' && !sameTimeAllDays
+      if (!usePerDate && !startTime) {
+        setDateError('Start time is required')
+        return
+      }
+      if (usePerDate) {
+        const missing = eventDates.find((d) => !perDateTimes.get(d.getTime())?.start)
+        if (missing) {
+          setDateError(`Start time is required for ${formatDateStr(missing)}`)
+          return
+        }
+      }
+      setDateError(null)
+      setSubmitting(true)
 
-      if (value.description) data.description = value.description as string
-      if (value.venue_name) data.venue_name = value.venue_name as string
-      if (value.address) data.address = value.address as string
-      if (value.city) data.city = value.city as string
-      if (value.state) data.state = value.state as string
-      if (value.zip) data.zip = value.zip as string
-      if (value.end_time)
-        data.end_time = new Date(value.end_time as string).toISOString()
-      if (value.category) data.category = value.category as string
-      if (value.image_url) data.image_url = value.image_url as string
-      if (value.ticket_url) data.ticket_url = value.ticket_url as string
-      if (value.price_min) data.price_min = Number(value.price_min)
-      if (value.price_max) data.price_max = Number(value.price_max)
-      if (value.venue_id) data.venue_id = value.venue_id as string
+      try {
+        const base: Omit<CreateEventInput, 'start_time'> = {
+          title: value.title as string,
+          latitude: Number(value.latitude),
+          longitude: Number(value.longitude),
+        }
+        if (value.description) base.description = value.description as string
+        if (value.venue_name) base.venue_name = value.venue_name as string
+        if (value.address) base.address = value.address as string
+        if (value.city) base.city = value.city as string
+        if (value.state) base.state = value.state as string
+        if (value.zip) base.zip = value.zip as string
+        if (value.category) base.category = value.category as string
+        if (value.image_url) base.image_url = value.image_url as string
+        if (value.ticket_url) base.ticket_url = value.ticket_url as string
+        if (value.price_min) base.price_min = Number(value.price_min)
+        if (value.price_max) base.price_max = Number(value.price_max)
+        if (value.venue_id) base.venue_id = value.venue_id as string
 
-      const event = await createEvent.mutateAsync(data)
-      navigate({ to: '/events/$eventId', params: { eventId: event.ID } })
+        let lastEvent = null
+        const isRange = dateMode === 'range' && eventDates.length > 1
+        for (let i = 0; i < eventDates.length; i++) {
+          const date = eventDates[i]
+          const isFirst = i === 0
+          const isLast = i === eventDates.length - 1
+          const data: CreateEventInput = { ...base, start_time: '' }
+
+          if (usePerDate) {
+            // Multiple dates with individual times
+            const times = perDateTimes.get(date.getTime())
+            data.start_time = combineDateAndTime(date, times?.start ?? null).toISOString()
+            if (times?.end) {
+              data.end_time = combineDateAndTime(date, times.end).toISOString()
+            }
+          } else if (!isRange) {
+            // Single / multiple (same time): same start+end time for every date
+            data.start_time = combineDateAndTime(date, startTime).toISOString()
+            if (endTime) {
+              data.end_time = combineDateAndTime(date, endTime).toISOString()
+            }
+          } else if (isFirst) {
+            // First day: starts at chosen start time, no end time
+            data.start_time = combineDateAndTime(date, startTime).toISOString()
+          } else if (isLast) {
+            // Last day: starts at midnight, ends at chosen end time
+            data.start_time = combineDateAndTime(date, null).toISOString()
+            if (endTime) {
+              data.end_time = combineDateAndTime(date, endTime).toISOString()
+            }
+          } else {
+            // Middle days: all day (midnight to 11:59 PM)
+            data.start_time = combineDateAndTime(date, null).toISOString()
+            const endOfDay = new Date(date)
+            endOfDay.setHours(23, 59, 0, 0)
+            data.end_time = endOfDay.toISOString()
+          }
+
+          lastEvent = await createEvent.mutateAsync(data)
+        }
+
+        if (eventDates.length === 1 && lastEvent) {
+          navigate({ to: '/events/$eventId', params: { eventId: lastEvent.ID } })
+        } else {
+          navigate({ to: '/events' })
+        }
+      } finally {
+        setSubmitting(false)
+      }
     },
   })
 
@@ -103,6 +227,9 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
     form.setFieldValue('latitude', venue.Latitude)
     form.setFieldValue('longitude', venue.Longitude)
   }
+
+  const eventDates = getEventDates()
+  const eventCount = eventDates.length
 
   return (
     <form
@@ -123,15 +250,13 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           >
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                  Title *
-                </label>
+                <label className={labelClass}>Title *</label>
                 <input
                   type="text"
                   value={field.state.value as string}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
-                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                  className={inputClass}
                 />
                 {field.state.meta.errors?.length > 0 && (
                   <p className="mt-1 text-sm text-red-600">
@@ -147,9 +272,7 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           <form.Field name="description">
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                  Description
-                </label>
+                <label className={labelClass}>Description</label>
                 <div className="mt-1">
                   <SimpleEditor
                     content={field.state.value as string}
@@ -174,14 +297,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="venue_name">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Venue Name
-              </label>
+              <label className={labelClass}>Venue Name</label>
               <input
                 type="text"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -190,14 +311,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="address">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Address
-              </label>
+              <label className={labelClass}>Address</label>
               <input
                 type="text"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -206,14 +325,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="city">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                City
-              </label>
+              <label className={labelClass}>City</label>
               <input
                 type="text"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -223,13 +340,11 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           <form.Field name="state">
             {(field) => (
               <div className="flex-1">
-                <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                  State
-                </label>
+                <label className={labelClass}>State</label>
                 <select
                   value={field.state.value as string}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                  className={inputClass}
                 >
                   <option value="NC">NC</option>
                   <option value="SC">SC</option>
@@ -241,14 +356,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           <form.Field name="zip">
             {(field) => (
               <div className="w-28">
-                <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                  ZIP
-                </label>
+                <label className={labelClass}>ZIP</label>
                 <input
                   type="text"
                   value={field.state.value as string}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                  className={inputClass}
                 />
               </div>
             )}
@@ -282,15 +395,13 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         >
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Latitude *
-              </label>
+              <label className={labelClass}>Latitude *</label>
               <input
                 type="number"
                 step="any"
                 value={field.state.value as number}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
               {field.state.meta.errors?.length > 0 && (
                 <p className="mt-1 text-sm text-red-600">
@@ -310,15 +421,13 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         >
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Longitude *
-              </label>
+              <label className={labelClass}>Longitude *</label>
               <input
                 type="number"
                 step="any"
                 value={field.state.value as number}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
               {field.state.meta.errors?.length > 0 && (
                 <p className="mt-1 text-sm text-red-600">
@@ -329,59 +438,229 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           )}
         </form.Field>
 
-        <form.Field
-          name="start_time"
-          validators={{
-            onChange: ({ value }) =>
-              !value ? 'Start time is required' : undefined,
-          }}
-        >
-          {(field) => (
-            <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Start Time *
-              </label>
-              <input
-                type="datetime-local"
-                value={field.state.value as string}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-              />
-              {field.state.meta.errors?.length > 0 && (
-                <p className="mt-1 text-sm text-red-600">
-                  {field.state.meta.errors[0]}
-                </p>
-              )}
+        {/* Date & Time Section */}
+        <div className="sm:col-span-2 space-y-4 rounded-lg border border-(--line) bg-(--surface) p-4">
+          <div>
+            <label className={labelClass}>Date Selection *</label>
+            <div className="mt-1 flex rounded-md border border-(--line) w-fit">
+              {(['single', 'range', 'multiple'] as const).map((mode, i) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setDateMode(mode)
+                    setDateError(null)
+                  }}
+                  className={`cursor-pointer px-3 py-1.5 text-sm font-medium ${
+                    dateMode === mode
+                      ? 'bg-(--lagoon-deep) text-white'
+                      : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
+                  } ${i === 0 ? 'rounded-l-md' : ''} ${i === 2 ? 'rounded-r-md' : ''}`}
+                >
+                  {mode === 'single' ? 'Single Date' : mode === 'range' ? 'Date Range' : 'Multiple Dates'}
+                </button>
+              ))}
             </div>
-          )}
-        </form.Field>
+          </div>
 
-        <form.Field name="end_time">
-          {(field) => (
-            <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                End Time
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-0 flex-1 basis-48">
+              <label className={labelClass}>
+                {dateMode === 'single' ? 'Date *' : dateMode === 'range' ? 'Date Range *' : 'Select Dates *'}
               </label>
-              <input
-                type="datetime-local"
-                value={field.state.value as string}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-              />
+              <div className="mt-1">
+                {dateMode === 'single' && (
+                  <DatePicker
+                    selected={singleDate}
+                    onChange={(date: Date | null) => {
+                      setSingleDate(date)
+                      setDateError(null)
+                    }}
+                    minDate={new Date()}
+                    dateFormat="MMM d, yyyy"
+                    placeholderText="Select a date..."
+                    className={inputClass}
+                    calendarClassName="event-datepicker"
+                    isClearable
+                  />
+                )}
+                {dateMode === 'range' && (
+                  <DatePicker
+                    selectsRange
+                    startDate={rangeStart}
+                    endDate={rangeEnd}
+                    onChange={([start, end]) => {
+                      setRangeStart(start)
+                      setRangeEnd(end)
+                      setDateError(null)
+                    }}
+                    minDate={new Date()}
+                    dateFormat="MMM d, yyyy"
+                    placeholderText="Select date range..."
+                    className={inputClass}
+                    calendarClassName="event-datepicker"
+                    isClearable
+                  />
+                )}
+                {dateMode === 'multiple' && (
+                  <DatePicker
+                    selectsMultiple
+                    selectedDates={multipleDates}
+                    onChange={(dates: Date[] | null) => {
+                      setMultipleDates(dates ?? [])
+                      setDateError(null)
+                    }}
+                    minDate={new Date()}
+                    dateFormat="MMM d, yyyy"
+                    placeholderText="Click to select dates..."
+                    className={inputClass}
+                    calendarClassName="event-datepicker"
+                    shouldCloseOnSelect={false}
+                  />
+                )}
+              </div>
             </div>
+
+            {(dateMode !== 'multiple' || sameTimeAllDays) && (
+              <>
+                <div className="min-w-0 flex-1 basis-36">
+                  <label className={labelClass}>Start Time *</label>
+                  <DatePicker
+                    selected={startTime}
+                    onChange={(date: Date | null) => {
+                      setStartTime(date)
+                      setDateError(null)
+                    }}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="Start"
+                    dateFormat="h:mm aa"
+                    placeholderText="Select start time..."
+                    className={inputClass}
+                    calendarClassName="event-datepicker"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1 basis-36">
+                  <label className={labelClass}>End Time</label>
+                  <DatePicker
+                    selected={endTime}
+                    onChange={(date: Date | null) => setEndTime(date)}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="End"
+                    dateFormat="h:mm aa"
+                    placeholderText="Select end time..."
+                    className={inputClass}
+                    calendarClassName="event-datepicker"
+                    isClearable
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {dateMode === 'multiple' && multipleDates.length > 0 && (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {[...multipleDates].sort((a, b) => a.getTime() - b.getTime()).map((d, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-xs font-medium text-(--lagoon-deep)"
+                  >
+                    {formatDateStr(d)}
+                    <button
+                      type="button"
+                      onClick={() => setMultipleDates(multipleDates.filter((_, j) => j !== i))}
+                      className="cursor-pointer text-(--sea-ink-soft) hover:text-(--sea-ink)"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-(--sea-ink-soft) cursor-pointer w-fit">
+                <input
+                  type="checkbox"
+                  checked={!sameTimeAllDays}
+                  onChange={(e) => setSameTimeAllDays(!e.target.checked)}
+                  className="accent-(--lagoon-deep)"
+                />
+                Set individual times per day
+              </label>
+
+              {!sameTimeAllDays && (
+                <div className="space-y-3">
+                  {[...multipleDates].sort((a, b) => a.getTime() - b.getTime()).map((d) => {
+                    const key = d.getTime()
+                    const times = perDateTimes.get(key)
+                    return (
+                      <div key={key} className="flex flex-wrap items-end gap-3 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2.5">
+                        <span className="self-center text-sm font-medium text-(--sea-ink) min-w-28">
+                          {formatDateStr(d)}
+                        </span>
+                        <div className="min-w-0 flex-1 basis-32">
+                          <label className="block text-xs font-medium text-(--sea-ink-soft)">Start *</label>
+                          <DatePicker
+                            selected={times?.start ?? null}
+                            onChange={(date: Date | null) => setPerDateTime(key, 'start', date)}
+                            showTimeSelect
+                            showTimeSelectOnly
+                            timeIntervals={15}
+                            timeCaption="Start"
+                            dateFormat="h:mm aa"
+                            placeholderText="Start time..."
+                            className={inputClass}
+                            calendarClassName="event-datepicker"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1 basis-32">
+                          <label className="block text-xs font-medium text-(--sea-ink-soft)">End</label>
+                          <DatePicker
+                            selected={times?.end ?? null}
+                            onChange={(date: Date | null) => setPerDateTime(key, 'end', date)}
+                            showTimeSelect
+                            showTimeSelectOnly
+                            timeIntervals={15}
+                            timeCaption="End"
+                            dateFormat="h:mm aa"
+                            placeholderText="End time..."
+                            className={inputClass}
+                            calendarClassName="event-datepicker"
+                            isClearable
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
-        </form.Field>
+
+          {dateError && (
+            <p className="text-sm text-red-600">{dateError}</p>
+          )}
+
+          {eventCount > 1 && (
+            <p className="text-sm text-(--sea-ink-soft)">
+              This will create <span className="font-semibold text-(--lagoon-deep)">{eventCount} events</span>
+              {' '}with the same details, one for each selected date.
+            </p>
+          )}
+        </div>
 
         <form.Field name="category">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Category
-              </label>
+              <label className={labelClass}>Category</label>
               <select
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               >
                 <option value="">Select a category</option>
                 {CATEGORIES.map((c) => (
@@ -408,14 +687,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="ticket_url">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Ticket URL
-              </label>
+              <label className={labelClass}>Ticket URL</label>
               <input
                 type="url"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -424,16 +701,14 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="price_min">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Min Price ($)
-              </label>
+              <label className={labelClass}>Min Price ($)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -442,16 +717,14 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         <form.Field name="price_max">
           {(field) => (
             <div>
-              <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                Max Price ($)
-              </label>
+              <label className={labelClass}>Max Price ($)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={field.state.value as string}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+                className={inputClass}
               />
             </div>
           )}
@@ -474,10 +747,16 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         </button>
         <button
           type="submit"
-          disabled={createEvent.isPending}
+          disabled={submitting}
           className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
         >
-          {createEvent.isPending ? 'Submitting...' : 'Submit Event'}
+          {submitting
+            ? eventCount > 1
+              ? `Creating ${eventCount} Events...`
+              : 'Submitting...'
+            : eventCount > 1
+              ? `Submit ${eventCount} Events`
+              : 'Submit Event'}
         </button>
       </div>
     </form>

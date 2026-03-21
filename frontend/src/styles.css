@@ -392,6 +392,36 @@ a {
   background-color: var(--sea-ink) !important;
 }
 
+.event-datepicker .react-datepicker-time__header {
+  color: var(--sea-ink);
+}
+
+.event-datepicker .react-datepicker__time-container {
+  border-left: 1px solid var(--line);
+}
+
+.event-datepicker .react-datepicker__time-container .react-datepicker__time {
+  background: var(--surface-strong);
+}
+
+.event-datepicker .react-datepicker__time-container .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item {
+  color: var(--sea-ink);
+}
+
+.event-datepicker .react-datepicker__time-container .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
+  background: var(--surface);
+}
+
+.event-datepicker .react-datepicker__time-container .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
+  background: var(--lagoon-deep) !important;
+  color: white !important;
+}
+
+.event-datepicker .react-datepicker__time-container .react-datepicker__time-list-item--disabled {
+  color: var(--sea-ink-soft) !important;
+  opacity: 0.3;
+}
+
 /* Override Tailwind Typography prose colors to respect theme variables */
 .prose {
   --tw-prose-body: var(--sea-ink-soft);
