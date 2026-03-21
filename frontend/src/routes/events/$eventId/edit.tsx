@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useForm } from '@tanstack/react-form'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import { useEvent, eventDetailOptions, useUpdateEvent } from '#/lib/hooks/useEvents'
 import type { CreateEventInput, Venue } from '#/lib/types'
@@ -37,18 +40,22 @@ function EditEventPage() {
   )
 }
 
-function toLocalDatetime(iso: string) {
-  const d = new Date(iso)
-  const offset = d.getTimezoneOffset()
-  const local = new Date(d.getTime() - offset * 60000)
-  return local.toISOString().slice(0, 16)
-}
+const inputClass = "mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+const labelClass = "block text-sm font-medium text-(--sea-ink-soft)"
 
 function EditEventContent() {
   const { eventId } = Route.useParams()
   const { data: event, isLoading } = useEvent(eventId)
   const updateEvent = useUpdateEvent()
   const router = useRouter()
+
+  const [startDate, setStartDate] = useState<Date | null>(
+    event?.StartTime ? new Date(event.StartTime) : null,
+  )
+  const [endDate, setEndDate] = useState<Date | null>(
+    event?.EndTime ? new Date(event.EndTime) : null,
+  )
+  const [dateError, setDateError] = useState<string | null>(null)
 
   const form = useForm({
     defaultValues: {
@@ -61,8 +68,6 @@ function EditEventContent() {
       zip: event?.Zip ?? '',
       latitude: event?.Latitude ?? 0,
       longitude: event?.Longitude ?? 0,
-      start_time: event?.StartTime ? toLocalDatetime(event.StartTime) : '',
-      end_time: event?.EndTime ? toLocalDatetime(event.EndTime) : '',
       category: event?.Category ?? '',
       image_url: event?.ImageUrl ?? '',
       ticket_url: event?.TicketUrl ?? '',
@@ -70,11 +75,17 @@ function EditEventContent() {
       price_max: event?.PriceMax != null ? String(event.PriceMax) : '',
     } as Record<string, string | number>,
     onSubmit: async ({ value }) => {
+      if (!startDate) {
+        setDateError('Start date & time is required')
+        return
+      }
+      setDateError(null)
+
       const data: CreateEventInput = {
         title: value.title as string,
         latitude: Number(value.latitude),
         longitude: Number(value.longitude),
-        start_time: new Date(value.start_time as string).toISOString(),
+        start_time: startDate.toISOString(),
       }
 
       if (value.description) data.description = value.description as string
@@ -83,8 +94,7 @@ function EditEventContent() {
       if (value.city) data.city = value.city as string
       if (value.state) data.state = value.state as string
       if (value.zip) data.zip = value.zip as string
-      if (value.end_time)
-        data.end_time = new Date(value.end_time as string).toISOString()
+      if (endDate) data.end_time = endDate.toISOString()
       if (value.category) data.category = value.category as string
       if (value.image_url) data.image_url = value.image_url as string
       if (value.ticket_url) data.ticket_url = value.ticket_url as string
@@ -348,48 +358,44 @@ function EditEventContent() {
               )}
             </form.Field>
 
-            <form.Field
-              name="start_time"
-              validators={{
-                onChange: ({ value }) =>
-                  !value ? 'Start time is required' : undefined,
-              }}
-            >
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Start Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                  {field.state.meta.errors?.length > 0 && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {field.state.meta.errors[0]}
-                    </p>
-                  )}
-                </div>
+            <div>
+              <label className={labelClass}>Start Date & Time *</label>
+              <DatePicker
+                selected={startDate}
+                onChange={(date: Date | null) => {
+                  setStartDate(date)
+                  setDateError(null)
+                }}
+                showTimeSelect
+                timeIntervals={15}
+                timeCaption="Time"
+                dateFormat="MMM d, yyyy h:mm aa"
+                placeholderText="Select start date & time..."
+                className={inputClass}
+                calendarClassName="event-datepicker"
+                isClearable
+              />
+              {dateError && (
+                <p className="mt-1 text-sm text-red-600">{dateError}</p>
               )}
-            </form.Field>
+            </div>
 
-            <form.Field name="end_time">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    End Time
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+            <div>
+              <label className={labelClass}>End Date & Time</label>
+              <DatePicker
+                selected={endDate}
+                onChange={(date: Date | null) => setEndDate(date)}
+                showTimeSelect
+                timeIntervals={15}
+                timeCaption="Time"
+                dateFormat="MMM d, yyyy h:mm aa"
+                minDate={startDate ?? undefined}
+                placeholderText="Select end date & time..."
+                className={inputClass}
+                calendarClassName="event-datepicker"
+                isClearable
+              />
+            </div>
 
             <form.Field name="category">
               {(field) => (
