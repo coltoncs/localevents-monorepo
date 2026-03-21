@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAuth, useClerk } from '@clerk/clerk-react'
 import { PricingTable } from '@clerk/clerk-react'
@@ -21,14 +20,13 @@ export const Route = createFileRoute('/donate')({
 function DonatePage() {
   const { isSignedIn } = useAuth()
   const { openSignIn } = useClerk()
-  const [qrOpen, setQrOpen] = useState(false)
 
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell rounded-2xl p-6 sm:p-8">
         <p className="island-kicker mb-2">Support Us</p>
         <h1 className="display-title mb-3 text-4xl font-bold text-[var(--sea-ink)] sm:text-5xl">
-          Help keep events free.
+          Help keep 919Events free.
         </h1>
         <p className="mt-2 max-w-2xl text-base leading-8 text-[var(--sea-ink-soft)]">
           919Events is free for everyone and always will be. If you'd like to
@@ -37,25 +35,17 @@ function DonatePage() {
         </p>
 
         <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Zelle section */}
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-6 text-center">
+          {/* CashApp section */}
+          <div className="flex flex-col items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] p-6 text-center">
             <h2 className="text-lg font-semibold text-[var(--sea-ink)]">
-              One-time via Zelle
+              One-time via Cash App
             </h2>
             <p className="mt-1 text-sm text-[var(--sea-ink-soft)]">
-              Scan this QR code in your bank's app to send a one-time donation.
+              Send a one-time donation of any amount.
             </p>
-            <button
-              type="button"
-              onClick={() => setQrOpen(true)}
-              className="mx-auto mt-4 block cursor-pointer rounded-lg border-0 bg-transparent p-0"
-            >
-              <img
-                src="/zelle-qr.jpg"
-                alt="Zelle QR code to donate — click to enlarge"
-                className="w-56 rounded-lg transition hover:opacity-80"
-              />
-            </button>
+            <p className="mt-4 text-2xl font-bold text-[var(--lagoon-deep)]">
+              $coltoncs
+            </p>
           </div>
 
           {/* Subscription section */}
@@ -83,31 +73,6 @@ function DonatePage() {
           </div>
         </div>
       </section>
-
-      {qrOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setQrOpen(false)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-[90vw]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src="/zelle-qr.jpg"
-              alt="Zelle QR code to donate"
-              className="max-h-[85vh] rounded-xl"
-            />
-            <button
-              type="button"
-              onClick={() => setQrOpen(false)}
-              className="absolute -right-3 -top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink)] shadow-lg hover:bg-[var(--surface)]"
-            >
-              &times;
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   )
 }
