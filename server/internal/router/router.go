@@ -34,6 +34,7 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 			r.Use(middleware.OptionalAuth())
 			r.Get("/events", eventHandler.List)
 			r.Get("/events/{id}", eventHandler.Get)
+			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
 			r.Get("/venues", venueHandler.List)
 			r.Get("/venues/{id}", venueHandler.Get)
 		})

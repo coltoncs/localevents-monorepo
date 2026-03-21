@@ -1,23 +1,28 @@
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth, useClerk } from '@clerk/clerk-react'
 import { Heart } from 'lucide-react'
 import {
   useSavedEvents,
   useSaveEvent,
   useUnsaveEvent,
+  useEventSaveCount,
 } from '#/lib/hooks/useSavedEvents'
 
 export function SaveButton({ eventId }: { eventId: string }) {
   const { isSignedIn } = useAuth()
+  const { openSignIn } = useClerk()
   const { data: savedEvents } = useSavedEvents()
   const saveEvent = useSaveEvent()
   const unsaveEvent = useUnsaveEvent()
+  const { data: saveCount } = useEventSaveCount(eventId)
 
-  if (!isSignedIn) return null
-
-  const isSaved = savedEvents?.some((e) => e.ID === eventId)
+  const isSaved = isSignedIn && savedEvents?.some((e) => e.ID === eventId)
   const isPending = saveEvent.isPending || unsaveEvent.isPending
 
   function handleToggle() {
+    if (!isSignedIn) {
+      openSignIn()
+      return
+    }
     if (isSaved) {
       unsaveEvent.mutate(eventId)
     } else {
@@ -37,6 +42,7 @@ export function SaveButton({ eventId }: { eventId: string }) {
     >
       <Heart size={15} className={isSaved ? 'fill-red-500 text-red-500' : ''} />
       {isSaved ? 'Saved' : 'Save'}
+      {saveCount ? <span className="text-xs opacity-70">({saveCount})</span> : null}
     </button>
   )
 }

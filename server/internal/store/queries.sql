@@ -111,6 +111,9 @@ RETURNING *;
 -- name: UnsaveEvent :exec
 DELETE FROM saved_events WHERE user_id = $1 AND event_id = $2;
 
+-- name: GetEventSaveCount :one
+SELECT COUNT(*) FROM saved_events WHERE event_id = $1;
+
 -- name: DeletePastEvents :execrows
 DELETE FROM events
 WHERE start_time < NOW()::date;

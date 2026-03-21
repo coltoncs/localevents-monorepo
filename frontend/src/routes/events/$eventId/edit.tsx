@@ -5,6 +5,7 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import { useEvent, eventDetailOptions, useUpdateEvent } from '#/lib/hooks/useEvents'
+import { CategoryPicker } from '#/components/EventForm'
 import type { CreateEventInput, Venue } from '#/lib/types'
 import { LocationPickerMap } from '#/components/LocationPickerMap'
 import { VenueCombobox } from '#/components/VenueCombobox'
@@ -12,16 +13,6 @@ import { ImageUpload } from '#/components/ImageUpload'
 import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
 import { Spinner } from '#/components/Spinner'
 
-const CATEGORIES = [
-  'Music',
-  'Sports',
-  'Arts',
-  'Food',
-  'Tech',
-  'Community',
-  'Outdoors',
-  'Nightlife',
-]
 
 export const Route = createFileRoute('/events/$eventId/edit')({
   loader: async ({ context, params }) => {
@@ -62,6 +53,7 @@ function EditEventContent() {
       title: event?.Title ?? '',
       description: event?.Description ?? '',
       venue_name: event?.VenueName ?? '',
+      venue_id: event?.VenueID ?? '',
       address: event?.Address ?? '',
       city: event?.City ?? '',
       state: event?.State ?? '',
@@ -90,6 +82,7 @@ function EditEventContent() {
 
       if (value.description) data.description = value.description as string
       if (value.venue_name) data.venue_name = value.venue_name as string
+      if (value.venue_id) data.venue_id = value.venue_id as string
       if (value.address) data.address = value.address as string
       if (value.city) data.city = value.city as string
       if (value.state) data.state = value.state as string
@@ -108,6 +101,7 @@ function EditEventContent() {
 
   function handleVenueSelect(venue: Venue) {
     form.setFieldValue('venue_name', venue.VenueName)
+    form.setFieldValue('venue_id', venue.ID)
     form.setFieldValue('address', venue.Address || '')
     form.setFieldValue('city', venue.City || '')
     form.setFieldValue('state', venue.State || '')
@@ -399,23 +393,12 @@ function EditEventContent() {
 
             <form.Field name="category">
               {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Category
-                  </label>
-                  <select
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  >
-                    <option value="">Select a category</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CategoryPicker
+                  value={field.state.value as string}
+                  onChange={(v) => field.handleChange(v)}
+                  className={inputClass}
+                  labelClassName={labelClass}
+                />
               )}
             </form.Field>
 

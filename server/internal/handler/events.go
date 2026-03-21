@@ -438,6 +438,26 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(updated)
 }
 
+func (h *EventHandler) SaveCount(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid event id"}`, http.StatusBadRequest)
+		return
+	}
+
+	count, err := h.queries.GetEventSaveCount(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		http.Error(w, `{"error":"failed to get save count"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Count int64 `json:"count"`
+	}{Count: count})
+}
+
 func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {

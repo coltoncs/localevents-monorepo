@@ -17,13 +17,22 @@ export function useSavedEvents() {
   return useQuery(savedEventsOptions)
 }
 
+export function useEventSaveCount(eventId: string) {
+  return useQuery({
+    queryKey: queryKeys.saveCounts.detail(eventId),
+    queryFn: () => apiClient<{ count: number }>(`/api/events/${eventId}/save-count`),
+    select: (data) => data.count,
+  })
+}
+
 export function useSaveEvent() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (eventId: string) =>
       apiClient<SavedEvent>(`/api/me/saved/${eventId}`, { method: 'POST' }),
-    onSuccess: () => {
+    onSuccess: (_data, eventId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.savedEvents.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saveCounts.detail(eventId) })
     },
   })
 }
@@ -33,8 +42,9 @@ export function useUnsaveEvent() {
   return useMutation({
     mutationFn: (eventId: string) =>
       apiClient<void>(`/api/me/saved/${eventId}`, { method: 'DELETE' }),
-    onSuccess: () => {
+    onSuccess: (_data, eventId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.savedEvents.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saveCounts.detail(eventId) })
     },
   })
 }

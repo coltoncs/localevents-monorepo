@@ -11,7 +11,7 @@ import { ImageUpload } from '#/components/ImageUpload'
 import { getSavedLocation } from '#/components/LocationSearch'
 import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
 
-const CATEGORIES = [
+export const CATEGORIES = [
   'Music',
   'Sports',
   'Arts',
@@ -21,6 +21,71 @@ const CATEGORIES = [
   'Outdoors',
   'Nightlife',
 ]
+
+const CUSTOM_VALUE = '__custom__'
+
+export function CategoryPicker({
+  value,
+  onChange,
+  className,
+  labelClassName,
+}: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+  labelClassName?: string
+}) {
+  const isCustom = value !== '' && !CATEGORIES.includes(value)
+  const [customMode, setCustomMode] = useState(isCustom)
+
+  return (
+    <div>
+      <label className={labelClassName ?? labelClass}>Category</label>
+      {customMode ? (
+        <div className="mt-1 flex gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter custom category..."
+            className={className ?? inputClass}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setCustomMode(false)
+              onChange('')
+            }}
+            className="cursor-pointer whitespace-nowrap rounded-md border border-(--line) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) hover:bg-(--surface)"
+          >
+            Back to list
+          </button>
+        </div>
+      ) : (
+        <select
+          value={value}
+          onChange={(e) => {
+            if (e.target.value === CUSTOM_VALUE) {
+              setCustomMode(true)
+              onChange('')
+            } else {
+              onChange(e.target.value)
+            }
+          }}
+          className={className ?? inputClass}
+        >
+          <option value="">Select a category</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+          <option value={CUSTOM_VALUE}>Create your own...</option>
+        </select>
+      )}
+    </div>
+  )
+}
 
 type DateMode = 'single' | 'range' | 'multiple'
 
@@ -655,21 +720,10 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 
         <form.Field name="category">
           {(field) => (
-            <div>
-              <label className={labelClass}>Category</label>
-              <select
-                value={field.state.value as string}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select a category</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CategoryPicker
+              value={field.state.value as string}
+              onChange={(v) => field.handleChange(v)}
+            />
           )}
         </form.Field>
 

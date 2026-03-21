@@ -436,6 +436,17 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 	return i, err
 }
 
+const getEventSaveCount = `-- name: GetEventSaveCount :one
+SELECT COUNT(*) FROM saved_events WHERE event_id = $1
+`
+
+func (q *Queries) GetEventSaveCount(ctx context.Context, eventID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getEventSaveCount, eventID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getImage = `-- name: GetImage :one
 SELECT id, user_id, r2_key, url, filename, content_type, size_bytes, created_at FROM images WHERE id = $1
 `
