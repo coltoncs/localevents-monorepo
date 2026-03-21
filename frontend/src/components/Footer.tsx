@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 export default function Footer() {
   const year = new Date().getFullYear()
 
@@ -7,6 +9,12 @@ export default function Footer() {
         <p className="m-0 text-sm">
           &copy; {year} 919Events. Find what&apos;s happening near you.
         </p>
+        <Link
+          to="/donate"
+          className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+        >
+          Donate
+        </Link>
       </div>
     </footer>
   )

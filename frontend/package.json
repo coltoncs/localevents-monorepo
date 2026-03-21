@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.49.0",
+    "@clerk/themes": "^2.4.57",
     "@cloudflare/vite-plugin": "^1.13.8",
     "@faker-js/faker": "^10.0.0",
     "@floating-ui/react": "^0.27.19",

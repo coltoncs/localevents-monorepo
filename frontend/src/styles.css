@@ -314,6 +314,10 @@ a {
 }
 
 /* react-datepicker theme overrides */
+.react-datepicker-popper {
+  z-index: 30 !important;
+}
+
 .event-datepicker.react-datepicker {
   font-family: var(--font-sans);
   background: var(--surface-strong);
