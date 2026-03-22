@@ -280,6 +280,25 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If no venue was selected but we have a name + coordinates, upsert a venue
+	// so the event gets a linked venue page.
+	venueID := uuidFromPtr(req.VenueID)
+	if req.VenueID == nil && req.VenueName != nil && *req.VenueName != "" &&
+		(req.Latitude != 0 || req.Longitude != 0) {
+		venue, err := h.queries.UpsertVenue(r.Context(), store.UpsertVenueParams{
+			Name:      *req.VenueName,
+			Address:   textFromPtr(req.Address),
+			City:      textFromPtr(req.City),
+			State:     textFromPtr(req.State),
+			Zip:       textFromPtr(req.Zip),
+			Latitude:  req.Latitude,
+			Longitude: req.Longitude,
+		})
+		if err == nil {
+			venueID = venue.ID
+		}
+	}
+
 	event, err := h.queries.CreateEvent(r.Context(), store.CreateEventParams{
 		Source:      "user",
 		Title:       req.Title,
@@ -299,7 +318,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
 		SubmittedBy: user.ID,
-		VenueID:     uuidFromPtr(req.VenueID),
+		VenueID:     venueID,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to create event"}`, http.StatusInternalServerError)
