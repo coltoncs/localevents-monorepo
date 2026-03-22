@@ -1423,12 +1423,14 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 const upsertVenue = `-- name: UpsertVenue :one
 INSERT INTO venues (name, address, city, state, zip, latitude, longitude)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (LOWER(TRIM(name)), latitude, longitude)
+ON CONFLICT (LOWER(TRIM(name)), COALESCE(NULLIF(LOWER(TRIM(address)), ''), latitude::text || ',' || longitude::text))
 DO UPDATE SET
     address = COALESCE(NULLIF(EXCLUDED.address, ''), venues.address),
     city = COALESCE(NULLIF(EXCLUDED.city, ''), venues.city),
     state = COALESCE(NULLIF(EXCLUDED.state, ''), venues.state),
     zip = COALESCE(NULLIF(EXCLUDED.zip, ''), venues.zip),
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
     updated_at = NOW()
 RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
 `
