@@ -62,6 +62,7 @@ type Runner struct {
 var prioritySources = map[string]bool{
 	"visitraleigh":   true,
 	"discoverdurham": true,
+	"visitrichmond":  true,
 }
 
 // Run collects events from all sources, deduplicates across sources

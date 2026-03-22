@@ -60,6 +60,7 @@ func main() {
 		// Local sources run first so their events take priority during dedup
 		sources = append(sources, scraper.NewCityOfRaleigh())
 		sources = append(sources, scraper.NewDiscoverDurham())
+		sources = append(sources, scraper.NewVisitRichmond())
 		if cfg.TicketmasterAPIKey != "" {
 			sources = append(sources, scraper.NewTicketmaster(cfg.TicketmasterAPIKey))
 		} else {
