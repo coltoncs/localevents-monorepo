@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import {
   usePendingApplications,
@@ -8,6 +9,7 @@ import {
 } from '#/lib/hooks/useApplications'
 import type { AuthorApplication } from '#/lib/types'
 import { Spinner } from '#/components/Spinner'
+import { apiClient } from '#/lib/api'
 
 export const Route = createFileRoute('/admin')({
   component: AdminPage,
@@ -99,14 +101,54 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
   )
 }
 
+function DigestTrigger() {
+  const trigger = useMutation({
+    mutationFn: () =>
+      apiClient<{ status: string }>('/api/admin/digest/trigger', {
+        method: 'POST',
+      }),
+  })
+
+  return (
+    <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-(--sea-ink)">Weekly Digest</h3>
+          <p className="text-sm text-(--sea-ink-soft)">
+            Send the weekly event digest to all subscribed users now.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => trigger.mutate()}
+          disabled={trigger.isPending}
+          className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon) disabled:opacity-50"
+        >
+          {trigger.isPending ? 'Sending...' : 'Send Digest'}
+        </button>
+      </div>
+      {trigger.isSuccess && (
+        <p className="mt-2 text-sm text-green-600">Digest triggered successfully. Check server logs for details.</p>
+      )}
+      {trigger.isError && (
+        <p className="mt-2 text-sm text-red-600">Failed to trigger digest.</p>
+      )}
+    </div>
+  )
+}
+
 function AdminContent() {
   const { data: applications, isLoading } = usePendingApplications()
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
-        Admin - Pending Applications
-      </h1>
+      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">Admin</h1>
+
+      <DigestTrigger />
+
+      <h2 className="mt-8 mb-4 text-xl font-bold text-(--sea-ink)">
+        Pending Applications
+      </h2>
 
       {isLoading && (
         <Spinner className="py-12" />

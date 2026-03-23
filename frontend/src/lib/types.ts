@@ -154,3 +154,16 @@ export interface PresignResponse {
   public_url: string
   key: string
 }
+
+export interface NotificationPreferences {
+  email_enabled: boolean
+  sms_enabled: boolean
+  phone_number?: string
+  has_subscription: boolean
+}
+
+export interface UpdateNotificationInput {
+  email_enabled: boolean
+  sms_enabled: boolean
+  phone_number?: string
+}

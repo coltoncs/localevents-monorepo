@@ -12,6 +12,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/database"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
 	"github.com/coltonsweeney/localevents/server/internal/store"
@@ -101,10 +102,35 @@ func main() {
 		log.Printf("Scraper enabled (schedule: %s)", cfg.ScraperCronSchedule)
 	}
 
+	// Set up digest runner (always created so admin trigger works)
+	digestRunner := &notifier.Runner{
+		Queries:        queries,
+		FrontendURL:    cfg.FrontendURL,
+		ClerkSecretKey: cfg.ClerkSecretKey,
+	}
+	if cfg.ResendAPIKey != "" {
+		digestRunner.Email = notifier.NewEmailSender(cfg.ResendAPIKey, "digest@919events.com")
+	} else {
+		log.Println("RESEND_API_KEY not set, email digest disabled")
+	}
+	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioFromNumber != "" {
+		digestRunner.SMS = notifier.NewSMSSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
+	} else {
+		log.Println("Twilio credentials not fully set, SMS digest disabled")
+	}
+
+	// Set up weekly digest cron job
+	if cfg.DigestEnabled {
+		c.AddFunc(cfg.DigestCronSchedule, func() {
+			digestRunner.Run(context.Background())
+		})
+		log.Printf("Digest enabled (schedule: %s)", cfg.DigestCronSchedule)
+	}
+
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, cfg)
+	r := router.New(queries, cfg, digestRunner)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

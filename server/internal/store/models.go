@@ -66,6 +66,27 @@ type Image struct {
 	CreatedAt   pgtype.Timestamptz
 }
 
+type NotificationLog struct {
+	ID           pgtype.UUID
+	UserID       pgtype.UUID
+	Channel      string
+	SentAt       pgtype.Timestamptz
+	EventCount   int32
+	Status       string
+	ErrorMessage pgtype.Text
+}
+
+type NotificationPreference struct {
+	ID                    pgtype.UUID
+	UserID                pgtype.UUID
+	EmailEnabled          bool
+	SmsEnabled            bool
+	EmailUnsubscribeToken pgtype.UUID
+	SmsUnsubscribeToken   pgtype.UUID
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
+}
+
 type SavedEvent struct {
 	ID        pgtype.UUID
 	UserID    pgtype.UUID
@@ -83,6 +104,7 @@ type User struct {
 	DefaultRadiusMiles pgtype.Int4
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+	PhoneNumber        pgtype.Text
 }
 
 type Venue struct {

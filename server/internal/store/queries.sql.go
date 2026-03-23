@@ -267,6 +267,30 @@ func (q *Queries) CreateImage(ctx context.Context, arg CreateImageParams) (Image
 	return i, err
 }
 
+const createNotificationLog = `-- name: CreateNotificationLog :exec
+INSERT INTO notification_log (user_id, channel, event_count, status, error_message)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateNotificationLogParams struct {
+	UserID       pgtype.UUID
+	Channel      string
+	EventCount   int32
+	Status       string
+	ErrorMessage pgtype.Text
+}
+
+func (q *Queries) CreateNotificationLog(ctx context.Context, arg CreateNotificationLogParams) error {
+	_, err := q.db.Exec(ctx, createNotificationLog,
+		arg.UserID,
+		arg.Channel,
+		arg.EventCount,
+		arg.Status,
+		arg.ErrorMessage,
+	)
+	return err
+}
+
 const createVenue = `-- name: CreateVenue :one
 INSERT INTO venues (name, address, city, state, zip, latitude, longitude, hours, description)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -467,8 +491,55 @@ func (q *Queries) GetImage(ctx context.Context, id pgtype.UUID) (Image, error) {
 	return i, err
 }
 
+const getLastNotificationSent = `-- name: GetLastNotificationSent :one
+SELECT id, user_id, channel, sent_at, event_count, status, error_message FROM notification_log
+WHERE user_id = $1 AND channel = $2 AND status = 'sent'
+ORDER BY sent_at DESC
+LIMIT 1
+`
+
+type GetLastNotificationSentParams struct {
+	UserID  pgtype.UUID
+	Channel string
+}
+
+func (q *Queries) GetLastNotificationSent(ctx context.Context, arg GetLastNotificationSentParams) (NotificationLog, error) {
+	row := q.db.QueryRow(ctx, getLastNotificationSent, arg.UserID, arg.Channel)
+	var i NotificationLog
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Channel,
+		&i.SentAt,
+		&i.EventCount,
+		&i.Status,
+		&i.ErrorMessage,
+	)
+	return i, err
+}
+
+const getNotificationPreferences = `-- name: GetNotificationPreferences :one
+SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at FROM notification_preferences WHERE user_id = $1
+`
+
+func (q *Queries) GetNotificationPreferences(ctx context.Context, userID pgtype.UUID) (NotificationPreference, error) {
+	row := q.db.QueryRow(ctx, getNotificationPreferences, userID)
+	var i NotificationPreference
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.EmailEnabled,
+		&i.SmsEnabled,
+		&i.EmailUnsubscribeToken,
+		&i.SmsUnsubscribeToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByClerkID = `-- name: GetUserByClerkID :one
-SELECT id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at FROM users WHERE clerk_id = $1
+SELECT id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at, phone_number FROM users WHERE clerk_id = $1
 `
 
 func (q *Queries) GetUserByClerkID(ctx context.Context, clerkID string) (User, error) {
@@ -484,12 +555,13 @@ func (q *Queries) GetUserByClerkID(ctx context.Context, clerkID string) (User, e
 		&i.DefaultRadiusMiles,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PhoneNumber,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at FROM users WHERE id = $1
+SELECT id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at, phone_number FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error) {
@@ -505,6 +577,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.DefaultRadiusMiles,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PhoneNumber,
 	)
 	return i, err
 }
@@ -531,6 +604,53 @@ func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listEmailSubscribers = `-- name: ListEmailSubscribers :many
+SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
+       np.email_unsubscribe_token
+FROM users u
+JOIN notification_preferences np ON np.user_id = u.id
+WHERE np.email_enabled = TRUE
+  AND u.email IS NOT NULL
+  AND u.default_latitude IS NOT NULL
+  AND u.default_longitude IS NOT NULL
+`
+
+type ListEmailSubscribersRow struct {
+	ID                    pgtype.UUID
+	Email                 pgtype.Text
+	DefaultLatitude       pgtype.Float8
+	DefaultLongitude      pgtype.Float8
+	DefaultRadiusMiles    pgtype.Int4
+	EmailUnsubscribeToken pgtype.UUID
+}
+
+func (q *Queries) ListEmailSubscribers(ctx context.Context) ([]ListEmailSubscribersRow, error) {
+	rows, err := q.db.Query(ctx, listEmailSubscribers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEmailSubscribersRow
+	for rows.Next() {
+		var i ListEmailSubscribersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.DefaultLatitude,
+			&i.DefaultLongitude,
+			&i.DefaultRadiusMiles,
+			&i.EmailUnsubscribeToken,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listEventIDsForSitemap = `-- name: ListEventIDsForSitemap :many
@@ -872,6 +992,55 @@ func (q *Queries) ListPendingApplications(ctx context.Context) ([]AuthorApplicat
 	return items, nil
 }
 
+const listSMSSubscribers = `-- name: ListSMSSubscribers :many
+SELECT u.id, u.clerk_id, u.phone_number, u.default_latitude, u.default_longitude, u.default_radius_miles,
+       np.sms_unsubscribe_token
+FROM users u
+JOIN notification_preferences np ON np.user_id = u.id
+WHERE np.sms_enabled = TRUE
+  AND u.phone_number IS NOT NULL
+  AND u.default_latitude IS NOT NULL
+  AND u.default_longitude IS NOT NULL
+`
+
+type ListSMSSubscribersRow struct {
+	ID                  pgtype.UUID
+	ClerkID             string
+	PhoneNumber         pgtype.Text
+	DefaultLatitude     pgtype.Float8
+	DefaultLongitude    pgtype.Float8
+	DefaultRadiusMiles  pgtype.Int4
+	SmsUnsubscribeToken pgtype.UUID
+}
+
+func (q *Queries) ListSMSSubscribers(ctx context.Context) ([]ListSMSSubscribersRow, error) {
+	rows, err := q.db.Query(ctx, listSMSSubscribers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSMSSubscribersRow
+	for rows.Next() {
+		var i ListSMSSubscribersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClerkID,
+			&i.PhoneNumber,
+			&i.DefaultLatitude,
+			&i.DefaultLongitude,
+			&i.DefaultRadiusMiles,
+			&i.SmsUnsubscribeToken,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSavedEvents = `-- name: ListSavedEvents :many
 SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.category, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id
 FROM events e
@@ -882,6 +1051,79 @@ ORDER BY e.start_time ASC
 
 func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Event, error) {
 	rows, err := q.db.Query(ctx, listSavedEvents, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Category,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUpcomingEventsForDigest = `-- name: ListUpcomingEventsForDigest :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+FROM events
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+AND start_time >= $4::timestamptz
+AND start_time < $5::timestamptz
+ORDER BY start_time ASC
+LIMIT 50
+`
+
+type ListUpcomingEventsForDigestParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+	StartDate    pgtype.Timestamptz
+	EndDate      pgtype.Timestamptz
+}
+
+func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcomingEventsForDigestParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listUpcomingEventsForDigest,
+		arg.Lng,
+		arg.Lat,
+		arg.RadiusMeters,
+		arg.StartDate,
+		arg.EndDate,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1093,6 +1335,26 @@ func (q *Queries) UnsaveEvent(ctx context.Context, arg UnsaveEventParams) error 
 	return err
 }
 
+const unsubscribeByEmailToken = `-- name: UnsubscribeByEmailToken :exec
+UPDATE notification_preferences SET email_enabled = FALSE, updated_at = NOW()
+WHERE email_unsubscribe_token = $1
+`
+
+func (q *Queries) UnsubscribeByEmailToken(ctx context.Context, emailUnsubscribeToken pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, unsubscribeByEmailToken, emailUnsubscribeToken)
+	return err
+}
+
+const unsubscribeBySMSToken = `-- name: UnsubscribeBySMSToken :exec
+UPDATE notification_preferences SET sms_enabled = FALSE, updated_at = NOW()
+WHERE sms_unsubscribe_token = $1
+`
+
+func (q *Queries) UnsubscribeBySMSToken(ctx context.Context, smsUnsubscribeToken pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, unsubscribeBySMSToken, smsUnsubscribeToken)
+	return err
+}
+
 const updateEvent = `-- name: UpdateEvent :one
 UPDATE events SET
     title = $2,
@@ -1190,6 +1452,20 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 	return i, err
 }
 
+const updateUserPhoneNumber = `-- name: UpdateUserPhoneNumber :exec
+UPDATE users SET phone_number = $2, updated_at = NOW() WHERE id = $1
+`
+
+type UpdateUserPhoneNumberParams struct {
+	ID          pgtype.UUID
+	PhoneNumber pgtype.Text
+}
+
+func (q *Queries) UpdateUserPhoneNumber(ctx context.Context, arg UpdateUserPhoneNumberParams) error {
+	_, err := q.db.Exec(ctx, updateUserPhoneNumber, arg.ID, arg.PhoneNumber)
+	return err
+}
+
 const updateUserSettings = `-- name: UpdateUserSettings :one
 UPDATE users SET
     default_latitude = $2,
@@ -1197,7 +1473,7 @@ UPDATE users SET
     default_radius_miles = $4,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at
+RETURNING id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at, phone_number
 `
 
 type UpdateUserSettingsParams struct {
@@ -1225,6 +1501,7 @@ func (q *Queries) UpdateUserSettings(ctx context.Context, arg UpdateUserSettings
 		&i.DefaultRadiusMiles,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PhoneNumber,
 	)
 	return i, err
 }
@@ -1387,6 +1664,38 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 	return i, err
 }
 
+const upsertNotificationPreferences = `-- name: UpsertNotificationPreferences :one
+INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET
+    email_enabled = EXCLUDED.email_enabled,
+    sms_enabled = EXCLUDED.sms_enabled,
+    updated_at = NOW()
+RETURNING id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at
+`
+
+type UpsertNotificationPreferencesParams struct {
+	UserID       pgtype.UUID
+	EmailEnabled bool
+	SmsEnabled   bool
+}
+
+func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error) {
+	row := q.db.QueryRow(ctx, upsertNotificationPreferences, arg.UserID, arg.EmailEnabled, arg.SmsEnabled)
+	var i NotificationPreference
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.EmailEnabled,
+		&i.SmsEnabled,
+		&i.EmailUnsubscribeToken,
+		&i.SmsUnsubscribeToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertUser = `-- name: UpsertUser :one
 INSERT INTO users (clerk_id, username, email)
 VALUES ($1, $2, $3)
@@ -1394,7 +1703,7 @@ ON CONFLICT (clerk_id) DO UPDATE SET
     username = COALESCE(EXCLUDED.username, users.username),
     email = COALESCE(EXCLUDED.email, users.email),
     updated_at = NOW()
-RETURNING id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at
+RETURNING id, clerk_id, username, email, default_latitude, default_longitude, default_radius_miles, created_at, updated_at, phone_number
 `
 
 type UpsertUserParams struct {
@@ -1416,6 +1725,7 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.DefaultRadiusMiles,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PhoneNumber,
 	)
 	return i, err
 }

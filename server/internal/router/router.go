@@ -7,10 +7,11 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/handler"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
-func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
+func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runner) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -24,10 +25,13 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 	appHandler := handler.NewApplicationHandler(queries)
 	imageHandler := handler.NewImageHandler(queries, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
 	sitemapHandler := handler.NewSitemapHandler(queries)
+	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey)
+	digestHandler := handler.NewDigestHandler(digestRunner)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
 		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
+		r.Get("/unsubscribe/{token}", notificationHandler.Unsubscribe)
 
 		// Public routes with optional auth
 		r.Group(func(r chi.Router) {
@@ -50,6 +54,8 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)
 			r.Get("/me/application", appHandler.GetMyApplication)
+			r.Get("/me/notifications", notificationHandler.GetPreferences)
+			r.Put("/me/notifications", notificationHandler.UpdatePreferences)
 			r.Post("/images/presign", imageHandler.Presign)
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)
@@ -74,6 +80,7 @@ func New(queries *store.Queries, cfg *config.Config) *chi.Mux {
 			r.Get("/admin/applications", appHandler.ListPending)
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)
+			r.Post("/admin/digest/trigger", digestHandler.Trigger)
 		})
 	})
 

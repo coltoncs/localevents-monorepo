@@ -22,6 +22,13 @@ type Config struct {
 	R2SecretAccessKey   string
 	R2PublicURL         string
 	R2Bucket            string
+	ResendAPIKey        string
+	TwilioAccountSID    string
+	TwilioAuthToken     string
+	TwilioFromNumber    string
+	DigestCronSchedule  string
+	DigestEnabled       bool
+	FrontendURL         string
 }
 
 func Load() *Config {
@@ -44,6 +51,13 @@ func Load() *Config {
 		R2SecretAccessKey:   getEnv("R2_SECRET_ACCESS_KEY", ""),
 		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
 		R2Bucket:            getEnv("R2_BUCKET", "localevents-images"),
+		ResendAPIKey:        getEnv("RESEND_API_KEY", ""),
+		TwilioAccountSID:    getEnv("TWILIO_ACCOUNT_SID", ""),
+		TwilioAuthToken:     getEnv("TWILIO_AUTH_TOKEN", ""),
+		TwilioFromNumber:    getEnv("TWILIO_FROM_NUMBER", ""),
+		DigestCronSchedule:  getEnv("DIGEST_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 9 * * 1"),
+		DigestEnabled:       getEnv("DIGEST_ENABLED", "false") == "true",
+		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
 	}
 }
 

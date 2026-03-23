@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ProtectedRoute } from '#/components/ProtectedRoute'
 import { SettingsForm } from '#/components/SettingsForm'
+import { NotificationSettings } from '#/components/NotificationSettings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
@@ -13,6 +14,10 @@ function SettingsPage() {
         <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">Settings</h1>
         <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
           <SettingsForm />
+        </div>
+        <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
+          <h2 className="mb-3 text-lg font-semibold text-[var(--sea-ink)]">Notifications</h2>
+          <NotificationSettings />
         </div>
         <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-6">
           <h2 className="text-lg font-semibold text-[var(--sea-ink)]">Subscription</h2>

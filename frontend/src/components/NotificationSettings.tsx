@@ -1,0 +1,139 @@
+import { useState, useEffect } from 'react'
+import { Link } from '@tanstack/react-router'
+import {
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from '#/lib/hooks/useNotifications'
+import { useUser } from '#/lib/hooks/useUser'
+
+export function NotificationSettings() {
+  const { data: prefs, isLoading } = useNotificationPreferences()
+  const { data: user } = useUser()
+  const updatePrefs = useUpdateNotificationPreferences()
+
+  const [emailEnabled, setEmailEnabled] = useState(false)
+  const [smsEnabled, setSmsEnabled] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (prefs) {
+      setEmailEnabled(prefs.email_enabled)
+      setSmsEnabled(prefs.sms_enabled)
+      setPhoneNumber(prefs.phone_number ?? '')
+    }
+  }, [prefs])
+
+  const hasLocation = !!(user?.DefaultLatitude && user?.DefaultLongitude)
+  const hasEmail = !!user?.Email
+  const hasSubscription = prefs?.has_subscription ?? false
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if ((emailEnabled || smsEnabled) && !hasLocation) {
+      setError('Please set a default location in your settings above before enabling notifications.')
+      return
+    }
+    if (emailEnabled && !hasEmail) {
+      setError('An email address is required to enable email notifications.')
+      return
+    }
+    if (smsEnabled && !phoneNumber) {
+      setError('A phone number is required to enable SMS notifications.')
+      return
+    }
+    if (smsEnabled && phoneNumber && !/^\+1\d{10}$/.test(phoneNumber)) {
+      setError('Phone number must be in format +1XXXXXXXXXX')
+      return
+    }
+
+    updatePrefs.mutate({
+      email_enabled: emailEnabled,
+      sms_enabled: smsEnabled,
+      phone_number: phoneNumber || undefined,
+    })
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-(--sea-ink-soft)">Loading...</p>
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <p className="text-sm text-(--sea-ink-soft)">
+        Get a weekly digest of events near you every Monday morning.
+      </p>
+
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          checked={emailEnabled}
+          onChange={(e) => setEmailEnabled(e.target.checked)}
+          className="h-4 w-4 rounded border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon)"
+        />
+        <span className="text-sm text-(--sea-ink)">Email digest</span>
+        {hasEmail && (
+          <span className="text-xs text-(--sea-ink-soft)">({user?.Email})</span>
+        )}
+      </label>
+
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={smsEnabled}
+            onChange={(e) => setSmsEnabled(e.target.checked)}
+            disabled={!hasSubscription}
+            className="h-4 w-4 rounded border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon) disabled:opacity-50"
+          />
+          <span className={`text-sm ${hasSubscription ? 'text-(--sea-ink)' : 'text-(--sea-ink-soft)'}`}>
+            SMS digest
+          </span>
+        </label>
+        {!hasSubscription && (
+          <Link
+            to="/donate"
+            className="text-xs font-medium text-(--lagoon-deep) no-underline hover:text-(--lagoon)"
+          >
+            Subscriber perk — subscribe to unlock
+          </Link>
+        )}
+      </div>
+
+      {smsEnabled && hasSubscription && (
+        <div>
+          <label className="block text-sm font-medium text-(--sea-ink-soft)">
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            placeholder="+1XXXXXXXXXX"
+            className="mt-1 block w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon) focus:outline-none"
+          />
+        </div>
+      )}
+
+      {!hasLocation && (emailEnabled || smsEnabled) && (
+        <p className="text-sm text-amber-600">
+          Set a default location above to receive notifications.
+        </p>
+      )}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {updatePrefs.isSuccess && <p className="text-sm text-green-600">Notification preferences saved.</p>}
+      {updatePrefs.isError && <p className="text-sm text-red-600">Failed to save preferences.</p>}
+
+      <button
+        type="submit"
+        disabled={updatePrefs.isPending}
+        className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
+      >
+        {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
+      </button>
+    </form>
+  )
+}

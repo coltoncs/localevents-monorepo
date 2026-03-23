@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	clerkuser "github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -27,8 +28,22 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch email from Clerk to keep it synced
+	var email pgtype.Text
+	if cu, err := clerkuser.Get(r.Context(), clerkID); err == nil {
+		if cu.PrimaryEmailAddressID != nil {
+			for _, ea := range cu.EmailAddresses {
+				if ea.ID == *cu.PrimaryEmailAddressID {
+					email = pgtype.Text{String: ea.EmailAddress, Valid: true}
+					break
+				}
+			}
+		}
+	}
+
 	user, err := h.queries.UpsertUser(r.Context(), store.UpsertUserParams{
 		ClerkID: clerkID,
+		Email:   email,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to get user"}`, http.StatusInternalServerError)

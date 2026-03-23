@@ -39,4 +39,7 @@ export const queryKeys = {
     all: ['images'] as const,
     list: ['images', 'list'] as const,
   },
+  notifications: {
+    preferences: ['notifications', 'preferences'] as const,
+  },
 }
