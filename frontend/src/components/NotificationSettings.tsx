@@ -64,10 +64,6 @@ export function NotificationSettings() {
     return <p className="text-sm text-(--sea-ink-soft)">Loading...</p>
   }
 
-  console.log('prefs settings: ', prefs);
-  console.log('user: ', user);
-  
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-(--sea-ink-soft)">
