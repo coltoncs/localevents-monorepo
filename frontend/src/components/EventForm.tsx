@@ -10,17 +10,7 @@ import { VenueCombobox } from '#/components/VenueCombobox'
 import { ImageUpload } from '#/components/ImageUpload'
 import { getSavedLocation } from '#/components/LocationSearch'
 import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
-
-export const CATEGORIES = [
-  'Music',
-  'Sports',
-  'Arts',
-  'Food',
-  'Tech',
-  'Community',
-  'Outdoors',
-  'Nightlife',
-]
+import { CATEGORIES } from './EventFilters'
 
 const CUSTOM_VALUE = '__custom__'
 

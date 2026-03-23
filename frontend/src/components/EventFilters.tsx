@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 
-const CATEGORIES = [
+export const CATEGORIES = [
   'Music',
   'Sports',
   'Arts',
@@ -73,7 +73,7 @@ export function EventFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4">
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-(--line) bg-(--surface-strong) p-4">
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -86,7 +86,7 @@ export function EventFilters({
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search events..."
-          className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm sm:w-48"
+          className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-48"
         />
         {search && (
           <button
@@ -95,7 +95,7 @@ export function EventFilters({
               setSearchInput('')
               updateSearch({ search: undefined })
             }}
-            className="cursor-pointer rounded-md border border-[var(--line)] px-2 py-2 text-sm text-[var(--sea-ink-soft)] hover:bg-[var(--surface)]"
+            className="cursor-pointer rounded-md border border-(--line) px-2 py-2 text-sm text-(--sea-ink-soft) hover:bg-(--surface)"
           >
             &times;
           </button>
@@ -110,7 +110,7 @@ export function EventFilters({
         isClearable
         placeholderText="Select dates..."
         dateFormat="MMM d, yyyy"
-        className="w-full rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-sm sm:w-52"
+        className="w-full rounded-md border border-(--line) bg-transparent px-3 py-2 text-sm sm:w-52"
         calendarClassName="event-datepicker"
       />
 
@@ -119,7 +119,7 @@ export function EventFilters({
         onChange={(e) =>
           updateSearch({ category: e.target.value || undefined })
         }
-        className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm sm:w-auto"
+        className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
       >
         <option value="">All Categories</option>
         {CATEGORIES.map((c) => (
@@ -132,7 +132,7 @@ export function EventFilters({
       <select
         value={radius ?? 25}
         onChange={(e) => updateSearch({ radius: e.target.value })}
-        className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm sm:w-auto"
+        className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
       >
         {[5, 10, 25, 50, 100].map((r) => (
           <option key={r} value={r}>
@@ -141,13 +141,13 @@ export function EventFilters({
         ))}
       </select>
 
-      <div className="flex w-full rounded-md border border-[var(--line)] sm:ml-auto sm:w-auto">
+      <div className="flex w-full rounded-md border border-(--line) sm:ml-auto sm:w-auto">
         <button
           onClick={() => updateSearch({ view: 'list' })}
           className={`cursor-pointer flex-1 px-3 py-2 text-sm font-medium sm:flex-none ${
             view === 'list'
-              ? 'bg-[var(--lagoon-deep)] text-white'
-              : 'bg-[var(--surface-strong)] text-[var(--sea-ink-soft)] hover:bg-[var(--surface)]'
+              ? 'bg-(--lagoon-deep) text-white'
+              : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
           } rounded-l-md`}
         >
           List
@@ -163,8 +163,8 @@ export function EventFilters({
           }}
           className={`cursor-pointer flex-1 px-3 py-2 text-sm font-medium sm:flex-none ${
             view === 'map'
-              ? 'bg-[var(--lagoon-deep)] text-white'
-              : 'bg-[var(--surface-strong)] text-[var(--sea-ink-soft)] hover:bg-[var(--surface)]'
+              ? 'bg-(--lagoon-deep) text-white'
+              : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
           } rounded-r-md`}
         >
           Map

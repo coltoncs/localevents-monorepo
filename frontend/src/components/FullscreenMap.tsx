@@ -5,17 +5,7 @@ import { EventMap } from '#/components/EventMap'
 import { useEvents } from '#/lib/hooks/useEvents'
 import { isAllDay } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
-
-const CATEGORIES = [
-  'Music',
-  'Sports',
-  'Arts',
-  'Food',
-  'Tech',
-  'Community',
-  'Outdoors',
-  'Nightlife',
-]
+import { CATEGORIES } from './EventFilters'
 
 interface FullscreenMapProps {
   lat: number
