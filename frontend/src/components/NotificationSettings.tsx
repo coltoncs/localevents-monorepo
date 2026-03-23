@@ -63,7 +63,7 @@ export function NotificationSettings() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-(--sea-ink-soft)">
-        Get a weekly digest of events near you every Monday morning.
+        Get a weekly digest of events near you every Friday morning.
       </p>
 
       <label className="flex items-center gap-3">
