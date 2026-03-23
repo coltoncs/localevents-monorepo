@@ -95,7 +95,7 @@ export function NotificationSettings() {
             className="h-4 w-4 rounded border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon) disabled:opacity-50"
           />
           <span className={`text-sm ${hasSubscription ? 'text-(--sea-ink)' : 'text-(--sea-ink-soft)'}`}>
-            SMS digest
+            Text/SMS digest
           </span>
         </label>
         {!hasSubscription && (
