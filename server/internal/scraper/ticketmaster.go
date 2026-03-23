@@ -209,11 +209,11 @@ func mapTMEvent(ev tmEvent) (RawEvent, error) {
 		}
 	}
 
-	// Category from classifications
+	// Categories from classifications
 	if len(ev.Classifications) > 0 {
 		c := ev.Classifications[0]
 		if c.Segment.Name != "" && c.Segment.Name != "Undefined" {
-			raw.Category = c.Segment.Name
+			raw.Categories = []string{c.Segment.Name}
 		}
 	}
 

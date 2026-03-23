@@ -5,6 +5,7 @@ import {
   useUpdateNotificationPreferences,
 } from '#/lib/hooks/useNotifications'
 import { useUser } from '#/lib/hooks/useUser'
+import { CATEGORIES } from '#/components/EventFilters'
 
 export function NotificationSettings() {
   const { data: prefs, isLoading } = useNotificationPreferences()
@@ -14,6 +15,7 @@ export function NotificationSettings() {
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [smsEnabled, setSmsEnabled] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [preferredCategories, setPreferredCategories] = useState<string[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -21,6 +23,7 @@ export function NotificationSettings() {
       setEmailEnabled(prefs.email_enabled)
       setSmsEnabled(prefs.sms_enabled)
       setPhoneNumber(prefs.phone_number ?? '')
+      setPreferredCategories(prefs.preferred_categories ?? [])
     }
   }, [prefs])
 
@@ -53,6 +56,7 @@ export function NotificationSettings() {
       email_enabled: emailEnabled,
       sms_enabled: smsEnabled,
       phone_number: phoneNumber || undefined,
+      preferred_categories: preferredCategories,
     })
   }
 
@@ -83,7 +87,7 @@ export function NotificationSettings() {
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
-            checked={smsEnabled}
+            checked={smsEnabled && hasSubscription}
             onChange={(e) => setSmsEnabled(e.target.checked)}
             disabled={!hasSubscription}
             className="h-4 w-4 rounded border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon) disabled:opacity-50"
@@ -114,6 +118,44 @@ export function NotificationSettings() {
             placeholder="+1XXXXXXXXXX"
             className="mt-1 block w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon) focus:outline-none"
           />
+        </div>
+      )}
+
+      {(emailEnabled || smsEnabled) && (
+        <div>
+          <label className="block text-sm font-medium text-(--sea-ink-soft) mb-2">
+            Preferred Categories (up to 3)
+          </label>
+          <p className="text-xs text-(--sea-ink-soft) mb-2">
+            Events in these categories will appear first in your digest.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((c) => {
+              const selected = preferredCategories.includes(c)
+              const atMax = preferredCategories.length >= 3 && !selected
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={atMax}
+                  onClick={() => {
+                    if (selected) {
+                      setPreferredCategories(preferredCategories.filter((cat) => cat !== c))
+                    } else {
+                      setPreferredCategories([...preferredCategories, c])
+                    }
+                  }}
+                  className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium border ${
+                    selected
+                      ? 'bg-[rgba(79,184,178,0.14)] border-(--lagoon-deep) text-(--lagoon-deep)'
+                      : 'border-(--line) text-(--sea-ink-soft) hover:bg-(--surface)'
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  {c}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 

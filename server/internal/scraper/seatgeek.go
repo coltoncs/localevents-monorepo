@@ -104,7 +104,7 @@ func mapSGEvent(ev sgEvent) (RawEvent, error) {
 		Source:     "seatgeek",
 		Title:      ev.Title,
 		StartTime:  t.UTC(),
-		Category:   ev.Type,
+		Categories: []string{ev.Type},
 		TicketURL:  ev.URL,
 		VenueName:  ev.Venue.Name,
 		Address:    ev.Venue.Address,

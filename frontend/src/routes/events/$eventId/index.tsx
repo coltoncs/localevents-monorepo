@@ -126,10 +126,14 @@ function EventDetailPage() {
 
       <div className="flex items-start justify-between">
         <div>
-          {event.Category && (
-            <span className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-3 py-1 text-sm font-medium text-(--lagoon-deep)">
-              {event.Category}
-            </span>
+          {event.Categories && event.Categories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {event.Categories.map((cat) => (
+                <span key={cat} className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-3 py-1 text-sm font-medium text-(--lagoon-deep)">
+                  {cat}
+                </span>
+              ))}
+            </div>
           )}
           <h1 className="mt-2 text-3xl font-bold text-(--sea-ink)">
             {event.Title}

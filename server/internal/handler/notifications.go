@@ -26,10 +26,11 @@ func NewNotificationHandler(q *store.Queries, frontendURL, clerkSecretKey string
 }
 
 type notificationPrefsResponse struct {
-	EmailEnabled    bool   `json:"email_enabled"`
-	SMSEnabled      bool   `json:"sms_enabled"`
-	PhoneNumber     string `json:"phone_number,omitempty"`
-	HasSubscription bool   `json:"has_subscription"`
+	EmailEnabled        bool     `json:"email_enabled"`
+	SMSEnabled          bool     `json:"sms_enabled"`
+	PhoneNumber         string   `json:"phone_number,omitempty"`
+	HasSubscription     bool     `json:"has_subscription"`
+	PreferredCategories []string `json:"preferred_categories"`
 }
 
 func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
@@ -56,9 +57,10 @@ func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp := notificationPrefsResponse{
-		EmailEnabled:    prefs.EmailEnabled,
-		SMSEnabled:      prefs.SmsEnabled,
-		HasSubscription: hasSubscription,
+		EmailEnabled:        prefs.EmailEnabled,
+		SMSEnabled:          prefs.SmsEnabled,
+		HasSubscription:     hasSubscription,
+		PreferredCategories: prefs.PreferredCategories,
 	}
 	if user.PhoneNumber.Valid {
 		resp.PhoneNumber = user.PhoneNumber.String
@@ -69,9 +71,10 @@ func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Requ
 }
 
 type updateNotificationRequest struct {
-	EmailEnabled bool   `json:"email_enabled"`
-	SMSEnabled   bool   `json:"sms_enabled"`
-	PhoneNumber  string `json:"phone_number,omitempty"`
+	EmailEnabled        bool     `json:"email_enabled"`
+	SMSEnabled          bool     `json:"sms_enabled"`
+	PhoneNumber         string   `json:"phone_number,omitempty"`
+	PreferredCategories []string `json:"preferred_categories"`
 }
 
 var e164Regex = regexp.MustCompile(`^\+1\d{10}$`)
@@ -124,6 +127,10 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 		http.Error(w, `{"error":"default location required to enable notifications"}`, http.StatusBadRequest)
 		return
 	}
+	if len(req.PreferredCategories) > 3 {
+		http.Error(w, `{"error":"maximum 3 preferred categories allowed"}`, http.StatusBadRequest)
+		return
+	}
 
 	// Update phone number if provided
 	if req.PhoneNumber != "" {
@@ -138,18 +145,22 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 
 	// Upsert notification preferences
 	prefs, err := h.queries.UpsertNotificationPreferences(r.Context(), store.UpsertNotificationPreferencesParams{
-		UserID:       user.ID,
-		EmailEnabled: req.EmailEnabled,
-		SmsEnabled:   req.SMSEnabled,
+		UserID:              user.ID,
+		EmailEnabled:        req.EmailEnabled,
+		SmsEnabled:          req.SMSEnabled,
+		PreferredCategories: req.PreferredCategories,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to update notification preferences"}`, http.StatusInternalServerError)
 		return
 	}
 
+	hasSubscription, _ := billing.HasActiveSubscription(h.clerkSecretKey, clerkID)
 	resp := notificationPrefsResponse{
-		EmailEnabled: prefs.EmailEnabled,
-		SMSEnabled:   prefs.SmsEnabled,
+		EmailEnabled:        prefs.EmailEnabled,
+		SMSEnabled:          prefs.SmsEnabled,
+		PreferredCategories: prefs.PreferredCategories,
+		HasSubscription:     hasSubscription,
 	}
 	if req.PhoneNumber != "" {
 		resp.PhoneNumber = req.PhoneNumber

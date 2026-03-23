@@ -12,67 +12,94 @@ import { getSavedLocation } from '#/components/LocationSearch'
 import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
 import { CATEGORIES } from './EventFilters'
 
-const CUSTOM_VALUE = '__custom__'
-
 export function CategoryPicker({
   value,
   onChange,
-  className,
-  labelClassName,
 }: {
-  value: string
-  onChange: (v: string) => void
+  value: string[]
+  onChange: (v: string[]) => void
   className?: string
   labelClassName?: string
 }) {
-  const isCustom = value !== '' && !CATEGORIES.includes(value)
-  const [customMode, setCustomMode] = useState(isCustom)
+  const [customInput, setCustomInput] = useState('')
+
+  function toggle(cat: string) {
+    if (value.includes(cat)) {
+      onChange(value.filter((c) => c !== cat))
+    } else {
+      onChange([...value, cat])
+    }
+  }
+
+  function addCustom() {
+    const trimmed = customInput.trim()
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed])
+    }
+    setCustomInput('')
+  }
 
   return (
-    <div>
-      <label className={labelClassName ?? labelClass}>Category</label>
-      {customMode ? (
-        <div className="mt-1 flex gap-2">
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Enter custom category..."
-            className={className ?? inputClass}
-          />
+    <div className="sm:col-span-2">
+      <label className={labelClass}>Categories</label>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {CATEGORIES.map((c) => (
           <button
+            key={c}
             type="button"
-            onClick={() => {
-              setCustomMode(false)
-              onChange('')
-            }}
-            className="cursor-pointer whitespace-nowrap rounded-md border border-(--line) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) hover:bg-(--surface)"
+            onClick={() => toggle(c)}
+            className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium border ${
+              value.includes(c)
+                ? 'bg-[rgba(79,184,178,0.14)] border-(--lagoon-deep) text-(--lagoon-deep)'
+                : 'border-(--line) text-(--sea-ink-soft) hover:bg-(--surface)'
+            }`}
           >
-            Back to list
+            {c}
           </button>
+        ))}
+      </div>
+      {value.filter((c) => !CATEGORIES.includes(c)).length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {value.filter((c) => !CATEGORIES.includes(c)).map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1 rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-xs font-medium text-(--lagoon-deep)"
+            >
+              {c}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((v) => v !== c))}
+                className="cursor-pointer text-(--sea-ink-soft) hover:text-(--sea-ink)"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
         </div>
-      ) : (
-        <select
-          value={value}
-          onChange={(e) => {
-            if (e.target.value === CUSTOM_VALUE) {
-              setCustomMode(true)
-              onChange('')
-            } else {
-              onChange(e.target.value)
+      )}
+      <div className="mt-2 flex gap-2">
+        <input
+          type="text"
+          value={customInput}
+          onChange={(e) => setCustomInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              addCustom()
             }
           }}
-          className={className ?? inputClass}
+          placeholder="Add custom category..."
+          className={inputClass}
+        />
+        <button
+          type="button"
+          onClick={addCustom}
+          disabled={!customInput.trim()}
+          className="cursor-pointer whitespace-nowrap rounded-md border border-(--line) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) hover:bg-(--surface) disabled:opacity-50"
         >
-          <option value="">Select a category</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-          <option value={CUSTOM_VALUE}>Create your own...</option>
-        </select>
-      )}
+          Add
+        </button>
+      </div>
     </div>
   )
 }
@@ -91,7 +118,7 @@ interface EventFormProps {
     zip?: string
     latitude?: number
     longitude?: number
-    category?: string
+    categories?: string[]
     image_url?: string
     ticket_url?: string
     price_min?: number
@@ -174,12 +201,12 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
       zip: initialValues?.zip ?? '',
       latitude: initialValues?.latitude ?? savedLocation?.lat ?? 0,
       longitude: initialValues?.longitude ?? savedLocation?.lng ?? 0,
-      category: initialValues?.category ?? '',
+      categories: initialValues?.categories ?? [],
       image_url: initialValues?.image_url ?? '',
       ticket_url: initialValues?.ticket_url ?? '',
       price_min: initialValues?.price_min != null ? String(initialValues.price_min) : '',
       price_max: initialValues?.price_max != null ? String(initialValues.price_max) : '',
-    } as Record<string, string | number>,
+    } as Record<string, string | number | string[]>,
     onSubmit: async ({ value }) => {
       const eventDates = getEventDates()
       if (eventDates.length === 0) {
@@ -213,7 +240,8 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
         if (value.city) base.city = value.city as string
         if (value.state) base.state = value.state as string
         if (value.zip) base.zip = value.zip as string
-        if (value.category) base.category = value.category as string
+        const cats = value.categories as string[]
+        if (cats.length > 0) base.categories = cats
         if (value.image_url) base.image_url = value.image_url as string
         if (value.ticket_url) base.ticket_url = value.ticket_url as string
         if (value.price_min) base.price_min = Number(value.price_min)
@@ -708,10 +736,10 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
           )}
         </div>
 
-        <form.Field name="category">
+        <form.Field name="categories">
           {(field) => (
             <CategoryPicker
-              value={field.state.value as string}
+              value={field.state.value as string[]}
               onChange={(v) => field.handleChange(v)}
             />
           )}

@@ -30,9 +30,9 @@ export function EventCard({ event }: { event: Event }) {
         />
       )}
       <div className="space-y-1">
-        {event.Category && (
+        {event.Categories && event.Categories.length > 0 && (
           <span className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-xs font-medium text-[var(--lagoon-deep)]">
-            {event.Category}
+            {event.Categories[0]}{event.Categories.length > 1 && ` +${event.Categories.length - 1}`}
           </span>
         )}
         <h3 className="font-semibold text-[var(--sea-ink)]">{event.Title}</h3>

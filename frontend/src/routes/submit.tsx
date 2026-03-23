@@ -36,7 +36,7 @@ function SubmitPage() {
         zip: sourceEvent.Zip,
         latitude: sourceEvent.Latitude,
         longitude: sourceEvent.Longitude,
-        category: sourceEvent.Category,
+        categories: sourceEvent.Categories,
         image_url: sourceEvent.ImageUrl,
         ticket_url: sourceEvent.TicketUrl,
         price_min: sourceEvent.PriceMin,

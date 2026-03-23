@@ -60,12 +60,12 @@ function EditEventContent() {
       zip: event?.Zip ?? '',
       latitude: event?.Latitude ?? 0,
       longitude: event?.Longitude ?? 0,
-      category: event?.Category ?? '',
+      categories: event?.Categories ?? [],
       image_url: event?.ImageUrl ?? '',
       ticket_url: event?.TicketUrl ?? '',
       price_min: event?.PriceMin != null ? String(event.PriceMin) : '',
       price_max: event?.PriceMax != null ? String(event.PriceMax) : '',
-    } as Record<string, string | number>,
+    } as Record<string, string | number | string[]>,
     onSubmit: async ({ value }) => {
       if (!startDate) {
         setDateError('Start date & time is required')
@@ -88,7 +88,8 @@ function EditEventContent() {
       if (value.state) data.state = value.state as string
       if (value.zip) data.zip = value.zip as string
       if (endDate) data.end_time = endDate.toISOString()
-      if (value.category) data.category = value.category as string
+      const cats = value.categories as string[]
+      if (cats.length > 0) data.categories = cats
       if (value.image_url) data.image_url = value.image_url as string
       if (value.ticket_url) data.ticket_url = value.ticket_url as string
       if (value.price_min) data.price_min = Number(value.price_min)
@@ -391,13 +392,11 @@ function EditEventContent() {
               />
             </div>
 
-            <form.Field name="category">
+            <form.Field name="categories">
               {(field) => (
                 <CategoryPicker
-                  value={field.state.value as string}
+                  value={field.state.value as string[]}
                   onChange={(v) => field.handleChange(v)}
-                  className={inputClass}
-                  labelClassName={labelClass}
                 />
               )}
             </form.Field>

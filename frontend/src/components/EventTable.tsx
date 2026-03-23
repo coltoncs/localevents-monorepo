@@ -46,9 +46,13 @@ function buildColumns(venueNameToId: Map<string, string>) {
       </Link>
     ),
   }),
-  col.accessor('Category', {
+  col.accessor('Categories', {
     header: () => <span className="whitespace-nowrap">Category</span>,
-    cell: (info) => info.getValue() ?? '\u2014',
+    cell: (info) => {
+      const cats = info.getValue()
+      if (!cats || cats.length === 0) return '\u2014'
+      return cats[0] + (cats.length > 1 ? ` +${cats.length - 1}` : '')
+    },
     meta: { hideOnMobile: true },
   }),
   col.accessor('StartTime', {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -76,6 +77,8 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 		if len(events) == 0 {
 			continue
 		}
+
+		events = sortByPreferredCategories(events, sub.PreferredCategories)
 
 		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
 		html, err := RenderDigestEmail(events, unsubscribeURL, r.FrontendURL)
@@ -152,6 +155,8 @@ func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Tim
 			continue
 		}
 
+		events = sortByPreferredCategories(events, sub.PreferredCategories)
+
 		body := composeSMSBody(events, r.FrontendURL)
 		err = r.SMS.Send(sub.PhoneNumber.String, body)
 		status := "sent"
@@ -207,6 +212,38 @@ func uuidToString(id pgtype.UUID) string {
 		return ""
 	}
 	return uuid.UUID(id.Bytes).String()
+}
+
+// sortByPreferredCategories moves events matching any preferred category to the
+// top while preserving relative order within each group.
+func sortByPreferredCategories(events []store.Event, preferred []string) []store.Event {
+	if len(preferred) == 0 {
+		return events
+	}
+	prefSet := make(map[string]bool, len(preferred))
+	for _, c := range preferred {
+		prefSet[c] = true
+	}
+	sorted := make([]store.Event, len(events))
+	copy(sorted, events)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		iMatch := hasPreferred(sorted[i].Categories, prefSet)
+		jMatch := hasPreferred(sorted[j].Categories, prefSet)
+		if iMatch != jMatch {
+			return iMatch
+		}
+		return false
+	})
+	return sorted
+}
+
+func hasPreferred(categories []string, prefSet map[string]bool) bool {
+	for _, c := range categories {
+		if prefSet[c] {
+			return true
+		}
+	}
+	return false
 }
 
 func formatNumeric(n pgtype.Numeric) string {

@@ -104,7 +104,7 @@ func mapBITEvent(ev bitEvent) (RawEvent, error) {
 		Source:     "bandsintown",
 		Title:      title,
 		StartTime:  t.UTC(),
-		Category:   "Music",
+		Categories: []string{"Music"},
 		ImageURL:   ev.ImageURL,
 		TicketURL:  ticketURL,
 		VenueName:  ev.Venue.Name,

@@ -215,7 +215,7 @@ func mapVREvent(ev vrEvent) (RawEvent, error) {
 	raw.Zip = ev.Zip
 
 	if len(ev.Categories) > 0 {
-		raw.Category = ev.Categories[0].CatName
+		raw.Categories = []string{ev.Categories[0].CatName}
 	}
 
 	if len(ev.MediaRaw) > 0 && ev.MediaRaw[0].MediaURL != "" {

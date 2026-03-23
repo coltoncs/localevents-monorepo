@@ -69,7 +69,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR category = $6::text)
+AND ($6::text IS NULL OR $6::text = ANY(categories))
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::uuid IS NULL OR venue_id = $8::uuid)
 AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
@@ -146,13 +146,13 @@ func (q *Queries) CreateAuthorApplication(ctx context.Context, arg CreateAuthorA
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
-    latitude, longitude, start_time, end_time, category, image_url,
+    latitude, longitude, start_time, end_time, categories, image_url,
     ticket_url, price_min, price_max, submitted_by, venue_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19
-) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 `
 
 type CreateEventParams struct {
@@ -168,7 +168,7 @@ type CreateEventParams struct {
 	Longitude   float64
 	StartTime   pgtype.Timestamptz
 	EndTime     pgtype.Timestamptz
-	Category    pgtype.Text
+	Categories  []string
 	ImageUrl    pgtype.Text
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
@@ -191,7 +191,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		arg.Longitude,
 		arg.StartTime,
 		arg.EndTime,
-		arg.Category,
+		arg.Categories,
 		arg.ImageUrl,
 		arg.TicketUrl,
 		arg.PriceMin,
@@ -215,7 +215,6 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.Longitude,
 		&i.StartTime,
 		&i.EndTime,
-		&i.Category,
 		&i.ImageUrl,
 		&i.TicketUrl,
 		&i.PriceMin,
@@ -225,6 +224,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
 		&i.VenueID,
+		&i.Categories,
 	)
 	return i, err
 }
@@ -425,7 +425,7 @@ func (q *Queries) GetAuthorApplicationByClerkID(ctx context.Context, clerkID str
 }
 
 const getEvent = `-- name: GetEvent :one
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id FROM events WHERE id = $1
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories FROM events WHERE id = $1
 `
 
 func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
@@ -446,7 +446,6 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.Longitude,
 		&i.StartTime,
 		&i.EndTime,
-		&i.Category,
 		&i.ImageUrl,
 		&i.TicketUrl,
 		&i.PriceMin,
@@ -456,6 +455,7 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
 		&i.VenueID,
+		&i.Categories,
 	)
 	return i, err
 }
@@ -519,7 +519,7 @@ func (q *Queries) GetLastNotificationSent(ctx context.Context, arg GetLastNotifi
 }
 
 const getNotificationPreferences = `-- name: GetNotificationPreferences :one
-SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at FROM notification_preferences WHERE user_id = $1
+SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories FROM notification_preferences WHERE user_id = $1
 `
 
 func (q *Queries) GetNotificationPreferences(ctx context.Context, userID pgtype.UUID) (NotificationPreference, error) {
@@ -534,6 +534,7 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID pgtype.
 		&i.SmsUnsubscribeToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PreferredCategories,
 	)
 	return i, err
 }
@@ -608,7 +609,7 @@ func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
 
 const listEmailSubscribers = `-- name: ListEmailSubscribers :many
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token
+       np.email_unsubscribe_token, np.preferred_categories
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.email_enabled = TRUE
@@ -624,6 +625,7 @@ type ListEmailSubscribersRow struct {
 	DefaultLongitude      pgtype.Float8
 	DefaultRadiusMiles    pgtype.Int4
 	EmailUnsubscribeToken pgtype.UUID
+	PreferredCategories   []string
 }
 
 func (q *Queries) ListEmailSubscribers(ctx context.Context) ([]ListEmailSubscribersRow, error) {
@@ -642,6 +644,7 @@ func (q *Queries) ListEmailSubscribers(ctx context.Context) ([]ListEmailSubscrib
 			&i.DefaultLongitude,
 			&i.DefaultRadiusMiles,
 			&i.EmailUnsubscribeToken,
+			&i.PreferredCategories,
 		); err != nil {
 			return nil, err
 		}
@@ -683,7 +686,7 @@ func (q *Queries) ListEventIDsForSitemap(ctx context.Context) ([]ListEventIDsFor
 }
 
 const listEventsByLocation = `-- name: ListEventsByLocation :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -692,7 +695,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR category = $6::text)
+AND ($6::text IS NULL OR $6::text = ANY(categories))
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::uuid IS NULL OR venue_id = $8::uuid)
 AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
@@ -753,7 +756,6 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 			&i.Longitude,
 			&i.StartTime,
 			&i.EndTime,
-			&i.Category,
 			&i.ImageUrl,
 			&i.TicketUrl,
 			&i.PriceMin,
@@ -763,6 +765,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
 			&i.VenueID,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -775,7 +778,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 }
 
 const listEventsByLocationDateSorted = `-- name: ListEventsByLocationDateSorted :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -784,7 +787,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR category = $6::text)
+AND ($6::text IS NULL OR $6::text = ANY(categories))
 AND ($7::text IS NULL OR venue_name = $7::text)
 AND ($8::uuid IS NULL OR venue_id = $8::uuid)
 AND ($9::text IS NULL OR title ILIKE '%' || $9::text || '%' OR venue_name ILIKE '%' || $9::text || '%')
@@ -847,7 +850,6 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 			&i.Longitude,
 			&i.StartTime,
 			&i.EndTime,
-			&i.Category,
 			&i.ImageUrl,
 			&i.TicketUrl,
 			&i.PriceMin,
@@ -857,6 +859,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
 			&i.VenueID,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -869,7 +872,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 }
 
 const listEventsBySubmitter = `-- name: ListEventsBySubmitter :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories FROM events
 WHERE submitted_by = $1
 ORDER BY start_time ASC
 `
@@ -898,7 +901,6 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.Longitude,
 			&i.StartTime,
 			&i.EndTime,
-			&i.Category,
 			&i.ImageUrl,
 			&i.TicketUrl,
 			&i.PriceMin,
@@ -908,6 +910,7 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
 			&i.VenueID,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -994,7 +997,7 @@ func (q *Queries) ListPendingApplications(ctx context.Context) ([]AuthorApplicat
 
 const listSMSSubscribers = `-- name: ListSMSSubscribers :many
 SELECT u.id, u.clerk_id, u.phone_number, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.sms_unsubscribe_token
+       np.sms_unsubscribe_token, np.preferred_categories
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.sms_enabled = TRUE
@@ -1011,6 +1014,7 @@ type ListSMSSubscribersRow struct {
 	DefaultLongitude    pgtype.Float8
 	DefaultRadiusMiles  pgtype.Int4
 	SmsUnsubscribeToken pgtype.UUID
+	PreferredCategories []string
 }
 
 func (q *Queries) ListSMSSubscribers(ctx context.Context) ([]ListSMSSubscribersRow, error) {
@@ -1030,6 +1034,7 @@ func (q *Queries) ListSMSSubscribers(ctx context.Context) ([]ListSMSSubscribersR
 			&i.DefaultLongitude,
 			&i.DefaultRadiusMiles,
 			&i.SmsUnsubscribeToken,
+			&i.PreferredCategories,
 		); err != nil {
 			return nil, err
 		}
@@ -1042,7 +1047,7 @@ func (q *Queries) ListSMSSubscribers(ctx context.Context) ([]ListSMSSubscribersR
 }
 
 const listSavedEvents = `-- name: ListSavedEvents :many
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.category, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories
 FROM events e
 JOIN saved_events se ON se.event_id = e.id
 WHERE se.user_id = $1
@@ -1073,7 +1078,6 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 			&i.Longitude,
 			&i.StartTime,
 			&i.EndTime,
-			&i.Category,
 			&i.ImageUrl,
 			&i.TicketUrl,
 			&i.PriceMin,
@@ -1083,6 +1087,7 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
 			&i.VenueID,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -1095,7 +1100,7 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 }
 
 const listUpcomingEventsForDigest = `-- name: ListUpcomingEventsForDigest :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -1146,7 +1151,6 @@ func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcom
 			&i.Longitude,
 			&i.StartTime,
 			&i.EndTime,
-			&i.Category,
 			&i.ImageUrl,
 			&i.TicketUrl,
 			&i.PriceMin,
@@ -1156,6 +1160,7 @@ func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcom
 			&i.UpdatedAt,
 			&i.ManuallyEdited,
 			&i.VenueID,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -1368,7 +1373,7 @@ UPDATE events SET
     longitude = $10,
     start_time = $11,
     end_time = $12,
-    category = $13,
+    categories = $13,
     image_url = $14,
     ticket_url = $15,
     price_min = $16,
@@ -1377,7 +1382,7 @@ UPDATE events SET
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 `
 
 type UpdateEventParams struct {
@@ -1393,7 +1398,7 @@ type UpdateEventParams struct {
 	Longitude   float64
 	StartTime   pgtype.Timestamptz
 	EndTime     pgtype.Timestamptz
-	Category    pgtype.Text
+	Categories  []string
 	ImageUrl    pgtype.Text
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
@@ -1415,7 +1420,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		arg.Longitude,
 		arg.StartTime,
 		arg.EndTime,
-		arg.Category,
+		arg.Categories,
 		arg.ImageUrl,
 		arg.TicketUrl,
 		arg.PriceMin,
@@ -1438,7 +1443,6 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.Longitude,
 		&i.StartTime,
 		&i.EndTime,
-		&i.Category,
 		&i.ImageUrl,
 		&i.TicketUrl,
 		&i.PriceMin,
@@ -1448,6 +1452,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
 		&i.VenueID,
+		&i.Categories,
 	)
 	return i, err
 }
@@ -1569,7 +1574,7 @@ func (q *Queries) UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue
 const upsertExternalEvent = `-- name: UpsertExternalEvent :one
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
-    latitude, longitude, start_time, end_time, category, image_url,
+    latitude, longitude, start_time, end_time, categories, image_url,
     ticket_url, price_min, price_max, venue_id
 ) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
 WHERE NOT EXISTS (
@@ -1583,11 +1588,11 @@ DO UPDATE SET
     city=EXCLUDED.city, state=EXCLUDED.state, zip=EXCLUDED.zip,
     latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
-    category=EXCLUDED.category, image_url=EXCLUDED.image_url,
+    categories=EXCLUDED.categories, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
     price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, category, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories
 `
 
 type UpsertExternalEventParams struct {
@@ -1604,7 +1609,7 @@ type UpsertExternalEventParams struct {
 	Longitude   float64
 	StartTime   pgtype.Timestamptz
 	EndTime     pgtype.Timestamptz
-	Category    pgtype.Text
+	Categories  []string
 	ImageUrl    pgtype.Text
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
@@ -1627,7 +1632,7 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		arg.Longitude,
 		arg.StartTime,
 		arg.EndTime,
-		arg.Category,
+		arg.Categories,
 		arg.ImageUrl,
 		arg.TicketUrl,
 		arg.PriceMin,
@@ -1650,7 +1655,6 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		&i.Longitude,
 		&i.StartTime,
 		&i.EndTime,
-		&i.Category,
 		&i.ImageUrl,
 		&i.TicketUrl,
 		&i.PriceMin,
@@ -1660,28 +1664,36 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		&i.UpdatedAt,
 		&i.ManuallyEdited,
 		&i.VenueID,
+		&i.Categories,
 	)
 	return i, err
 }
 
 const upsertNotificationPreferences = `-- name: UpsertNotificationPreferences :one
-INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled)
-VALUES ($1, $2, $3)
+INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET
     email_enabled = EXCLUDED.email_enabled,
     sms_enabled = EXCLUDED.sms_enabled,
+    preferred_categories = EXCLUDED.preferred_categories,
     updated_at = NOW()
-RETURNING id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at
+RETURNING id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories
 `
 
 type UpsertNotificationPreferencesParams struct {
-	UserID       pgtype.UUID
-	EmailEnabled bool
-	SmsEnabled   bool
+	UserID              pgtype.UUID
+	EmailEnabled        bool
+	SmsEnabled          bool
+	PreferredCategories []string
 }
 
 func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error) {
-	row := q.db.QueryRow(ctx, upsertNotificationPreferences, arg.UserID, arg.EmailEnabled, arg.SmsEnabled)
+	row := q.db.QueryRow(ctx, upsertNotificationPreferences,
+		arg.UserID,
+		arg.EmailEnabled,
+		arg.SmsEnabled,
+		arg.PreferredCategories,
+	)
 	var i NotificationPreference
 	err := row.Scan(
 		&i.ID,
@@ -1692,6 +1704,7 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		&i.SmsUnsubscribeToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PreferredCategories,
 	)
 	return i, err
 }

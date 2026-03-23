@@ -222,7 +222,7 @@ type createEventRequest struct {
 	Longitude   float64  `json:"longitude"`
 	StartTime   string   `json:"start_time"`
 	EndTime     *string  `json:"end_time"`
-	Category    *string  `json:"category"`
+	Categories  []string `json:"categories"`
 	ImageURL    *string  `json:"image_url"`
 	TicketURL   *string  `json:"ticket_url"`
 	PriceMin    *float64 `json:"price_min"`
@@ -312,7 +312,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Longitude:   req.Longitude,
 		StartTime:   pgtype.Timestamptz{Time: startTime, Valid: true},
 		EndTime:     endTime,
-		Category:    textFromPtr(req.Category),
+		Categories:  req.Categories,
 		ImageUrl:    textFromPtr(req.ImageURL),
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
@@ -441,7 +441,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Longitude:   req.Longitude,
 		StartTime:   pgtype.Timestamptz{Time: startTime, Valid: true},
 		EndTime:     endTime,
-		Category:    textFromPtr(req.Category),
+		Categories:  req.Categories,
 		ImageUrl:    textFromPtr(req.ImageURL),
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),

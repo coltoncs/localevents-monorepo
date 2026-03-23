@@ -32,7 +32,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
+AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%');
@@ -47,7 +47,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
+AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
@@ -67,7 +67,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category')::text)
+AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
@@ -82,7 +82,7 @@ LIMIT @event_limit OFFSET @event_offset;
 -- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
-    latitude, longitude, start_time, end_time, category, image_url,
+    latitude, longitude, start_time, end_time, categories, image_url,
     ticket_url, price_min, price_max, submitted_by, venue_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
@@ -134,7 +134,7 @@ UPDATE events SET
     longitude = $10,
     start_time = $11,
     end_time = $12,
-    category = $13,
+    categories = $13,
     image_url = $14,
     ticket_url = $15,
     price_min = $16,
@@ -260,7 +260,7 @@ WHERE deleted_at < NOW() - INTERVAL '90 days';
 -- name: UpsertExternalEvent :one
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
-    latitude, longitude, start_time, end_time, category, image_url,
+    latitude, longitude, start_time, end_time, categories, image_url,
     ticket_url, price_min, price_max, venue_id
 ) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
 WHERE NOT EXISTS (
@@ -274,7 +274,7 @@ DO UPDATE SET
     city=EXCLUDED.city, state=EXCLUDED.state, zip=EXCLUDED.zip,
     latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
-    category=EXCLUDED.category, image_url=EXCLUDED.image_url,
+    categories=EXCLUDED.categories, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
     price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
@@ -287,11 +287,12 @@ SELECT id, updated_at FROM events WHERE start_time >= NOW() ORDER BY start_time 
 SELECT id, updated_at FROM venues ORDER BY id ASC;
 
 -- name: UpsertNotificationPreferences :one
-INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled)
-VALUES ($1, $2, $3)
+INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (user_id) DO UPDATE SET
     email_enabled = EXCLUDED.email_enabled,
     sms_enabled = EXCLUDED.sms_enabled,
+    preferred_categories = EXCLUDED.preferred_categories,
     updated_at = NOW()
 RETURNING *;
 
@@ -303,7 +304,7 @@ UPDATE users SET phone_number = $2, updated_at = NOW() WHERE id = $1;
 
 -- name: ListEmailSubscribers :many
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token
+       np.email_unsubscribe_token, np.preferred_categories
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.email_enabled = TRUE
@@ -313,7 +314,7 @@ WHERE np.email_enabled = TRUE
 
 -- name: ListSMSSubscribers :many
 SELECT u.id, u.clerk_id, u.phone_number, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.sms_unsubscribe_token
+       np.sms_unsubscribe_token, np.preferred_categories
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.sms_enabled = TRUE

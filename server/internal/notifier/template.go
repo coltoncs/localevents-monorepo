@@ -19,7 +19,7 @@ type EventData struct {
 	Title    string
 	DateTime string
 	Venue    string
-	Category string
+	Category string // first category for display
 	ImageURL string
 	Price    string
 	EventURL string
@@ -82,8 +82,8 @@ func RenderDigestEmail(events []store.Event, unsubscribeURL, frontendURL string)
 		if e.VenueName.Valid {
 			ed.Venue = e.VenueName.String
 		}
-		if e.Category.Valid {
-			ed.Category = e.Category.String
+		if len(e.Categories) > 0 {
+			ed.Category = e.Categories[0]
 		}
 		if e.ImageUrl.Valid {
 			ed.ImageURL = e.ImageUrl.String

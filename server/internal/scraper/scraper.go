@@ -37,7 +37,7 @@ type RawEvent struct {
 	Longitude   float64
 	StartTime   time.Time
 	EndTime     *time.Time
-	Category    string
+	Categories  []string
 	ImageURL    string
 	TicketURL   string
 	PriceMin    *float64
@@ -196,7 +196,7 @@ func (r *Runner) Run(ctx context.Context) {
 			Longitude:   e.Longitude,
 			StartTime:   pgtype.Timestamptz{Time: e.StartTime, Valid: true},
 			EndTime:     timestamptzFromPtr(e.EndTime),
-			Category:    textFromStr(e.Category),
+			Categories:  e.Categories,
 			ImageUrl:    textFromStr(e.ImageURL),
 			TicketUrl:   textFromStr(e.TicketURL),
 			PriceMin:    numericFromFloat(e.PriceMin),
@@ -240,9 +240,9 @@ func enrichPriorityEvent(pe, ae *RawEvent) {
 	if ae.PriceMax != nil && pe.PriceMax == nil {
 		pe.PriceMax = ae.PriceMax
 	}
-	// Fill in category if missing
-	if ae.Category != "" && pe.Category == "" {
-		pe.Category = ae.Category
+	// Fill in categories if missing
+	if len(ae.Categories) > 0 && len(pe.Categories) == 0 {
+		pe.Categories = ae.Categories
 	}
 }
 

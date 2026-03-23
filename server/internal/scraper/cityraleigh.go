@@ -204,9 +204,9 @@ func mapCREvent(ev crEvent) (RawEvent, error) {
 	raw.State = ev.State
 	raw.Zip = ev.Zip
 
-	// Category from classifications
+	// Categories from classifications
 	if len(ev.Categories) > 0 {
-		raw.Category = ev.Categories[0].CatName
+		raw.Categories = []string{ev.Categories[0].CatName}
 	}
 
 	// Image

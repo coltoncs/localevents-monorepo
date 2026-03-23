@@ -13,7 +13,7 @@ export interface Event {
   Longitude: number
   StartTime: string
   EndTime?: string
-  Category?: string
+  Categories?: string[]
   ImageUrl?: string
   TicketUrl?: string
   PriceMin?: number
@@ -54,7 +54,7 @@ export interface EventFilters {
   radius?: number
   date?: string
   endDate?: string
-  category?: string
+  category?: string // single category for filtering
   venueName?: string
   venueId?: string
   search?: string
@@ -74,7 +74,7 @@ export interface CreateEventInput {
   longitude: number
   start_time: string
   end_time?: string
-  category?: string
+  categories?: string[]
   image_url?: string
   ticket_url?: string
   price_min?: number
@@ -160,10 +160,12 @@ export interface NotificationPreferences {
   sms_enabled: boolean
   phone_number?: string
   has_subscription: boolean
+  preferred_categories: string[]
 }
 
 export interface UpdateNotificationInput {
   email_enabled: boolean
   sms_enabled: boolean
   phone_number?: string
+  preferred_categories: string[]
 }

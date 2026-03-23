@@ -43,7 +43,6 @@ type Event struct {
 	Longitude      float64
 	StartTime      pgtype.Timestamptz
 	EndTime        pgtype.Timestamptz
-	Category       pgtype.Text
 	ImageUrl       pgtype.Text
 	TicketUrl      pgtype.Text
 	PriceMin       pgtype.Numeric
@@ -53,6 +52,7 @@ type Event struct {
 	UpdatedAt      pgtype.Timestamptz
 	ManuallyEdited bool
 	VenueID        pgtype.UUID
+	Categories     []string
 }
 
 type Image struct {
@@ -85,6 +85,7 @@ type NotificationPreference struct {
 	SmsUnsubscribeToken   pgtype.UUID
 	CreatedAt             pgtype.Timestamptz
 	UpdatedAt             pgtype.Timestamptz
+	PreferredCategories   []string
 }
 
 type SavedEvent struct {
