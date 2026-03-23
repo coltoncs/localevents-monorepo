@@ -27,11 +27,13 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey)
 	digestHandler := handler.NewDigestHandler(digestRunner)
+	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
 		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
 		r.Get("/unsubscribe/{token}", notificationHandler.Unsubscribe)
+		r.Post("/sms/incoming", smsWebhookHandler.Incoming)
 
 		// Public routes with optional auth
 		r.Group(func(r chi.Router) {

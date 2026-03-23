@@ -64,6 +64,10 @@ export function NotificationSettings() {
     return <p className="text-sm text-(--sea-ink-soft)">Loading...</p>
   }
 
+  console.log('prefs settings: ', prefs);
+  console.log('user: ', user);
+  
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-(--sea-ink-soft)">
@@ -84,11 +88,13 @@ export function NotificationSettings() {
       </label>
 
       <div className="flex items-center gap-3">
-        <label className="flex items-center gap-3">
+        <label className={`flex items-center gap-3${!hasSubscription ? ' pointer-events-none' : ''}`}>
           <input
             type="checkbox"
             checked={smsEnabled && hasSubscription}
-            onChange={(e) => setSmsEnabled(e.target.checked)}
+            onChange={(e) => {
+              if (hasSubscription) setSmsEnabled(e.target.checked)
+            }}
             disabled={!hasSubscription}
             className="h-4 w-4 rounded border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon) disabled:opacity-50"
           />

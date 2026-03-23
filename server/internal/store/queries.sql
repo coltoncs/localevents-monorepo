@@ -326,6 +326,14 @@ WHERE np.sms_enabled = TRUE
 UPDATE notification_preferences SET email_enabled = FALSE, updated_at = NOW()
 WHERE email_unsubscribe_token = $1;
 
+-- name: UnsubscribeSMSByPhoneNumber :exec
+UPDATE notification_preferences SET sms_enabled = FALSE, updated_at = NOW()
+WHERE user_id = (SELECT id FROM users WHERE phone_number = $1 LIMIT 1);
+
+-- name: ResubscribeSMSByPhoneNumber :exec
+UPDATE notification_preferences SET sms_enabled = TRUE, updated_at = NOW()
+WHERE user_id = (SELECT id FROM users WHERE phone_number = $1 LIMIT 1);
+
 -- name: UnsubscribeBySMSToken :exec
 UPDATE notification_preferences SET sms_enabled = FALSE, updated_at = NOW()
 WHERE sms_unsubscribe_token = $1;

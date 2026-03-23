@@ -6,12 +6,19 @@ import (
 	"net/http"
 )
 
-type subscriptionResponse struct {
+type planResponse struct {
 	ID     string `json:"id"`
-	Status string `json:"status"`
+	Amount int    `json:"amount"`
 }
 
-// HasActiveSubscription checks if a Clerk user has an active billing subscription.
+type subscriptionResponse struct {
+	ID     string       `json:"id"`
+	Status string       `json:"status"`
+	Plan   planResponse `json:"plan"`
+}
+
+// HasActiveSubscription checks if a Clerk user has an active *paid* billing subscription.
+// Free-tier subscriptions (amount == 0) are not considered active for gating purposes.
 func HasActiveSubscription(clerkSecretKey, clerkUserID string) (bool, error) {
 	url := fmt.Sprintf("https://api.clerk.com/v1/users/%s/billing/subscription", clerkUserID)
 
@@ -37,5 +44,5 @@ func HasActiveSubscription(clerkSecretKey, clerkUserID string) (bool, error) {
 		return false, fmt.Errorf("decode subscription: %w", err)
 	}
 
-	return sub.Status == "active", nil
+	return sub.Status == "active" && sub.Plan.ID == "donate", nil
 }

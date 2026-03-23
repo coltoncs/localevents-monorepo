@@ -1286,6 +1286,16 @@ func (q *Queries) RejectApplication(ctx context.Context, arg RejectApplicationPa
 	return i, err
 }
 
+const resubscribeSMSByPhoneNumber = `-- name: ResubscribeSMSByPhoneNumber :exec
+UPDATE notification_preferences SET sms_enabled = TRUE, updated_at = NOW()
+WHERE user_id = (SELECT id FROM users WHERE phone_number = $1 LIMIT 1)
+`
+
+func (q *Queries) ResubscribeSMSByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) error {
+	_, err := q.db.Exec(ctx, resubscribeSMSByPhoneNumber, phoneNumber)
+	return err
+}
+
 const saveEvent = `-- name: SaveEvent :one
 INSERT INTO saved_events (user_id, event_id)
 VALUES ($1, $2)
@@ -1357,6 +1367,16 @@ WHERE sms_unsubscribe_token = $1
 
 func (q *Queries) UnsubscribeBySMSToken(ctx context.Context, smsUnsubscribeToken pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, unsubscribeBySMSToken, smsUnsubscribeToken)
+	return err
+}
+
+const unsubscribeSMSByPhoneNumber = `-- name: UnsubscribeSMSByPhoneNumber :exec
+UPDATE notification_preferences SET sms_enabled = FALSE, updated_at = NOW()
+WHERE user_id = (SELECT id FROM users WHERE phone_number = $1 LIMIT 1)
+`
+
+func (q *Queries) UnsubscribeSMSByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) error {
+	_, err := q.db.Exec(ctx, unsubscribeSMSByPhoneNumber, phoneNumber)
 	return err
 }
 
