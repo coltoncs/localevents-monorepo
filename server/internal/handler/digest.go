@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -21,7 +22,7 @@ func (h *DigestHandler) Trigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.runner.Run(r.Context())
+	go h.runner.Run(context.Background())
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "digest triggered"})

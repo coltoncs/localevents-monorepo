@@ -54,7 +54,8 @@ function DonatePage() {
               Monthly via subscription
             </h2>
             <p className="mt-1 text-center text-sm text-[var(--sea-ink-soft)]">
-              Set up a recurring $1/month donation to support ongoing development.
+              Set up a recurring $2/month donation to support ongoing development.
+              Subscribers get weekly SMS event digests.
             </p>
             <div className="mt-4">
               {isSignedIn ? (

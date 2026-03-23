@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as MyEventsRouteImport } from './routes/my-events'
 import { Route as DonateRouteImport } from './routes/donate'
 import { Route as ApplyAuthorRouteImport } from './routes/apply-author'
@@ -24,6 +26,11 @@ import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubmitRoute = SubmitRouteImport.update({
   id: '/submit',
   path: '/submit',
@@ -37,6 +44,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SavedRoute = SavedRouteImport.update({
   id: '/saved',
   path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyEventsRoute = MyEventsRouteImport.update({
@@ -102,9 +114,11 @@ export interface FileRoutesByFullPath {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/privacy': typeof PrivacyRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
+  '/terms': typeof TermsRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events/': typeof EventsIndexRoute
@@ -118,9 +132,11 @@ export interface FileRoutesByTo {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/privacy': typeof PrivacyRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
+  '/terms': typeof TermsRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
@@ -134,9 +150,11 @@ export interface FileRoutesById {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/privacy': typeof PrivacyRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
+  '/terms': typeof TermsRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/events/': typeof EventsIndexRoute
@@ -152,9 +170,11 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/privacy'
     | '/saved'
     | '/settings'
     | '/submit'
+    | '/terms'
     | '/events/$eventId'
     | '/venues/$venueId'
     | '/events/'
@@ -168,9 +188,11 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/privacy'
     | '/saved'
     | '/settings'
     | '/submit'
+    | '/terms'
     | '/venues/$venueId'
     | '/events'
     | '/events/$eventId/edit'
@@ -183,9 +205,11 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/privacy'
     | '/saved'
     | '/settings'
     | '/submit'
+    | '/terms'
     | '/events/$eventId'
     | '/venues/$venueId'
     | '/events/'
@@ -200,9 +224,11 @@ export interface RootRouteChildren {
   ApplyAuthorRoute: typeof ApplyAuthorRoute
   DonateRoute: typeof DonateRoute
   MyEventsRoute: typeof MyEventsRoute
+  PrivacyRoute: typeof PrivacyRoute
   SavedRoute: typeof SavedRoute
   SettingsRoute: typeof SettingsRoute
   SubmitRoute: typeof SubmitRoute
+  TermsRoute: typeof TermsRoute
   EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
   EventsIndexRoute: typeof EventsIndexRoute
@@ -210,6 +236,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/submit': {
       id: '/submit'
       path: '/submit'
@@ -229,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/saved'
       fullPath: '/saved'
       preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-events': {
@@ -332,9 +372,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApplyAuthorRoute: ApplyAuthorRoute,
   DonateRoute: DonateRoute,
   MyEventsRoute: MyEventsRoute,
+  PrivacyRoute: PrivacyRoute,
   SavedRoute: SavedRoute,
   SettingsRoute: SettingsRoute,
   SubmitRoute: SubmitRoute,
+  TermsRoute: TermsRoute,
   EventsEventIdRoute: EventsEventIdRouteWithChildren,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
   EventsIndexRoute: EventsIndexRoute,

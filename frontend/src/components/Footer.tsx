@@ -9,12 +9,26 @@ export default function Footer() {
         <p className="m-0 text-sm">
           &copy; {year} 919Events. Find what&apos;s happening near you.
         </p>
-        <Link
-          to="/donate"
-          className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
-        >
-          Donate
-        </Link>
+        <nav className="flex gap-4">
+          <Link
+            to="/donate"
+            className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+          >
+            Donate
+          </Link>
+          <Link
+            to="/privacy"
+            className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+          >
+            Privacy
+          </Link>
+          <Link
+            to="/terms"
+            className="text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+          >
+            Terms
+          </Link>
+        </nav>
       </div>
     </footer>
   )

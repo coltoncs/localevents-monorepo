@@ -20,6 +20,7 @@ interface VenueSearch {
 }
 
 export const Route = createFileRoute('/venues/$venueId')({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): VenueSearch => ({
     page: search.page ? Number(search.page) : undefined,
   }),

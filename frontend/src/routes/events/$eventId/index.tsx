@@ -12,6 +12,7 @@ import { stripHtml, truncate, eventJsonLd } from '#/lib/seo'
 import type { Event } from '#/lib/types'
 
 export const Route = createFileRoute('/events/$eventId/')({
+  ssr: false,
   loader: async ({ context, params }) => {
     return await context.queryClient.ensureQueryData(
       eventDetailOptions(params.eventId),

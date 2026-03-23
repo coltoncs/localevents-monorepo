@@ -55,7 +55,7 @@ func Load() *Config {
 		TwilioAccountSID:    getEnv("TWILIO_ACCOUNT_SID", ""),
 		TwilioAuthToken:     getEnv("TWILIO_AUTH_TOKEN", ""),
 		TwilioFromNumber:    getEnv("TWILIO_FROM_NUMBER", ""),
-		DigestCronSchedule:  getEnv("DIGEST_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 9 * * 1"),
+		DigestCronSchedule:  getEnv("DIGEST_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 9 * * 5"),
 		DigestEnabled:       getEnv("DIGEST_ENABLED", "false") == "true",
 		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
 	}
