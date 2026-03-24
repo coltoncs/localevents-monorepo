@@ -3,18 +3,23 @@ package billing
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
 type planResponse struct {
-	ID     string `json:"id"`
-	Amount int    `json:"amount"`
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+}
+
+type subscriptionItemResponse struct {
+	Plan planResponse `json:"plan"`
 }
 
 type subscriptionResponse struct {
-	ID     string       `json:"id"`
-	Status string       `json:"status"`
-	Plan   planResponse `json:"plan"`
+	ID                string                     `json:"id"`
+	Status            string                     `json:"status"`
+	SubscriptionItems []subscriptionItemResponse `json:"subscription_items"`
 }
 
 // HasActiveSubscription checks if a Clerk user has an active *paid* billing subscription.
@@ -34,15 +39,24 @@ func HasActiveSubscription(clerkSecretKey, clerkUserID string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("read response body: %w", err)
+	}
+
 	// 404 or other error means no subscription
 	if resp.StatusCode != http.StatusOK {
 		return false, nil
 	}
 
 	var sub subscriptionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&sub); err != nil {
+	if err := json.Unmarshal(body, &sub); err != nil {
 		return false, fmt.Errorf("decode subscription: %w", err)
 	}
 
-	return sub.Status == "active" && sub.Plan.ID == "donate", nil
+	planSlug := ""
+	if len(sub.SubscriptionItems) > 0 {
+		planSlug = sub.SubscriptionItems[0].Plan.Slug
+	}
+	return sub.Status == "active" && planSlug == "donate", nil
 }

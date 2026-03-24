@@ -426,6 +426,26 @@ a {
   opacity: 0.3;
 }
 
+/* react-phone-number-input theme overrides */
+.PhoneInput {
+  --PhoneInputCountryFlag-height: 1em;
+  --PhoneInputCountrySelectArrow-color: var(--sea-ink-soft);
+}
+
+.PhoneInput .PhoneInputInput {
+  background: transparent;
+  color: var(--sea-ink);
+  border: none;
+  outline: none;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.PhoneInput .PhoneInputInput::placeholder {
+  color: var(--sea-ink-soft);
+  opacity: 0.6;
+}
+
 /* Override Tailwind Typography prose colors to respect theme variables */
 .prose {
   --tw-prose-body: var(--sea-ink-soft);

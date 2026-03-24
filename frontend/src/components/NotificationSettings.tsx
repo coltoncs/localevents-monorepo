@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
+import PhoneInput, { isValidPhoneNumber, type Value } from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
@@ -14,7 +16,7 @@ export function NotificationSettings() {
 
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [smsEnabled, setSmsEnabled] = useState(false)
-  const [phoneNumber, setPhoneNumber] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState<Value | undefined>()
   const [preferredCategories, setPreferredCategories] = useState<string[]>([])
   const [error, setError] = useState('')
 
@@ -22,7 +24,7 @@ export function NotificationSettings() {
     if (prefs) {
       setEmailEnabled(prefs.email_enabled)
       setSmsEnabled(prefs.sms_enabled)
-      setPhoneNumber(prefs.phone_number ?? '')
+      setPhoneNumber((prefs.phone_number as Value) ?? undefined)
       setPreferredCategories(prefs.preferred_categories ?? [])
     }
   }, [prefs])
@@ -47,15 +49,15 @@ export function NotificationSettings() {
       setError('A phone number is required to enable SMS notifications.')
       return
     }
-    if (smsEnabled && phoneNumber && !/^\+1\d{10}$/.test(phoneNumber)) {
-      setError('Phone number must be in format +1XXXXXXXXXX')
+    if (smsEnabled && phoneNumber && !isValidPhoneNumber(phoneNumber)) {
+      setError('Please enter a valid phone number.')
       return
     }
 
     updatePrefs.mutate({
       email_enabled: emailEnabled,
       sms_enabled: smsEnabled,
-      phone_number: phoneNumber || undefined,
+      phone_number: phoneNumber ?? undefined,
       preferred_categories: preferredCategories,
     })
   }
@@ -113,12 +115,12 @@ export function NotificationSettings() {
           <label className="block text-sm font-medium text-(--sea-ink-soft)">
             Phone Number
           </label>
-          <input
-            type="tel"
+          <PhoneInput
+            international
+            defaultCountry="US"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="+1XXXXXXXXXX"
-            className="mt-1 block w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon) focus:outline-none"
+            onChange={setPhoneNumber}
+            className="mt-1 block w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm shadow-sm focus-within:border-(--lagoon) focus-within:ring-(--lagoon)"
           />
         </div>
       )}

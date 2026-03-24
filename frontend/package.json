@@ -57,6 +57,7 @@
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-hotkeys-hook": "^5.2.4",
+    "react-phone-number-input": "^3.4.16",
     "tailwindcss": "^4.1.18",
     "zod": "4.2.1"
   },
