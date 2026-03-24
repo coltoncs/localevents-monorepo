@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -55,6 +56,7 @@ type Runner struct {
 	Sources   []EventSource
 	Locations []Location
 	Queries   *store.Queries
+	R2        *storage.R2Client // optional; when set, images are mirrored to R2
 }
 
 // prioritySources are local/community scrapers whose listings are preferred
@@ -162,7 +164,19 @@ func (r *Runner) Run(ctx context.Context) {
 
 	// Phase 4: upsert all events.
 	total := 0
+	mirrored := 0
 	for _, e := range append(priorityEvents, survivingAggregator...) {
+		// Mirror external image to R2 if configured.
+		if r.R2 != nil && e.ImageURL != "" {
+			if r2URL, err := r.R2.MirrorImage(ctx, e.ImageURL); err != nil {
+				log.Printf("[%s] image mirror failed for %s: %v", e.Source, e.ExternalID, err)
+				// Keep the original external URL as fallback.
+			} else if r2URL != "" {
+				e.ImageURL = r2URL
+				mirrored++
+			}
+		}
+
 		// Upsert venue if event has a venue name, then link it
 		var venueID pgtype.UUID
 		if e.VenueName != "" {
@@ -214,7 +228,7 @@ func (r *Runner) Run(ctx context.Context) {
 		total++
 	}
 
-	log.Printf("Event scrape complete: %d total events upserted", total)
+	log.Printf("Event scrape complete: %d total events upserted, %d images mirrored", total, mirrored)
 }
 
 // enrichPriorityEvent fills in missing fields on a priority (local) event

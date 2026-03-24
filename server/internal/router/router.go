@@ -8,10 +8,11 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/handler"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
-func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runner) *chi.Mux {
+func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -23,7 +24,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries)
-	imageHandler := handler.NewImageHandler(queries, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
+	imageHandler := handler.NewImageHandler(queries, r2)
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey)
 	digestHandler := handler.NewDigestHandler(digestRunner)

@@ -15,6 +15,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
+	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 	"github.com/robfig/cron/v3"
 )
@@ -36,6 +37,12 @@ func main() {
 	}
 
 	queries := store.New(pool)
+
+	// Create shared R2 client if credentials are configured.
+	var r2 *storage.R2Client
+	if cfg.R2AccountID != "" && cfg.R2AccessKeyID != "" && cfg.R2SecretAccessKey != "" && cfg.R2PublicURL != "" {
+		r2 = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
+	}
 
 	c := cron.New()
 
@@ -89,6 +96,13 @@ func main() {
 			Queries:   queries,
 		}
 
+		if r2 != nil {
+			runner.R2 = r2
+			log.Println("Image mirroring to R2 enabled")
+		} else {
+			log.Println("R2 credentials not fully set, image mirroring disabled")
+		}
+
 		c.AddFunc(cfg.ScraperCronSchedule, func() {
 			runner.Run(context.Background())
 		})
@@ -130,7 +144,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, cfg, digestRunner)
+	r := router.New(queries, cfg, digestRunner, r2)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

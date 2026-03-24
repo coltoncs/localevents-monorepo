@@ -9,40 +9,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
 type ImageHandler struct {
 	queries   *store.Queries
-	s3Client  *s3.Client
+	r2        *storage.R2Client
 	s3Presign *s3.PresignClient
-	publicURL string
-	bucket    string
 }
 
-func NewImageHandler(q *store.Queries, accountID, accessKeyID, secretAccessKey, publicURL, bucket string) *ImageHandler {
-	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
-
-	s3Client := s3.New(s3.Options{
-		Region:       "auto",
-		Credentials:  credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
-		BaseEndpoint: &endpoint,
-	})
-
-	return &ImageHandler{
-		queries:   q,
-		s3Client:  s3Client,
-		s3Presign: s3.NewPresignClient(s3Client),
-		publicURL: strings.TrimRight(publicURL, "/"),
-		bucket:    bucket,
+func NewImageHandler(q *store.Queries, r2 *storage.R2Client) *ImageHandler {
+	h := &ImageHandler{queries: q, r2: r2}
+	if r2 != nil {
+		h.s3Presign = s3.NewPresignClient(r2.Client())
 	}
+	return h
 }
 
 type presignRequest struct {
@@ -99,7 +87,7 @@ func (h *ImageHandler) Presign(w http.ResponseWriter, r *http.Request) {
 	key := fmt.Sprintf("users/%s/%s%s", clerkID, uuid.New().String(), ext)
 
 	presigned, err := h.s3Presign.PresignPutObject(context.Background(), &s3.PutObjectInput{
-		Bucket:      &h.bucket,
+		Bucket:      stringPtr(h.r2.Bucket()),
 		Key:         &key,
 		ContentType: &req.ContentType,
 	}, s3.WithPresignExpires(15*time.Minute))
@@ -111,7 +99,7 @@ func (h *ImageHandler) Presign(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(presignResponse{
 		UploadURL: presigned.URL,
-		PublicURL: fmt.Sprintf("%s/%s", h.publicURL, key),
+		PublicURL: fmt.Sprintf("%s/%s", h.r2.PublicURL(), key),
 		Key:       key,
 	})
 }
@@ -154,7 +142,7 @@ func (h *ImageHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicURL := fmt.Sprintf("%s/%s", h.publicURL, req.Key)
+	publicURL := fmt.Sprintf("%s/%s", h.r2.PublicURL(), req.Key)
 
 	image, err := h.queries.CreateImage(r.Context(), store.CreateImageParams{
 		UserID:      user.ID,
@@ -228,8 +216,8 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete from R2
-	_, _ = h.s3Client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
-		Bucket: &h.bucket,
+	_, _ = h.r2.Client().DeleteObject(context.Background(), &s3.DeleteObjectInput{
+		Bucket: stringPtr(h.r2.Bucket()),
 		Key:    &image.R2Key,
 	})
 
@@ -245,3 +233,5 @@ func (h *ImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func stringPtr(s string) *string { return &s }
