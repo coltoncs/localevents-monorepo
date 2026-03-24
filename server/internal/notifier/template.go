@@ -10,9 +10,11 @@ import (
 )
 
 type DigestData struct {
-	Events         []EventData
-	UnsubscribeURL string
-	FrontendURL    string
+	PreferredEvents []EventData
+	OtherEvents     []EventData
+	TotalCount      int
+	UnsubscribeURL  string
+	FrontendURL     string
 }
 
 type EventData struct {
@@ -25,19 +27,7 @@ type EventData struct {
 	EventURL string
 }
 
-var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:20px 0;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
-  <tr><td style="background-color:#0d5c63;padding:24px 32px;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;">Your Weekly Event Digest</h1>
-    <p style="margin:4px 0 0;color:#b2dfdb;font-size:14px;">{{len .Events}} events near you this week</p>
-  </td></tr>
-  <tr><td style="padding:24px 32px;">
-    {{range .Events}}
+var eventRowTpl = `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;border-bottom:1px solid #e0e0e0;padding-bottom:20px;">
     <tr>
       {{if .ImageURL}}<td width="120" style="vertical-align:top;padding-right:16px;">
@@ -51,7 +41,29 @@ var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
         {{if .Category}}<span style="display:inline-block;background:#e0f2f1;color:#0d5c63;font-size:11px;padding:2px 8px;border-radius:10px;margin-top:4px;">{{.Category}}</span>{{end}}
       </td>
     </tr>
-    </table>
+    </table>`
+
+var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:20px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+  <tr><td style="background-color:#0d5c63;padding:24px 32px;">
+    <h1 style="margin:0;color:#ffffff;font-size:22px;">Your Weekly Event Digest</h1>
+    <p style="margin:4px 0 0;color:#b2dfdb;font-size:14px;">{{.TotalCount}} events near you this week</p>
+  </td></tr>
+  <tr><td style="padding:24px 32px;">
+    {{if .PreferredEvents}}
+    <h2 style="margin:0 0 16px;color:#0d5c63;font-size:16px;font-weight:600;">Picked For You</h2>
+    {{range .PreferredEvents}}` + eventRowTpl + `
+    {{end}}
+    {{if .OtherEvents}}
+    <h2 style="margin:8px 0 16px;color:#555;font-size:16px;font-weight:600;">More Events</h2>
+    {{end}}
+    {{end}}
+    {{range .OtherEvents}}` + eventRowTpl + `
     {{end}}
     <p style="text-align:center;margin-top:24px;">
       <a href="{{.FrontendURL}}" style="display:inline-block;background-color:#0d5c63;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">View All Events</a>
@@ -66,10 +78,15 @@ var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
 </body>
 </html>`))
 
-func RenderDigestEmail(events []store.Event, unsubscribeURL, frontendURL string) (string, error) {
+func RenderDigestEmail(events []store.Event, preferredCategories []string, unsubscribeURL, frontendURL string) (string, error) {
 	loc, _ := time.LoadLocation("America/New_York")
 
-	var eventData []EventData
+	prefSet := make(map[string]bool, len(preferredCategories))
+	for _, c := range preferredCategories {
+		prefSet[c] = true
+	}
+
+	var preferred, other []EventData
 	for _, e := range events {
 		ed := EventData{
 			Title:    e.Title,
@@ -99,13 +116,19 @@ func RenderDigestEmail(events []store.Event, unsubscribeURL, frontendURL string)
 			ed.Price = price
 		}
 
-		eventData = append(eventData, ed)
+		if len(prefSet) > 0 && hasPreferred(e.Categories, prefSet) {
+			preferred = append(preferred, ed)
+		} else {
+			other = append(other, ed)
+		}
 	}
 
 	data := DigestData{
-		Events:         eventData,
-		UnsubscribeURL: unsubscribeURL,
-		FrontendURL:    frontendURL,
+		PreferredEvents: preferred,
+		OtherEvents:     other,
+		TotalCount:      len(events),
+		UnsubscribeURL:  unsubscribeURL,
+		FrontendURL:     frontendURL,
 	}
 
 	var buf bytes.Buffer

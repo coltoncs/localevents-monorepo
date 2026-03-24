@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -78,10 +78,8 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			continue
 		}
 
-		events = sortByPreferredCategories(events, sub.PreferredCategories)
-
 		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-		html, err := RenderDigestEmail(events, unsubscribeURL, r.FrontendURL)
+		html, err := RenderDigestEmail(events, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
 		if err != nil {
 			log.Printf("Digest: failed to render email for user %s: %v", uuidToString(sub.ID), err)
 			continue
@@ -226,13 +224,16 @@ func sortByPreferredCategories(events []store.Event, preferred []string) []store
 	}
 	sorted := make([]store.Event, len(events))
 	copy(sorted, events)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		iMatch := hasPreferred(sorted[i].Categories, prefSet)
-		jMatch := hasPreferred(sorted[j].Categories, prefSet)
-		if iMatch != jMatch {
-			return iMatch
+	slices.SortStableFunc(sorted, func(a, b store.Event) int {
+		aMatch := hasPreferred(a.Categories, prefSet)
+		bMatch := hasPreferred(b.Categories, prefSet)
+		if aMatch == bMatch {
+			return 0
 		}
-		return false
+		if aMatch {
+			return -1
+		}
+		return 1
 	})
 	return sorted
 }
