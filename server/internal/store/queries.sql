@@ -102,6 +102,15 @@ JOIN saved_events se ON se.event_id = e.id
 WHERE se.user_id = $1
 ORDER BY e.start_time ASC;
 
+-- name: ListSavedEventsForDigest :many
+SELECT e.*
+FROM events e
+JOIN saved_events se ON se.event_id = e.id
+WHERE se.user_id = $1
+  AND e.start_time >= @start_date::timestamptz
+  AND e.start_time < @end_date::timestamptz
+ORDER BY e.start_time ASC;
+
 -- name: SaveEvent :one
 INSERT INTO saved_events (user_id, event_id)
 VALUES ($1, $2)
@@ -117,6 +126,18 @@ SELECT COUNT(*) FROM saved_events WHERE event_id = $1;
 -- name: DeletePastEvents :execrows
 DELETE FROM events
 WHERE start_time < NOW()::date;
+
+-- name: ListPastEventImageURLs :many
+SELECT DISTINCT image_url
+FROM events
+WHERE start_time < NOW()::date
+  AND image_url IS NOT NULL
+  AND image_url LIKE '%/events/%'
+  AND image_url NOT IN (
+      SELECT image_url FROM events
+      WHERE start_time >= NOW()::date
+        AND image_url IS NOT NULL
+  );
 
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;

@@ -74,12 +74,23 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			continue
 		}
 
-		if len(events) == 0 {
+		// Query saved events within the digest window.
+		savedEvents, err := r.Queries.ListSavedEventsForDigest(ctx, store.ListSavedEventsForDigestParams{
+			UserID:    sub.ID,
+			StartDate: pgtype.Timestamptz{Time: startDate, Valid: true},
+			EndDate:   pgtype.Timestamptz{Time: endDate, Valid: true},
+		})
+		if err != nil {
+			log.Printf("Digest: failed to query saved events for user %s: %v", uuidToString(sub.ID), err)
+			savedEvents = nil
+		}
+
+		if len(events) == 0 && len(savedEvents) == 0 {
 			continue
 		}
 
 		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-		html, err := RenderDigestEmail(events, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
+		html, err := RenderDigestEmail(events, savedEvents, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
 		if err != nil {
 			log.Printf("Digest: failed to render email for user %s: %v", uuidToString(sub.ID), err)
 			continue

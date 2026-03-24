@@ -46,6 +46,17 @@ export function formatDateOnly(iso: string) {
   })
 }
 
+export function isSameDay(a: string, b: string): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString()
+}
+
+export function formatTimeOnly(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export function formatEventTime(event: Event): string {
   if (isAllDay(event)) {
     return formatDateOnly(event.StartTime) + ' · All Day'

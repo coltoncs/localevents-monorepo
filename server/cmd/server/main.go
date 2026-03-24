@@ -46,15 +46,46 @@ func main() {
 
 	c := cron.New()
 
-	// Cleanup: delete past events and stale deletion records daily at 3 AM
+	// Cleanup: delete past events, orphaned images, and stale deletion records daily at 3 AM
 	c.AddFunc("0 3 * * *", func() {
-		deleted, err := queries.DeletePastEvents(context.Background())
+		ctx := context.Background()
+
+		// Collect orphaned image URLs before deleting events.
+		var orphanedURLs []string
+		if r2 != nil {
+			pgURLs, err := queries.ListPastEventImageURLs(ctx)
+			if err != nil {
+				log.Printf("Orphaned image query failed: %v", err)
+			} else {
+				for _, u := range pgURLs {
+					if u.Valid {
+						orphanedURLs = append(orphanedURLs, u.String)
+					}
+				}
+			}
+		}
+
+		deleted, err := queries.DeletePastEvents(ctx)
 		if err != nil {
 			log.Printf("Event cleanup failed: %v", err)
 		} else {
 			log.Printf("Event cleanup: deleted %d past events", deleted)
 		}
-		cleaned, err := queries.CleanOldDeletedExternalEvents(context.Background())
+
+		// Delete orphaned images from R2.
+		if len(orphanedURLs) > 0 {
+			cleaned := 0
+			for _, u := range orphanedURLs {
+				if err := r2.DeleteByPublicURL(ctx, u); err != nil {
+					log.Printf("Image cleanup: failed to delete %s: %v", u, err)
+				} else {
+					cleaned++
+				}
+			}
+			log.Printf("Image cleanup: deleted %d orphaned images from R2", cleaned)
+		}
+
+		cleaned, err := queries.CleanOldDeletedExternalEvents(ctx)
 		if err != nil {
 			log.Printf("Deletion records cleanup failed: %v", err)
 		} else if cleaned > 0 {

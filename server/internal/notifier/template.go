@@ -10,6 +10,7 @@ import (
 )
 
 type DigestData struct {
+	SavedEvents     []EventData
 	PreferredEvents []EventData
 	OtherEvents     []EventData
 	TotalCount      int
@@ -55,11 +56,18 @@ var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
     <p style="margin:4px 0 0;color:#b2dfdb;font-size:14px;">{{.TotalCount}} events near you this week</p>
   </td></tr>
   <tr><td style="padding:24px 32px;">
+    {{if .SavedEvents}}
+    <h2 style="margin:0 0 16px;color:#0d5c63;font-size:16px;font-weight:600;">Your Saved Events</h2>
+    {{range .SavedEvents}}` + eventRowTpl + `
+    {{end}}
+    {{end}}
     {{if .PreferredEvents}}
-    <h2 style="margin:0 0 16px;color:#0d5c63;font-size:16px;font-weight:600;">Picked For You</h2>
+    <h2 style="margin:{{if .SavedEvents}}8px{{else}}0{{end}} 0 16px;color:#0d5c63;font-size:16px;font-weight:600;">Picked For You</h2>
     {{range .PreferredEvents}}` + eventRowTpl + `
     {{end}}
+    {{end}}
     {{if .OtherEvents}}
+    {{if or .SavedEvents .PreferredEvents}}
     <h2 style="margin:8px 0 16px;color:#555;font-size:16px;font-weight:600;">More Events</h2>
     {{end}}
     {{end}}
@@ -78,8 +86,18 @@ var emailTemplate = template.Must(template.New("digest").Parse(`<!DOCTYPE html>
 </body>
 </html>`))
 
-func RenderDigestEmail(events []store.Event, preferredCategories []string, unsubscribeURL, frontendURL string) (string, error) {
+func RenderDigestEmail(events, savedEvents []store.Event, preferredCategories []string, unsubscribeURL, frontendURL string) (string, error) {
 	loc, _ := time.LoadLocation("America/New_York")
+
+	// Build set of saved event IDs so we can exclude them from other sections.
+	savedIDs := make(map[[16]byte]bool, len(savedEvents))
+	var saved []EventData
+	for _, e := range savedEvents {
+		if e.ID.Valid {
+			savedIDs[e.ID.Bytes] = true
+		}
+		saved = append(saved, toEventData(e, loc, frontendURL))
+	}
 
 	prefSet := make(map[string]bool, len(preferredCategories))
 	for _, c := range preferredCategories {
@@ -88,34 +106,12 @@ func RenderDigestEmail(events []store.Event, preferredCategories []string, unsub
 
 	var preferred, other []EventData
 	for _, e := range events {
-		ed := EventData{
-			Title:    e.Title,
-			EventURL: fmt.Sprintf("%s/events/%s", frontendURL, uuidToString(e.ID)),
+		// Skip events already shown in the saved section.
+		if e.ID.Valid && savedIDs[e.ID.Bytes] {
+			continue
 		}
 
-		if e.StartTime.Valid {
-			ed.DateTime = e.StartTime.Time.In(loc).Format("Mon, Jan 2 at 3:04 PM")
-		}
-		if e.VenueName.Valid {
-			ed.Venue = e.VenueName.String
-		}
-		if len(e.Categories) > 0 {
-			ed.Category = e.Categories[0]
-		}
-		if e.ImageUrl.Valid {
-			ed.ImageURL = e.ImageUrl.String
-		}
-		if e.PriceMin.Valid {
-			price := formatNumeric(e.PriceMin)
-			if e.PriceMax.Valid {
-				maxPrice := formatNumeric(e.PriceMax)
-				if maxPrice != price {
-					price = price + " - " + maxPrice
-				}
-			}
-			ed.Price = price
-		}
-
+		ed := toEventData(e, loc, frontendURL)
 		if len(prefSet) > 0 && hasPreferred(e.Categories, prefSet) {
 			preferred = append(preferred, ed)
 		} else {
@@ -124,9 +120,10 @@ func RenderDigestEmail(events []store.Event, preferredCategories []string, unsub
 	}
 
 	data := DigestData{
+		SavedEvents:     saved,
 		PreferredEvents: preferred,
 		OtherEvents:     other,
-		TotalCount:      len(events),
+		TotalCount:      len(saved) + len(preferred) + len(other),
 		UnsubscribeURL:  unsubscribeURL,
 		FrontendURL:     frontendURL,
 	}
@@ -136,4 +133,34 @@ func RenderDigestEmail(events []store.Event, preferredCategories []string, unsub
 		return "", fmt.Errorf("render email template: %w", err)
 	}
 	return buf.String(), nil
+}
+
+func toEventData(e store.Event, loc *time.Location, frontendURL string) EventData {
+	ed := EventData{
+		Title:    e.Title,
+		EventURL: fmt.Sprintf("%s/events/%s", frontendURL, uuidToString(e.ID)),
+	}
+	if e.StartTime.Valid {
+		ed.DateTime = e.StartTime.Time.In(loc).Format("Mon, Jan 2 at 3:04 PM")
+	}
+	if e.VenueName.Valid {
+		ed.Venue = e.VenueName.String
+	}
+	if len(e.Categories) > 0 {
+		ed.Category = e.Categories[0]
+	}
+	if e.ImageUrl.Valid {
+		ed.ImageURL = e.ImageUrl.String
+	}
+	if e.PriceMin.Valid {
+		price := formatNumeric(e.PriceMin)
+		if e.PriceMax.Valid {
+			maxPrice := formatNumeric(e.PriceMax)
+			if maxPrice != price {
+				price = price + " - " + maxPrice
+			}
+		}
+		ed.Price = price
+	}
+	return ed
 }

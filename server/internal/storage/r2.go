@@ -120,6 +120,20 @@ func (r *R2Client) MirrorImage(ctx context.Context, sourceURL string) (string, e
 	return publicURL, nil
 }
 
+// DeleteByPublicURL deletes an object from R2 given its full public URL.
+func (r *R2Client) DeleteByPublicURL(ctx context.Context, publicURL string) error {
+	key := strings.TrimPrefix(publicURL, r.publicURL+"/")
+	if key == publicURL {
+		return fmt.Errorf("URL %s does not match public URL prefix %s", publicURL, r.publicURL)
+	}
+
+	_, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &r.bucket,
+		Key:    &key,
+	})
+	return err
+}
+
 // extFromURL extracts a file extension from a URL path, defaulting to ".jpg".
 func extFromURL(rawURL string) string {
 	// Strip query string first.

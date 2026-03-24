@@ -957,6 +957,39 @@ func (q *Queries) ListImagesByUser(ctx context.Context, userID pgtype.UUID) ([]I
 	return items, nil
 }
 
+const listPastEventImageURLs = `-- name: ListPastEventImageURLs :many
+SELECT DISTINCT image_url
+FROM events
+WHERE start_time < NOW()::date
+  AND image_url IS NOT NULL
+  AND image_url LIKE '%/events/%'
+  AND image_url NOT IN (
+      SELECT image_url FROM events
+      WHERE start_time >= NOW()::date
+        AND image_url IS NOT NULL
+  )
+`
+
+func (q *Queries) ListPastEventImageURLs(ctx context.Context) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listPastEventImageURLs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Text
+	for rows.Next() {
+		var image_url pgtype.Text
+		if err := rows.Scan(&image_url); err != nil {
+			return nil, err
+		}
+		items = append(items, image_url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingApplications = `-- name: ListPendingApplications :many
 SELECT id, clerk_id, full_name, email, bio, experience, status, submitted_at, reviewed_at, reviewed_by, review_notes FROM author_applications
 WHERE status = 'pending'
@@ -1056,6 +1089,67 @@ ORDER BY e.start_time ASC
 
 func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Event, error) {
 	rows, err := q.db.Query(ctx, listSavedEvents, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+			&i.Categories,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSavedEventsForDigest = `-- name: ListSavedEventsForDigest :many
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories
+FROM events e
+JOIN saved_events se ON se.event_id = e.id
+WHERE se.user_id = $1
+  AND e.start_time >= $2::timestamptz
+  AND e.start_time < $3::timestamptz
+ORDER BY e.start_time ASC
+`
+
+type ListSavedEventsForDigestParams struct {
+	UserID    pgtype.UUID
+	StartDate pgtype.Timestamptz
+	EndDate   pgtype.Timestamptz
+}
+
+func (q *Queries) ListSavedEventsForDigest(ctx context.Context, arg ListSavedEventsForDigestParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listSavedEventsForDigest, arg.UserID, arg.StartDate, arg.EndDate)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,7 @@ import { EventMap } from '#/components/EventMap'
 import { SaveButton } from '#/components/SaveButton'
 import { useUser } from '#/lib/hooks/useUser'
 import { Spinner } from '#/components/Spinner'
-import { isAllDay, formatDateLong } from '#/lib/date-utils'
+import { isAllDay, isSameDay, formatDateLong, formatTimeOnly } from '#/lib/date-utils'
 import { stripHtml, truncate, eventJsonLd } from '#/lib/seo'
 import type { Event } from '#/lib/types'
 
@@ -221,11 +221,19 @@ function EventDetailPage() {
                 </p>
               ) : (
                 <>
-                  <p className="text-(--sea-ink)">{formatDateLong(event.StartTime)}</p>
-                  {event.EndTime && (
-                    <p className="text-sm text-(--sea-ink-soft)">
-                      Until {formatDateLong(event.EndTime)}
+                  {event.EndTime && isSameDay(event.StartTime, event.EndTime) ? (
+                    <p className="text-(--sea-ink)">
+                      {formatDateLong(event.StartTime)} – {formatTimeOnly(event.EndTime)}
                     </p>
+                  ) : (
+                    <>
+                      <p className="text-(--sea-ink)">{formatDateLong(event.StartTime)}</p>
+                      {event.EndTime && (
+                        <p className="text-sm text-(--sea-ink-soft)">
+                          Until {formatDateLong(event.EndTime)}
+                        </p>
+                      )}
+                    </>
                   )}
                 </>
               )}
