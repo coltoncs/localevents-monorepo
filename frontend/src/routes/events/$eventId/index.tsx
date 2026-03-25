@@ -124,7 +124,7 @@ function EventDetailPage() {
         &larr; Back
       </button>
 
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           {event.Categories && event.Categories.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -139,7 +139,7 @@ function EventDetailPage() {
             {event.Title}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} />
           {canEdit && (
             <>

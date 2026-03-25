@@ -14,8 +14,70 @@ import { isAllDay } from '#/lib/date-utils'
 
 const col = createColumnHelper<Event>()
 
+// Compact mobile row: image thumbnail + title/date/venue stacked
+function MobileEventCell({ event, venueNameToId }: { event: Event; venueNameToId: Map<string, string> }) {
+  const d = new Date(event.StartTime)
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const time = isAllDay(event)
+    ? 'All Day'
+    : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
+  const venue = event.VenueName
+  const venueId = event.VenueID ?? (venue ? venueNameToId.get(venue.toLowerCase()) : undefined)
+
+  return (
+    <div className="flex items-center gap-3">
+      {event.ImageUrl ? (
+        <img
+          src={event.ImageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-12 w-12 shrink-0 rounded object-cover"
+        />
+      ) : (
+        <div className="h-12 w-12 shrink-0 rounded bg-[var(--surface)]" />
+      )}
+      <div className="min-w-0">
+        <Link
+          to="/events/$eventId"
+          params={{ eventId: event.ID }}
+          className="block truncate font-medium text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+        >
+          {event.Title}
+        </Link>
+        <p className="truncate text-xs text-[var(--sea-ink-soft)]">
+          {date}, {time}
+          {venue && (
+            <>
+              {' · '}
+              {venueId ? (
+                <Link
+                  to="/venues/$venueId"
+                  params={{ venueId }}
+                  className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+                >
+                  {venue}
+                </Link>
+              ) : venue}
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function buildColumns(venueNameToId: Map<string, string>) {
   return [
+  // Mobile-only compact column
+  col.display({
+    id: 'mobile',
+    header: '',
+    cell: (info) => <MobileEventCell event={info.row.original} venueNameToId={venueNameToId} />,
+    enableSorting: false,
+    meta: { mobileOnly: true },
+  }),
   col.accessor('ImageUrl', {
     header: '',
     cell: (info) => {
@@ -45,6 +107,7 @@ function buildColumns(venueNameToId: Map<string, string>) {
         {info.getValue()}
       </Link>
     ),
+    meta: { hideOnMobile: true },
   }),
   col.accessor('Categories', {
     header: () => <span className="whitespace-nowrap">Category</span>,
@@ -71,6 +134,7 @@ function buildColumns(venueNameToId: Map<string, string>) {
         </span>
       )
     },
+    meta: { hideOnMobile: true },
   }),
   col.accessor('VenueName', {
     header: 'Venue',
@@ -91,7 +155,7 @@ function buildColumns(venueNameToId: Map<string, string>) {
       }
       return venue
     },
-    meta: { cellClassName: 'min-w-[8rem]' },
+    meta: { hideOnMobile: true, cellClassName: 'min-w-[8rem]' },
   }),
   col.accessor('City', {
     header: 'City',
@@ -145,12 +209,13 @@ export function EventTable({ events }: { events: Event[] }) {
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               {hg.headers.map((header) => {
-                const hideOnMobile = (header.column.columnDef.meta as { hideOnMobile?: boolean })?.hideOnMobile
+                const meta = header.column.columnDef.meta as { hideOnMobile?: boolean; mobileOnly?: boolean; cellClassName?: string } | undefined
+                const visClass = meta?.mobileOnly ? ' sm:hidden' : meta?.hideOnMobile ? ' hidden sm:table-cell' : ''
                 return (
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className={`cursor-pointer px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-[var(--sea-ink-soft)] select-none sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''} ${(header.column.columnDef.meta as any)?.cellClassName ?? ''}`}
+                    className={`cursor-pointer px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-[var(--sea-ink-soft)] select-none sm:px-4 sm:py-3${visClass} ${meta?.cellClassName ?? ''}`}
                   >
                     {flexRender(
                       header.column.columnDef.header,
@@ -179,11 +244,12 @@ export function EventTable({ events }: { events: Event[] }) {
             table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="hover:bg-[var(--surface)]">
                 {row.getVisibleCells().map((cell) => {
-                  const hideOnMobile = (cell.column.columnDef.meta as { hideOnMobile?: boolean })?.hideOnMobile
+                  const meta = cell.column.columnDef.meta as { hideOnMobile?: boolean; mobileOnly?: boolean; cellClassName?: string } | undefined
+                  const visClass = meta?.mobileOnly ? ' sm:hidden' : meta?.hideOnMobile ? ' hidden sm:table-cell' : ''
                   return (
                     <td
                       key={cell.id}
-                      className={`px-3 py-2 text-sm text-[var(--sea-ink-soft)] sm:px-4 sm:py-3${hideOnMobile ? ' hidden sm:table-cell' : ''} ${(cell.column.columnDef.meta as any)?.cellClassName ?? ''}`}
+                      className={`px-3 py-2 text-sm text-[var(--sea-ink-soft)] sm:px-4 sm:py-3${visClass} ${meta?.cellClassName ?? ''}`}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
