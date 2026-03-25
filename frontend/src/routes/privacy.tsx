@@ -19,16 +19,16 @@ function PrivacyPage() {
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell rounded-2xl p-6 sm:p-8">
-        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">
+        <h1 className="display-title mb-6 text-3xl font-bold text-(--sea-ink)">
           Privacy Policy
         </h1>
-        <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        <p className="mb-4 text-sm text-(--sea-ink-soft)">
           Last updated: March 23, 2026
         </p>
 
-        <div className="space-y-6 text-[var(--sea-ink-soft)] leading-7">
+        <div className="space-y-6 text-(--sea-ink-soft) leading-7">
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">What We Collect</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">What We Collect</h2>
             <p>
               When you create an account on 919Events, we store the following information
               provided through your Clerk account:
@@ -42,7 +42,7 @@ function PrivacyPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">How We Use Your Data</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">How We Use Your Data</h2>
             <ul className="list-disc space-y-1 pl-6">
               <li>
                 <strong>Email address:</strong> Used to send you weekly event digest emails if you opt in
@@ -58,17 +58,17 @@ function PrivacyPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Opting Out</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Opting Out</h2>
             <p>
               You can disable email or SMS notifications at any time from your{' '}
-              <a href="/settings" className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]">Settings</a> page.
+              <a href="/settings" className="text-(--lagoon-deep) hover:text-(--lagoon)">Settings</a> page.
               Email digests include a one-click unsubscribe link in every message. For SMS, you
               can reply STOP to any message to unsubscribe immediately.
             </p>
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Data Sharing</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Data Sharing</h2>
             <p>
               We do not sell, rent, or share your personal data with third parties. We use the
               following services to operate the platform:
@@ -85,7 +85,7 @@ function PrivacyPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Data Retention</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Data Retention</h2>
             <p>
               Your data is retained as long as you have an active account. If you delete your
               account through Clerk, all associated data (preferences, notification logs, saved
@@ -94,10 +94,10 @@ function PrivacyPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Contact</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Contact</h2>
             <p>
               If you have questions about this policy, you can reach us at{' '}
-              <a href="mailto:colton.sweeney@gmail.com" className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]">
+              <a href="mailto:colton.sweeney@gmail.com" className="text-(--lagoon-deep) hover:text-(--lagoon)">
                 colton.sweeney@gmail.com
               </a>.
             </p>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from '@tanstack/react-form'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import DatePicker from 'react-datepicker'
@@ -142,6 +142,46 @@ function formatDateStr(d: Date): string {
 
 const inputClass = "mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
 const labelClass = "block text-sm font-medium text-(--sea-ink-soft)"
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function useAddressGeocode(form: { setFieldValue: (field: string, value: any) => void }) {
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const lastQueryRef = useRef('')
+
+  const geocode = (address: string, city: string, state: string, zip: string) => {
+    if (!address || !city || !state) return
+
+    const query = `${address}, ${city}, ${state} ${zip}`.trim()
+    if (query === lastQueryRef.current) return
+    lastQueryRef.current = query
+
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          format: 'json',
+          limit: '1',
+          countrycodes: 'us',
+        })
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+          headers: { 'User-Agent': '919events.com' },
+        })
+        const results = await resp.json()
+        if (results.length > 0) {
+          form.setFieldValue('latitude', parseFloat(results[0].lat))
+          form.setFieldValue('longitude', parseFloat(results[0].lon))
+        }
+      } catch {
+        // Silently fail — user can still place the pin manually.
+      }
+    }, 800)
+  }
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  return geocode
+}
 
 export function EventForm({ initialValues }: EventFormProps = {}) {
   const navigate = useNavigate()
@@ -311,6 +351,8 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
     form.setFieldValue('longitude', venue.Longitude)
   }
 
+  const geocode = useAddressGeocode(form)
+
   const eventDates = getEventDates()
   const eventCount = eventDates.length
 
@@ -450,6 +492,13 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
             )}
           </form.Field>
         </div>
+
+        <form.Subscribe selector={(s) => [s.values.address, s.values.city, s.values.state, s.values.zip]}>
+          {([address, city, state, zip]) => {
+            geocode(address as string, city as string, state as string, zip as string)
+            return null
+          }}
+        </form.Subscribe>
 
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-(--sea-ink-soft) mb-1">

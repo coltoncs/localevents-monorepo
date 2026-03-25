@@ -19,16 +19,16 @@ function TermsPage() {
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell rounded-2xl p-6 sm:p-8">
-        <h1 className="display-title mb-6 text-3xl font-bold text-[var(--sea-ink)]">
+        <h1 className="display-title mb-6 text-3xl font-bold text-(--sea-ink)">
           Terms of Service
         </h1>
-        <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
+        <p className="mb-4 text-sm text-(--sea-ink-soft)">
           Last updated: March 23, 2026
         </p>
 
-        <div className="space-y-6 text-[var(--sea-ink-soft)] leading-7">
+        <div className="space-y-6 text-(--sea-ink-soft) leading-7">
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Overview</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Overview</h2>
             <p>
               919Events is a free community platform that aggregates local events in your area.
               By using the site, you agree to the following terms.
@@ -36,7 +36,7 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Accounts</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Accounts</h2>
             <p>
               You may create an account to save events, submit events, and manage notification
               preferences. You are responsible for maintaining the security of your account.
@@ -45,7 +45,7 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">User-Submitted Content</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">User-Submitted Content</h2>
             <p>
               If you submit events to 919Events, you represent that the information is accurate
               to the best of your knowledge. We reserve the right to remove any content that is
@@ -54,7 +54,7 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Notifications</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Notifications</h2>
             <p>
               By enabling email or SMS notifications, you consent to receive weekly event digest
               messages from 919Events. You can opt out at any time:
@@ -70,17 +70,17 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Subscriptions</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Subscriptions</h2>
             <p>
               Monthly subscriptions are processed through Clerk. You may cancel at any time from
               the{' '}
-              <a href="/donate" className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]">Donate</a>{' '}
+              <a href="/donate" className="text-(--lagoon-deep) hover:text-(--lagoon)">Donate</a>{' '}
               page. Cancellation takes effect at the end of the current billing period.
             </p>
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Event Data</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Event Data</h2>
             <p>
               Event information is aggregated from public sources and user submissions. We make
               no guarantees about the accuracy, completeness, or availability of any event listing.
@@ -89,7 +89,7 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Limitation of Liability</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Limitation of Liability</h2>
             <p>
               919Events is provided &ldquo;as is&rdquo; without warranties of any kind. We are not liable for
               any damages arising from your use of the platform, including but not limited to
@@ -98,7 +98,7 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Changes</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Changes</h2>
             <p>
               We may update these terms from time to time. Continued use of 919Events after
               changes constitutes acceptance of the updated terms.
@@ -106,10 +106,10 @@ function TermsPage() {
           </div>
 
           <div>
-            <h2 className="mb-2 text-lg font-semibold text-[var(--sea-ink)]">Contact</h2>
+            <h2 className="mb-2 text-lg font-semibold text-(--sea-ink)">Contact</h2>
             <p>
               Questions about these terms can be sent to{' '}
-              <a href="mailto:colton.sweeney@gmail.com" className="text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]">
+              <a href="mailto:colton.sweeney@gmail.com" className="text-(--lagoon-deep) hover:text-(--lagoon)">
                 colton.sweeney@gmail.com
               </a>.
             </p>
