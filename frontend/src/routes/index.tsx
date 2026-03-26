@@ -5,6 +5,8 @@ import gsap from 'gsap'
 import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
 import { LocationSearch } from '#/components/LocationSearch'
+import { EventCard } from '#/components/EventCard'
+import { useSavedEvents } from '#/lib/hooks/useSavedEvents'
 
 gsap.registerPlugin(SplitText)
 
@@ -96,6 +98,35 @@ function CyclingWord() {
   )
 }
 
+function UpcomingSavedEvents() {
+  const { data: saved } = useSavedEvents()
+
+  const upcoming = saved
+    ?.sort((a, b) => new Date(a.StartTime).getTime() - new Date(b.StartTime).getTime())
+    .slice(0, 6)
+
+  if (!upcoming?.length) return null
+
+  return (
+    <div className="mt-12 w-full max-w-5xl text-left">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-(--sea-ink)">Your Upcoming Saved Events</h2>
+        <Link
+          to="/saved"
+          className="text-sm font-medium text-(--lagoon-deep) hover:text-(--lagoon)"
+        >
+          View all
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {upcoming.map((event) => (
+          <EventCard key={event.ID} event={event} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function HomePage() {
   const { isSignedIn } = useAuth()
 
@@ -124,6 +155,7 @@ function HomePage() {
           </Link>
         </div>
       )}
+      {isSignedIn && <UpcomingSavedEvents />}
     </div>
   )
 }

@@ -143,7 +143,7 @@ function EventDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} />
-          {isSignedIn && (
+          {isSignedIn && !canEdit && (
             <button
               type="button"
               onClick={() => setShowSuggestEdit(true)}
