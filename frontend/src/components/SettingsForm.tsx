@@ -94,7 +94,7 @@ export function SettingsForm() {
 
   const form = useForm({
     defaultValues: {
-      default_radius_miles: user?.DefaultRadiusMiles ?? 25,
+      default_radius_miles: user?.DefaultRadiusMiles ?? 10,
     },
     onSubmit: async ({ value }) => {
       await updateSettings.mutateAsync({
