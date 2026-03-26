@@ -32,6 +32,9 @@ frontend/.vinxi/
 .DS_Store
 Thumbs.db
 
+# Salesforce
+.sfdx/
+
 # IDE
 .idea/
 .vscode/

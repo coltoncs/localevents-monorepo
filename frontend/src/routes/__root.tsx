@@ -40,6 +40,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: '/favicon.png', type: 'image/png' },
     ],
+    scripts: [
+      { src: 'https://www.googletagmanager.com/gtag/js?id=G-L9BV0QRP8Y', async: true },
+      { children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-L9BV0QRP8Y');` },
+    ],
   }),
   shellComponent: RootDocument,
 })
