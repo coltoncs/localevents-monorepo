@@ -28,6 +28,19 @@ type DeletedExternalEvent struct {
 	DeletedAt  pgtype.Timestamptz
 }
 
+type EditSuggestion struct {
+	ID              pgtype.UUID
+	TargetType      string
+	TargetID        pgtype.UUID
+	SubmittedBy     pgtype.UUID
+	ProposedChanges []byte
+	Status          string
+	ReviewNotes     pgtype.Text
+	ReviewedBy      pgtype.Text
+	CreatedAt       pgtype.Timestamptz
+	ReviewedAt      pgtype.Timestamptz
+}
+
 type Event struct {
 	ID             pgtype.UUID
 	ExternalID     pgtype.Text

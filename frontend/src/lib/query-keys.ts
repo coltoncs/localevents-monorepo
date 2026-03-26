@@ -42,4 +42,9 @@ export const queryKeys = {
   notifications: {
     preferences: ['notifications', 'preferences'] as const,
   },
+  suggestions: {
+    all: ['suggestions'] as const,
+    pending: ['suggestions', 'pending'] as const,
+    mine: ['suggestions', 'mine'] as const,
+  },
 }

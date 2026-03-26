@@ -5,6 +5,7 @@ import { useEvent, eventDetailOptions, useDeleteEvent } from '#/lib/hooks/useEve
 import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventMap } from '#/components/EventMap'
 import { SaveButton } from '#/components/SaveButton'
+import { SuggestEventEditModal } from '#/components/SuggestEventEditModal'
 import { useUser } from '#/lib/hooks/useUser'
 import { Spinner } from '#/components/Spinner'
 import { isAllDay, isSameDay, formatDateLong, formatTimeOnly } from '#/lib/date-utils'
@@ -93,6 +94,7 @@ function EventDetailPage() {
   const router = useRouter()
   const deleteEvent = useDeleteEvent()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showSuggestEdit, setShowSuggestEdit] = useState(false)
   const { data: backendUser } = useUser()
 
   if (isLoading) {
@@ -141,6 +143,15 @@ function EventDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} />
+          {isSignedIn && (
+            <button
+              type="button"
+              onClick={() => setShowSuggestEdit(true)}
+              className="text-nowrap cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
+            >
+              Suggest Edit
+            </button>
+          )}
           {canEdit && (
             <>
               <Link
@@ -282,6 +293,10 @@ function EventDetailPage() {
           />
         </div>
       </div>
+
+      {showSuggestEdit && event && (
+        <SuggestEventEditModal event={event} onClose={() => setShowSuggestEdit(false)} />
+      )}
     </div>
   )
 }

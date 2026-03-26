@@ -169,3 +169,23 @@ export interface UpdateNotificationInput {
   phone_number?: string
   preferred_categories: string[]
 }
+
+export interface EditSuggestion {
+  ID: string
+  TargetType: 'event' | 'venue'
+  TargetID: string
+  SubmittedBy: string
+  ProposedChanges: Record<string, unknown>
+  Status: 'pending' | 'approved' | 'rejected'
+  ReviewNotes?: string
+  ReviewedBy?: string
+  CreatedAt: string
+  ReviewedAt?: string
+  TargetName?: string
+}
+
+export interface CreateEditSuggestionInput {
+  target_type: 'event' | 'venue'
+  target_id: string
+  proposed_changes: Record<string, unknown>
+}

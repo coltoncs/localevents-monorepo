@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import { useMyEvents } from '#/lib/hooks/useEvents'
+import { useMySuggestions } from '#/lib/hooks/useSuggestions'
 import { EventCard } from '#/components/EventCard'
+import { SuggestionCard } from '#/components/SuggestionCard'
 import { Spinner } from '#/components/Spinner'
 
 export const Route = createFileRoute('/my-events')({
@@ -18,6 +20,7 @@ function MyEventsPage() {
 
 function MyEventsContent() {
   const { data: events = [], isLoading } = useMyEvents()
+  const { data: suggestions = [], isLoading: suggestionsLoading } = useMySuggestions()
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -30,6 +33,21 @@ function MyEventsContent() {
           Submit Event
         </Link>
       </div>
+
+      {suggestions.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 text-xl font-bold text-(--sea-ink)">
+            Pending Edit Suggestions
+          </h2>
+          <div className="max-w-3xl space-y-4">
+            {suggestions.map((s) => (
+              <SuggestionCard key={s.ID} suggestion={s} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {suggestionsLoading && <Spinner className="py-4" />}
 
       {isLoading ? (
         <Spinner className="py-12" />

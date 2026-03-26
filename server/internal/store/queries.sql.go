@@ -46,6 +46,40 @@ func (q *Queries) ApproveApplication(ctx context.Context, arg ApproveApplication
 	return i, err
 }
 
+const approveEditSuggestion = `-- name: ApproveEditSuggestion :one
+UPDATE edit_suggestions SET
+    status = 'approved',
+    reviewed_at = NOW(),
+    reviewed_by = $2,
+    review_notes = $3
+WHERE id = $1
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+`
+
+type ApproveEditSuggestionParams struct {
+	ID          pgtype.UUID
+	ReviewedBy  pgtype.Text
+	ReviewNotes pgtype.Text
+}
+
+func (q *Queries) ApproveEditSuggestion(ctx context.Context, arg ApproveEditSuggestionParams) (EditSuggestion, error) {
+	row := q.db.QueryRow(ctx, approveEditSuggestion, arg.ID, arg.ReviewedBy, arg.ReviewNotes)
+	var i EditSuggestion
+	err := row.Scan(
+		&i.ID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.SubmittedBy,
+		&i.ProposedChanges,
+		&i.Status,
+		&i.ReviewNotes,
+		&i.ReviewedBy,
+		&i.CreatedAt,
+		&i.ReviewedAt,
+	)
+	return i, err
+}
+
 const cleanOldDeletedExternalEvents = `-- name: CleanOldDeletedExternalEvents :execrows
 DELETE FROM deleted_external_events
 WHERE deleted_at < NOW() - INTERVAL '90 days'
@@ -139,6 +173,44 @@ func (q *Queries) CreateAuthorApplication(ctx context.Context, arg CreateAuthorA
 		&i.ReviewedAt,
 		&i.ReviewedBy,
 		&i.ReviewNotes,
+	)
+	return i, err
+}
+
+const createEditSuggestion = `-- name: CreateEditSuggestion :one
+
+INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes)
+VALUES ($1, $2, $3, $4)
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+`
+
+type CreateEditSuggestionParams struct {
+	TargetType      string
+	TargetID        pgtype.UUID
+	SubmittedBy     pgtype.UUID
+	ProposedChanges []byte
+}
+
+// Edit Suggestions
+func (q *Queries) CreateEditSuggestion(ctx context.Context, arg CreateEditSuggestionParams) (EditSuggestion, error) {
+	row := q.db.QueryRow(ctx, createEditSuggestion,
+		arg.TargetType,
+		arg.TargetID,
+		arg.SubmittedBy,
+		arg.ProposedChanges,
+	)
+	var i EditSuggestion
+	err := row.Scan(
+		&i.ID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.SubmittedBy,
+		&i.ProposedChanges,
+		&i.Status,
+		&i.ReviewNotes,
+		&i.ReviewedBy,
+		&i.CreatedAt,
+		&i.ReviewedAt,
 	)
 	return i, err
 }
@@ -420,6 +492,28 @@ func (q *Queries) GetAuthorApplicationByClerkID(ctx context.Context, clerkID str
 		&i.ReviewedAt,
 		&i.ReviewedBy,
 		&i.ReviewNotes,
+	)
+	return i, err
+}
+
+const getEditSuggestion = `-- name: GetEditSuggestion :one
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions WHERE id = $1
+`
+
+func (q *Queries) GetEditSuggestion(ctx context.Context, id pgtype.UUID) (EditSuggestion, error) {
+	row := q.db.QueryRow(ctx, getEditSuggestion, id)
+	var i EditSuggestion
+	err := row.Scan(
+		&i.ID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.SubmittedBy,
+		&i.ProposedChanges,
+		&i.Status,
+		&i.ReviewNotes,
+		&i.ReviewedBy,
+		&i.CreatedAt,
+		&i.ReviewedAt,
 	)
 	return i, err
 }
@@ -1065,6 +1159,124 @@ func (q *Queries) ListPendingApplications(ctx context.Context) ([]AuthorApplicat
 	return items, nil
 }
 
+const listPendingEditSuggestions = `-- name: ListPendingEditSuggestions :many
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions
+WHERE status = 'pending'
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListPendingEditSuggestions(ctx context.Context) ([]EditSuggestion, error) {
+	rows, err := q.db.Query(ctx, listPendingEditSuggestions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EditSuggestion
+	for rows.Next() {
+		var i EditSuggestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.SubmittedBy,
+			&i.ProposedChanges,
+			&i.Status,
+			&i.ReviewNotes,
+			&i.ReviewedBy,
+			&i.CreatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingEditSuggestionsForAuthor = `-- name: ListPendingEditSuggestionsForAuthor :many
+SELECT es.id, es.target_type, es.target_id, es.submitted_by, es.proposed_changes, es.status, es.review_notes, es.reviewed_by, es.created_at, es.reviewed_at FROM edit_suggestions es
+JOIN events e ON es.target_type = 'event' AND es.target_id = e.id
+JOIN users u ON e.submitted_by = u.id
+WHERE u.clerk_id = $1 AND es.status = 'pending'
+ORDER BY es.created_at ASC
+`
+
+func (q *Queries) ListPendingEditSuggestionsForAuthor(ctx context.Context, clerkID string) ([]EditSuggestion, error) {
+	rows, err := q.db.Query(ctx, listPendingEditSuggestionsForAuthor, clerkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EditSuggestion
+	for rows.Next() {
+		var i EditSuggestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.SubmittedBy,
+			&i.ProposedChanges,
+			&i.Status,
+			&i.ReviewNotes,
+			&i.ReviewedBy,
+			&i.CreatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingEditSuggestionsForTarget = `-- name: ListPendingEditSuggestionsForTarget :many
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions
+WHERE target_type = $1 AND target_id = $2 AND status = 'pending'
+ORDER BY created_at ASC
+`
+
+type ListPendingEditSuggestionsForTargetParams struct {
+	TargetType string
+	TargetID   pgtype.UUID
+}
+
+func (q *Queries) ListPendingEditSuggestionsForTarget(ctx context.Context, arg ListPendingEditSuggestionsForTargetParams) ([]EditSuggestion, error) {
+	rows, err := q.db.Query(ctx, listPendingEditSuggestionsForTarget, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EditSuggestion
+	for rows.Next() {
+		var i EditSuggestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.SubmittedBy,
+			&i.ProposedChanges,
+			&i.Status,
+			&i.ReviewNotes,
+			&i.ReviewedBy,
+			&i.CreatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSMSSubscribers = `-- name: ListSMSSubscribers :many
 SELECT u.id, u.clerk_id, u.phone_number, u.default_latitude, u.default_longitude, u.default_radius_miles,
        np.sms_unsubscribe_token, np.preferred_categories
@@ -1413,6 +1625,40 @@ func (q *Queries) RejectApplication(ctx context.Context, arg RejectApplicationPa
 		&i.ReviewedAt,
 		&i.ReviewedBy,
 		&i.ReviewNotes,
+	)
+	return i, err
+}
+
+const rejectEditSuggestion = `-- name: RejectEditSuggestion :one
+UPDATE edit_suggestions SET
+    status = 'rejected',
+    reviewed_at = NOW(),
+    reviewed_by = $2,
+    review_notes = $3
+WHERE id = $1
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+`
+
+type RejectEditSuggestionParams struct {
+	ID          pgtype.UUID
+	ReviewedBy  pgtype.Text
+	ReviewNotes pgtype.Text
+}
+
+func (q *Queries) RejectEditSuggestion(ctx context.Context, arg RejectEditSuggestionParams) (EditSuggestion, error) {
+	row := q.db.QueryRow(ctx, rejectEditSuggestion, arg.ID, arg.ReviewedBy, arg.ReviewNotes)
+	var i EditSuggestion
+	err := row.Scan(
+		&i.ID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.SubmittedBy,
+		&i.ProposedChanges,
+		&i.Status,
+		&i.ReviewNotes,
+		&i.ReviewedBy,
+		&i.CreatedAt,
+		&i.ReviewedAt,
 	)
 	return i, err
 }

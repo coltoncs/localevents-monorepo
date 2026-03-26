@@ -7,6 +7,8 @@ import {
   useApproveApplication,
   useRejectApplication,
 } from '#/lib/hooks/useApplications'
+import { usePendingSuggestions } from '#/lib/hooks/useSuggestions'
+import { SuggestionCard } from '#/components/SuggestionCard'
 import type { AuthorApplication } from '#/lib/types'
 import { Spinner } from '#/components/Spinner'
 import { apiClient } from '#/lib/api'
@@ -139,12 +141,31 @@ function DigestTrigger() {
 
 function AdminContent() {
   const { data: applications, isLoading } = usePendingApplications()
+  const { data: suggestions, isLoading: suggestionsLoading } = usePendingSuggestions()
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">Admin</h1>
 
       <DigestTrigger />
+
+      <h2 className="mt-8 mb-4 text-xl font-bold text-(--sea-ink)">
+        Pending Edit Suggestions
+      </h2>
+
+      {suggestionsLoading && <Spinner className="py-12" />}
+
+      {suggestions && suggestions.length === 0 && (
+        <p className="py-8 text-center text-(--sea-ink-soft)">
+          No pending edit suggestions.
+        </p>
+      )}
+
+      <div className="space-y-4">
+        {suggestions?.map((s) => (
+          <SuggestionCard key={s.ID} suggestion={s} />
+        ))}
+      </div>
 
       <h2 className="mt-8 mb-4 text-xl font-bold text-(--sea-ink)">
         Pending Applications
@@ -155,7 +176,7 @@ function AdminContent() {
       )}
 
       {applications && applications.length === 0 && (
-        <p className="py-12 text-center text-(--sea-ink-soft)">
+        <p className="py-8 text-center text-(--sea-ink-soft)">
           No pending applications.
         </p>
       )}

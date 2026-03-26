@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useAuth } from '@clerk/clerk-react'
 import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
 import { useVenue, venueDetailOptions, useUpdateVenue } from '#/lib/hooks/useVenues'
 import { useUnsaveEvent, useSaveEvent, useSavedEvents } from '#/lib/hooks/useSavedEvents'
@@ -7,6 +8,7 @@ import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventCard } from '#/components/EventCard'
 import { Pagination } from '#/components/Pagination'
 import { getSavedLocation } from '#/components/LocationSearch'
+import { SuggestVenueEditModal } from '#/components/SuggestVenueEditModal'
 import { Spinner } from '#/components/Spinner'
 import { venueJsonLd } from '#/lib/seo'
 import type { Venue } from '#/lib/types'
@@ -173,8 +175,10 @@ function VenuePage() {
   const unsave = useUnsaveEvent()
   const save = useSaveEvent()
   const { data: savedEvents } = useSavedEvents()
+  const { isSignedIn } = useAuth()
   const { isAdmin } = useUserRole()
   const [editing, setEditing] = useState(false)
+  const [showSuggestEdit, setShowSuggestEdit] = useState(false)
   const { lat, lng } = loc ?? RALEIGH
   const page = searchPage ?? 1
 
@@ -218,15 +222,26 @@ function VenuePage() {
             <h1 className="text-2xl font-bold text-(--sea-ink)">
               {venue?.VenueName ?? 'Venue'}
             </h1>
-            {isAdmin && venue && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Edit
-              </button>
-            )}
+            <div className="flex gap-2">
+              {isSignedIn && venue && (
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestEdit(true)}
+                  className="cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
+                >
+                  Suggest Edit
+                </button>
+              )}
+              {isAdmin && venue && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
           </div>
           {venue && (
             <div className="mt-1 space-y-1 text-sm text-(--sea-ink-soft)">
@@ -278,6 +293,10 @@ function VenuePage() {
 
       {totalPages > 1 && (
         <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
+      )}
+
+      {showSuggestEdit && venue && (
+        <SuggestVenueEditModal venue={venue} onClose={() => setShowSuggestEdit(false)} />
       )}
     </div>
   )

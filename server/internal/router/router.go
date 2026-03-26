@@ -28,6 +28,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
 	digestHandler := handler.NewDigestHandler(digestRunner)
+	suggestionHandler := handler.NewSuggestionHandler(queries)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
@@ -64,6 +65,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)
 			r.Delete("/images/{id}", imageHandler.Delete)
+			r.Post("/suggestions", suggestionHandler.Create)
 		})
 
 		// Author/Admin routes
@@ -75,6 +77,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Delete("/events/{id}", eventHandler.Delete)
 			r.Post("/venues", venueHandler.Create)
 			r.Put("/venues/{id}", venueHandler.Update)
+			r.Get("/me/suggestions", suggestionHandler.ListMyEventSuggestions)
+			r.Post("/suggestions/{id}/approve", suggestionHandler.Approve)
+			r.Post("/suggestions/{id}/reject", suggestionHandler.Reject)
 		})
 
 		// Admin routes
@@ -85,6 +90,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)
 			r.Post("/admin/digest/trigger", digestHandler.Trigger)
+			r.Get("/admin/suggestions", suggestionHandler.ListPending)
 		})
 	})
 
