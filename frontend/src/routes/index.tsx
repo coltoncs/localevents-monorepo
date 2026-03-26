@@ -90,13 +90,13 @@ function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center px-4 py-24 text-center">
-      <h1 className="text-5xl font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
+      <h1 className="text-5xl font-bold tracking-tight text-(--sea-ink) sm:text-6xl">
         Discover Events
-        <span className="block text-[var(--lagoon-deep)]">
+        <span className="block text-(--lagoon-deep)">
           Near <CyclingWord />
         </span>
       </h1>
-      <p className="mt-6 max-w-xl text-lg text-[var(--sea-ink-soft)]">
+      <p className="mt-6 max-w-xl text-lg text-(--sea-ink-soft)">
         Find local concerts, meetups, festivals, and more happening in your
         area. Never miss out on what&apos;s going on nearby.
       </p>
@@ -107,7 +107,7 @@ function HomePage() {
         <div className="mt-6 flex gap-4">
           <Link
             to="/submit"
-            className="rounded-md border border-[var(--line)] bg-[var(--surface-strong)] px-6 py-3 text-sm font-semibold text-[var(--sea-ink)] shadow-sm hover:bg-[var(--surface)]"
+            className="rounded-md border border-(--line) bg-(--surface-strong) px-6 py-3 text-sm font-semibold text-(--sea-ink) shadow-sm hover:bg-(--surface)"
           >
             Submit an Event
           </Link>

@@ -98,7 +98,8 @@ func main() {
 		var sources []scraper.EventSource
 		// Local sources run first so their events take priority during dedup
 		sources = append(sources, scraper.NewCityOfRaleigh())
-		sources = append(sources, scraper.NewDiscoverDurham())
+		// TODO: re-enable once Discover Durham scraper is fixed
+		// sources = append(sources, scraper.NewDiscoverDurham())
 		sources = append(sources, scraper.NewVisitRichmond())
 		if cfg.TicketmasterAPIKey != "" {
 			sources = append(sources, scraper.NewTicketmaster(cfg.TicketmasterAPIKey))

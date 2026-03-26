@@ -6,34 +6,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"regexp"
-	"strings"
 	"time"
 )
 
 const ddBaseURL = "https://www.discoverdurham.com"
 
 // DiscoverDurham implements EventSource for the Discover Durham events site.
-// It uses a two-step approach:
-//  1. POST to the Craft CMS directory endpoint (with a CSRF token scraped from the
-//     listing page) to collect individual event page URLs.
-//  2. GET each event page and parse its schema.org Event JSON-LD block.
+// It scrapes server-rendered event listing pages and parses schema.org JSON-LD
+// from individual event detail pages.
 type DiscoverDurham struct {
 	Client *http.Client
 }
 
 // NewDiscoverDurham creates a new DiscoverDurham source.
-// A cookie jar is required so the CSRF session cookie from step 1 persists
-// into the subsequent POST requests.
 func NewDiscoverDurham() *DiscoverDurham {
-	jar, _ := cookiejar.New(nil)
 	return &DiscoverDurham{
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-			Jar:     jar,
-		},
+		Client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -45,20 +34,19 @@ func (d *DiscoverDurham) FetchEvents(ctx context.Context, loc Location) ([]RawEv
 		return nil, nil
 	}
 
-	csrfName, csrfValue, err := d.fetchCSRFToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fetching CSRF token: %w", err)
-	}
-
-	eventURLs, err := d.fetchEventURLs(ctx, csrfName, csrfValue)
+	eventURLs, err := d.fetchEventURLs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetching event URLs: %w", err)
 	}
 
+	cutoff := time.Now().AddDate(0, 0, 8) // ~1 week out
 	var allEvents []RawEvent
 	for _, u := range eventURLs {
 		raw, err := d.fetchEventDetail(ctx, u, loc)
 		if err != nil {
+			continue
+		}
+		if raw.StartTime.After(cutoff) {
 			continue
 		}
 		allEvents = append(allEvents, raw)
@@ -69,63 +57,23 @@ func (d *DiscoverDurham) FetchEvents(ctx context.Context, loc Location) ([]RawEv
 }
 
 var (
-	csrfNameRe  = regexp.MustCompile(`window\.csrfTokenName\s*=\s*"([^"]+)"`)
-	csrfValueRe = regexp.MustCompile(`window\.csrfTokenValue\s*=\s*"([^"]+)"`)
 	// Matches relative event page hrefs like /events/slug-name/
 	eventHrefRe = regexp.MustCompile(`href="(/events/[a-z0-9][^"#]*?/)"`)
 	ldJSONRe    = regexp.MustCompile(`(?s)<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>`)
 )
 
-// fetchCSRFToken GETs the events listing page to obtain the CSRF token name and
-// value that Craft CMS embeds as window.csrfToken* JS variables. The resulting
-// session cookie is automatically stored in d.Client.Jar.
-func (d *DiscoverDurham) fetchCSRFToken(ctx context.Context) (name, value string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ddBaseURL+"/events/", nil)
-	if err != nil {
-		return "", "", err
-	}
-	resp, err := d.Client.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return "", "", err
-	}
-
-	nameMatch := csrfNameRe.FindSubmatch(body)
-	valueMatch := csrfValueRe.FindSubmatch(body)
-	if nameMatch == nil || valueMatch == nil {
-		return "", "", fmt.Errorf("CSRF token not found in page HTML")
-	}
-	return string(nameMatch[1]), string(valueMatch[1]), nil
-}
-
-// fetchEventURLs pages through the directory POST endpoint to collect all
-// individual event page URLs within the next 30 days.
-func (d *DiscoverDurham) fetchEventURLs(ctx context.Context, csrfName, csrfValue string) ([]string, error) {
-	now := time.Now()
-	dateFrom := now.Format("2006-01-02")
-	dateTo := now.Add(30 * 24 * time.Hour).Format("2006-01-02")
-
+// fetchEventURLs paginates through the server-rendered event listing pages
+// to collect individual event page URLs.
+func (d *DiscoverDurham) fetchEventURLs(ctx context.Context) ([]string, error) {
 	seen := make(map[string]bool)
 	var urls []string
 
 	for page := 1; page <= 20; page++ {
-		formData := url.Values{}
-		formData.Set(csrfName, csrfValue)
-		formData.Set("date-from", dateFrom)
-		formData.Set("date-to", dateTo)
-
-		target := fmt.Sprintf("%s/directories/events?page=%d&path=/events/", ddBaseURL, page)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, strings.NewReader(formData.Encode()))
+		target := fmt.Sprintf("%s/events/?page=%d", ddBaseURL, page)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("X-Requested-With", "XMLHttpRequest")
-		req.Header.Set("Referer", ddBaseURL+"/events/")
 
 		resp, err := d.Client.Do(req)
 		if err != nil {
@@ -138,7 +86,7 @@ func (d *DiscoverDurham) fetchEventURLs(ctx context.Context, csrfName, csrfValue
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("listing page %d returned %d: %s", page, resp.StatusCode, string(body))
+			break
 		}
 
 		matches := eventHrefRe.FindAllSubmatch(body, -1)
@@ -259,21 +207,42 @@ func mapDDEvent(data json.RawMessage, pageURL string, loc Location) (RawEvent, e
 		raw.Longitude = ev.Location.Geo.Longitude
 	}
 
-	raw.ImageURL = ev.Image
+	raw.ImageURL = ddImageURL(ev.Image)
 
 	return raw, nil
+}
+
+// ddImageURL extracts the image URL from the JSON-LD image field,
+// which can be either a plain string or an ImageObject {"url":"..."}.
+func ddImageURL(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	// Try as a plain string first.
+	var s string
+	if json.Unmarshal(raw, &s) == nil && s != "" {
+		return s
+	}
+	// Try as an ImageObject.
+	var obj struct {
+		URL string `json:"url"`
+	}
+	if json.Unmarshal(raw, &obj) == nil {
+		return obj.URL
+	}
+	return ""
 }
 
 // schema.org JSON-LD types used by Discover Durham event pages.
 
 type ddEvent struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	StartDate   string  `json:"startDate"`
-	EndDate     string  `json:"endDate"`
-	URL         string  `json:"url"`
-	Image       string  `json:"image"`
-	Location    ddPlace `json:"location"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	StartDate   string          `json:"startDate"`
+	EndDate     string          `json:"endDate"`
+	URL         string          `json:"url"`
+	Image       json.RawMessage `json:"image"`
+	Location    ddPlace         `json:"location"`
 }
 
 type ddPlace struct {

@@ -12,15 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
 type EventHandler struct {
 	queries *store.Queries
+	r2      *storage.R2Client
 }
 
-func NewEventHandler(q *store.Queries) *EventHandler {
-	return &EventHandler{queries: q}
+func NewEventHandler(q *store.Queries, r2 *storage.R2Client) *EventHandler {
+	return &EventHandler{queries: q, r2: r2}
 }
 
 func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -299,6 +301,13 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Mirror external image URL to R2 if available.
+	if h.r2 != nil && req.ImageURL != nil && *req.ImageURL != "" {
+		if r2URL, err := h.r2.MirrorImage(r.Context(), *req.ImageURL); err == nil && r2URL != "" {
+			req.ImageURL = &r2URL
+		}
+	}
+
 	event, err := h.queries.CreateEvent(r.Context(), store.CreateEventParams{
 		Source:      "user",
 		Title:       req.Title,
@@ -426,6 +435,13 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		endTime = pgtype.Timestamptz{Time: t, Valid: true}
+	}
+
+	// Mirror external image URL to R2 if available.
+	if h.r2 != nil && req.ImageURL != nil && *req.ImageURL != "" {
+		if r2URL, err := h.r2.MirrorImage(r.Context(), *req.ImageURL); err == nil && r2URL != "" {
+			req.ImageURL = &r2URL
+		}
 	}
 
 	updated, err := h.queries.UpdateEvent(r.Context(), store.UpdateEventParams{

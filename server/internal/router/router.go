@@ -20,7 +20,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(cfg.CORSOrigins))
 
-	eventHandler := handler.NewEventHandler(queries)
+	eventHandler := handler.NewEventHandler(queries, r2)
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries)
