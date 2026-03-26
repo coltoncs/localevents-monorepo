@@ -26,7 +26,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	appHandler := handler.NewApplicationHandler(queries)
 	imageHandler := handler.NewImageHandler(queries, r2)
 	sitemapHandler := handler.NewSitemapHandler(queries)
-	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey)
+	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 
@@ -59,6 +59,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/me/application", appHandler.GetMyApplication)
 			r.Get("/me/notifications", notificationHandler.GetPreferences)
 			r.Put("/me/notifications", notificationHandler.UpdatePreferences)
+			r.Post("/me/notifications/trigger-digest", notificationHandler.TriggerDigest)
 			r.Post("/images/presign", imageHandler.Presign)
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)

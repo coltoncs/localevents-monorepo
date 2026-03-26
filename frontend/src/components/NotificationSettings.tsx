@@ -5,6 +5,7 @@ import 'react-phone-number-input/style.css'
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
+  useTriggerDigest,
 } from '#/lib/hooks/useNotifications'
 import { useUser } from '#/lib/hooks/useUser'
 import { CATEGORIES } from '#/components/EventFilters'
@@ -13,6 +14,7 @@ export function NotificationSettings() {
   const { data: prefs, isLoading } = useNotificationPreferences()
   const { data: user } = useUser()
   const updatePrefs = useUpdateNotificationPreferences()
+  const triggerDigest = useTriggerDigest()
 
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [smsEnabled, setSmsEnabled] = useState(false)
@@ -173,13 +175,35 @@ export function NotificationSettings() {
       {updatePrefs.isSuccess && <p className="text-sm text-green-600">Notification preferences saved.</p>}
       {updatePrefs.isError && <p className="text-sm text-red-600">Failed to save preferences.</p>}
 
-      <button
-        type="submit"
-        disabled={updatePrefs.isPending}
-        className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
-      >
-        {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={updatePrefs.isPending}
+          className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
+        >
+          {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
+        </button>
+
+        {emailEnabled && (
+          <div className="relative group">
+            <button
+              type="button"
+              disabled={!hasSubscription || triggerDigest.isPending}
+              onClick={() => triggerDigest.mutate()}
+              className="rounded-md border border-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-(--lagoon-deep) shadow-sm hover:bg-(--lagoon-deep) hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {triggerDigest.isPending ? 'Sending...' : 'Send Digest Now'}
+            </button>
+            {!hasSubscription && (
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs rounded bg-(--sea-ink) px-3 py-1.5 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                Subscribe to unlock this feature
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      {triggerDigest.isSuccess && <p className="text-sm text-green-600">Digest sent! Check your email.</p>}
+      {triggerDigest.isError && <p className="text-sm text-red-600">Failed to send digest. Make sure you have events nearby this week.</p>}
     </form>
   )
 }

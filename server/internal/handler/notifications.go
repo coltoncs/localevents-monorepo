@@ -12,6 +12,7 @@ import (
 
 	"github.com/coltonsweeney/localevents/server/internal/billing"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
@@ -19,10 +20,11 @@ type NotificationHandler struct {
 	queries        *store.Queries
 	frontendURL    string
 	clerkSecretKey string
+	digestRunner   *notifier.Runner
 }
 
-func NewNotificationHandler(q *store.Queries, frontendURL, clerkSecretKey string) *NotificationHandler {
-	return &NotificationHandler{queries: q, frontendURL: frontendURL, clerkSecretKey: clerkSecretKey}
+func NewNotificationHandler(q *store.Queries, frontendURL, clerkSecretKey string, digestRunner *notifier.Runner) *NotificationHandler {
+	return &NotificationHandler{queries: q, frontendURL: frontendURL, clerkSecretKey: clerkSecretKey, digestRunner: digestRunner}
 }
 
 type notificationPrefsResponse struct {
@@ -170,6 +172,39 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *NotificationHandler) TriggerDigest(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	active, err := billing.HasActiveSubscription(h.clerkSecretKey, clerkID)
+	if err != nil || !active {
+		http.Error(w, `{"error":"active subscription required"}`, http.StatusForbidden)
+		return
+	}
+
+	if h.digestRunner == nil {
+		http.Error(w, `{"error":"digest not configured"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	if err := h.digestRunner.RunForUser(r.Context(), user.ID); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusUnprocessableEntity)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "digest sent"})
 }
 
 func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {

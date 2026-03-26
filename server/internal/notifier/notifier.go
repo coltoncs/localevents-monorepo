@@ -42,6 +42,72 @@ func (r *Runner) Run(ctx context.Context) {
 	log.Println("Digest: weekly digest run complete")
 }
 
+// RunForUser sends an on-demand email digest to a single user.
+func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
+	if r.Email == nil {
+		return fmt.Errorf("email not configured")
+	}
+
+	loc, _ := time.LoadLocation("America/New_York")
+	now := time.Now().In(loc)
+	startDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	endDate := startDate.AddDate(0, 0, 7)
+
+	sub, err := r.Queries.GetEmailSubscriberByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("user not found or email not enabled: %w", err)
+	}
+
+	radiusMeters := float64(25) * 1609.34
+	if sub.DefaultRadiusMiles.Valid {
+		radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
+	}
+
+	events, err := r.Queries.ListUpcomingEventsForDigest(ctx, store.ListUpcomingEventsForDigestParams{
+		Lng:          sub.DefaultLongitude.Float64,
+		Lat:          sub.DefaultLatitude.Float64,
+		RadiusMeters: radiusMeters,
+		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
+		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("querying events: %w", err)
+	}
+
+	savedEvents, err := r.Queries.ListSavedEventsForDigest(ctx, store.ListSavedEventsForDigestParams{
+		UserID:    sub.ID,
+		StartDate: pgtype.Timestamptz{Time: startDate, Valid: true},
+		EndDate:   pgtype.Timestamptz{Time: endDate, Valid: true},
+	})
+	if err != nil {
+		savedEvents = nil
+	}
+
+	if len(events) == 0 && len(savedEvents) == 0 {
+		return fmt.Errorf("no events found for this week")
+	}
+
+	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
+	html, err := RenderDigestEmail(events, savedEvents, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
+	if err != nil {
+		return fmt.Errorf("rendering email: %w", err)
+	}
+
+	subject := fmt.Sprintf("%d events near you this week!", len(events)+len(savedEvents))
+	if err := r.Email.Send(sub.Email.String, subject, html); err != nil {
+		return fmt.Errorf("sending email: %w", err)
+	}
+
+	r.Queries.CreateNotificationLog(ctx, store.CreateNotificationLogParams{
+		UserID:     sub.ID,
+		Channel:    "email",
+		EventCount: int32(len(events) + len(savedEvents)),
+		Status:     "sent",
+	})
+
+	return nil
+}
+
 func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.Time) {
 	subscribers, err := r.Queries.ListEmailSubscribers(ctx)
 	if err != nil {

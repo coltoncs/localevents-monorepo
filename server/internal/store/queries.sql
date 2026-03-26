@@ -333,6 +333,17 @@ WHERE np.email_enabled = TRUE
   AND u.default_latitude IS NOT NULL
   AND u.default_longitude IS NOT NULL;
 
+-- name: GetEmailSubscriberByID :one
+SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
+       np.email_unsubscribe_token, np.preferred_categories
+FROM users u
+JOIN notification_preferences np ON np.user_id = u.id
+WHERE u.id = $1
+  AND np.email_enabled = TRUE
+  AND u.email IS NOT NULL
+  AND u.default_latitude IS NOT NULL
+  AND u.default_longitude IS NOT NULL;
+
 -- name: ListSMSSubscribers :many
 SELECT u.id, u.clerk_id, u.phone_number, u.default_latitude, u.default_longitude, u.default_radius_miles,
        np.sms_unsubscribe_token, np.preferred_categories

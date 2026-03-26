@@ -424,6 +424,43 @@ func (q *Queries) GetAuthorApplicationByClerkID(ctx context.Context, clerkID str
 	return i, err
 }
 
+const getEmailSubscriberByID = `-- name: GetEmailSubscriberByID :one
+SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
+       np.email_unsubscribe_token, np.preferred_categories
+FROM users u
+JOIN notification_preferences np ON np.user_id = u.id
+WHERE u.id = $1
+  AND np.email_enabled = TRUE
+  AND u.email IS NOT NULL
+  AND u.default_latitude IS NOT NULL
+  AND u.default_longitude IS NOT NULL
+`
+
+type GetEmailSubscriberByIDRow struct {
+	ID                    pgtype.UUID
+	Email                 pgtype.Text
+	DefaultLatitude       pgtype.Float8
+	DefaultLongitude      pgtype.Float8
+	DefaultRadiusMiles    pgtype.Int4
+	EmailUnsubscribeToken pgtype.UUID
+	PreferredCategories   []string
+}
+
+func (q *Queries) GetEmailSubscriberByID(ctx context.Context, id pgtype.UUID) (GetEmailSubscriberByIDRow, error) {
+	row := q.db.QueryRow(ctx, getEmailSubscriberByID, id)
+	var i GetEmailSubscriberByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DefaultLatitude,
+		&i.DefaultLongitude,
+		&i.DefaultRadiusMiles,
+		&i.EmailUnsubscribeToken,
+		&i.PreferredCategories,
+	)
+	return i, err
+}
+
 const getEvent = `-- name: GetEvent :one
 SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories FROM events WHERE id = $1
 `

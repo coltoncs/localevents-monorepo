@@ -30,3 +30,12 @@ export function useUpdateNotificationPreferences() {
     },
   })
 }
+
+export function useTriggerDigest() {
+  return useMutation({
+    mutationFn: () =>
+      apiClient<{ status: string }>('/api/me/notifications/trigger-digest', {
+        method: 'POST',
+      }),
+  })
+}
