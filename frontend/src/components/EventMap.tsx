@@ -24,6 +24,7 @@ interface EventMapProps {
   zoom?: number;
   className?: string;
   onMapReady?: (map: mapboxgl.Map) => void;
+  onMapClick?: (lngLat: { lng: number; lat: number }) => void;
 }
 
 export function EventMap({
@@ -33,11 +34,14 @@ export function EventMap({
   zoom = 11,
   className = "h-[500px] w-full rounded-lg",
   onMapReady,
+  onMapClick,
 }: EventMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const themeRef = useRef<"light" | "dark">(getResolvedTheme());
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   const getMarkerColor = useCallback(getMarkerColorUtil, []);
   const getCircleColors = useCallback(getCircleColorsUtil, []);
@@ -125,6 +129,10 @@ export function EventMap({
       }),
       "bottom-right",
     );
+
+    mapRef.current.on("click", (e) => {
+      onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+    });
 
     // Add radius circle once the style is loaded
     mapRef.current.on("load", () => {

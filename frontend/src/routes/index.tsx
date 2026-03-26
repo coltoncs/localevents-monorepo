@@ -1,7 +1,12 @@
 import { useAuth } from '@clerk/clerk-react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
+import gsap from 'gsap'
+import { SplitText } from 'gsap/SplitText'
+import { useGSAP } from '@gsap/react'
 import { LocationSearch } from '#/components/LocationSearch'
+
+gsap.registerPlugin(SplitText)
 
 export const Route = createFileRoute('/')({
   head: () => ({
@@ -40,47 +45,53 @@ const CYCLING_WORDS = [
 ]
 
 function CyclingWord() {
-  const [idx, setIdx] = useState(0)
-  const [phase, setPhase] = useState<'in' | 'out'>('in')
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textRef = useRef<HTMLSpanElement>(null)
+  const idxRef = useRef(0)
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhase('out')
-      timeoutRef.current = setTimeout(() => {
-        setIdx((i) => (i + 1) % CYCLING_WORDS.length)
-        setPhase('in')
-      }, 350)
-    }, 2800)
+  useGSAP(() => {
+    if (!textRef.current) return
 
-    return () => {
-      clearInterval(interval)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    const cycle = () => {
+      idxRef.current = (idxRef.current + 1) % CYCLING_WORDS.length
+      const nextWord = CYCLING_WORDS[idxRef.current]
+
+      // Phase 1: clear current text letter by letter from end
+      const outSplit = SplitText.create(textRef.current!, { type: 'chars' })
+      gsap.to(outSplit.chars, {
+        opacity: 0,
+        duration: 0.03,
+        stagger: { each: 0.04, from: 'end' },
+        ease: 'none',
+        onComplete: () => {
+          outSplit.revert()
+          textRef.current!.textContent = nextWord
+
+          // Phase 2: build new text letter by letter from start
+          const inSplit = SplitText.create(textRef.current!, { type: 'chars' })
+          gsap.set(inSplit.chars, { opacity: 0 })
+          gsap.to(inSplit.chars, {
+            opacity: 1,
+            duration: 0.03,
+            stagger: 0.04,
+            ease: 'none',
+            onComplete: () => {
+              inSplit.revert()
+              gsap.delayedCall(2, cycle)
+            },
+          })
+        },
+      })
     }
-  }, [])
+
+    gsap.delayedCall(2.8, cycle)
+  }, { scope: textRef })
 
   return (
     <span
-      style={{
-        display: 'inline-block',
-        overflow: 'hidden',
-        verticalAlign: 'bottom',
-        paddingBottom: '0.15em',
-        marginBottom: '-0.15em',
-      }}
+      ref={textRef}
+      style={{ display: 'inline-block' }}
     >
-      <span
-        key={`${idx}-${phase}`}
-        style={{
-          display: 'inline-block',
-          animation:
-            phase === 'in'
-              ? 'word-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both'
-              : 'word-out 0.35s ease-in both',
-        }}
-      >
-        {CYCLING_WORDS[idx]}
-      </span>
+      {CYCLING_WORDS[0]}
     </span>
   )
 }

@@ -25,7 +25,7 @@ function MyEventsContent() {
         <h1 className="text-2xl font-bold text-(--sea-ink)">My Submitted Events</h1>
         <Link
           to="/submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon)"
         >
           Submit Event
         </Link>

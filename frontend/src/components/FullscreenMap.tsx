@@ -26,6 +26,7 @@ export function FullscreenMap({
 }: FullscreenMapProps) {
   const navigate = useNavigate()
   const [listOpen, setListOpen] = useState(false)
+  const [settingOrigin, setSettingOrigin] = useState(false)
   const mapInstanceRef = useRef<MapboxMap | null>(null)
 
   // Lock body scroll while fullscreen is active
@@ -35,6 +36,23 @@ export function FullscreenMap({
       document.body.style.overflow = ''
     }
   }, [])
+
+  // Toggle crosshair cursor when setting origin
+  useEffect(() => {
+    const canvas = mapInstanceRef.current?.getCanvas()
+    if (!canvas) return
+    canvas.style.cursor = settingOrigin ? 'crosshair' : ''
+    return () => { canvas.style.cursor = '' }
+  }, [settingOrigin])
+
+  function handleMapClick(lngLat: { lng: number; lat: number }) {
+    if (!settingOrigin) return
+    setSettingOrigin(false)
+    updateSearch({
+      lat: String(Math.round(lngLat.lat * 1_000_000) / 1_000_000),
+      lng: String(Math.round(lngLat.lng * 1_000_000) / 1_000_000),
+    })
+  }
 
   const filters = { lat, lng, radius, date, category }
   const shouldFetch = !!date
@@ -71,6 +89,7 @@ export function FullscreenMap({
         radiusMiles={radius ?? 25}
         className="h-full w-full"
         onMapReady={(map) => { mapInstanceRef.current = map }}
+        onMapClick={handleMapClick}
       />
 
       {/* Control layer — pointer-events-none so map stays interactive */}
@@ -125,17 +144,45 @@ export function FullscreenMap({
             </select>
           </div>
 
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] backdrop-blur-lg text-[var(--sea-ink)] shadow-lg hover:bg-[var(--surface)] cursor-pointer"
-            aria-label="Exit fullscreen"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M15 5L5 15M5 5l10 10" />
-            </svg>
-          </button>
+          {/* Right-side controls */}
+          <div className="pointer-events-auto flex items-start gap-2">
+            {/* Set origin button */}
+            <button
+              onClick={() => setSettingOrigin(!settingOrigin)}
+              className={`flex h-10 w-10 items-center justify-center rounded-lg border backdrop-blur-lg shadow-lg cursor-pointer ${
+                settingOrigin
+                  ? 'border-[var(--lagoon-deep)] bg-[var(--lagoon-deep)] text-white'
+                  : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink)] hover:bg-[var(--surface)]'
+              }`}
+              aria-label="Set search center"
+              title="Click map to set search center"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="10" cy="10" r="3" />
+                <circle cx="10" cy="10" r="7" />
+                <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
+              </svg>
+            </button>
+
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] backdrop-blur-lg text-[var(--sea-ink)] shadow-lg hover:bg-[var(--surface)] cursor-pointer"
+              aria-label="Exit fullscreen"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M15 5L5 15M5 5l10 10" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* Set-origin hint banner */}
+        {settingOrigin && (
+          <div className="pointer-events-auto mx-auto mt-2 rounded-lg border border-[var(--lagoon-deep)] bg-[var(--surface-strong)] backdrop-blur-lg px-4 py-2 text-sm font-medium text-[var(--lagoon-deep)] shadow-lg">
+            Click anywhere on the map to set as your new search center
+          </div>
+        )}
 
         {/* Spacer pushes event list to bottom */}
         <div className="flex-1" />

@@ -1,6 +1,12 @@
+import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 import type { Event } from "#/lib/types";
 import { formatEventTime } from "#/lib/date-utils";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -14,7 +20,30 @@ function formatPrice(event: Event) {
 }
 
 export function EventCard({ event }: { event: Event }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    if (!cardRef.current) return;
+    gsap.fromTo(
+      cardRef.current,
+      { y: 40, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.6,
+        ease: "power3.out",
+        force3D: true,
+        scrollTrigger: {
+          trigger: cardRef.current,
+          start: "top 92%",
+          toggleActions: "play none none none",
+        },
+      },
+    );
+  }, { scope: cardRef });
+
   return (
+    <div ref={cardRef} style={{ opacity: 0 }}>
     <Link
       to="/events/$eventId"
       params={{ eventId: event.ID }}
@@ -60,5 +89,6 @@ export function EventCard({ event }: { event: Event }) {
         </p>
       </div>
     </Link>
+    </div>
   );
 }

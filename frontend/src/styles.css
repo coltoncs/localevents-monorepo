@@ -3,27 +3,7 @@
 @import './styles/_variables.scss';
 @import './styles/_keyframe-animations.scss';
 
-@keyframes word-in {
-  from {
-    transform: translateY(70%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0%);
-    opacity: 1;
-  }
-}
 
-@keyframes word-out {
-  from {
-    transform: translateY(0%);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-70%);
-    opacity: 0;
-  }
-}
 @plugin "@tailwindcss/typography";
 
 @theme {
