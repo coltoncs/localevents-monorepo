@@ -86,7 +86,7 @@ export function FullscreenMap({
       <EventMap
         events={events}
         center={{ lat, lng }}
-        radiusMiles={radius ?? 25}
+        radiusMiles={radius ?? 10}
         className="h-full w-full"
         onMapReady={(map) => { mapInstanceRef.current = map }}
         onMapClick={handleMapClick}

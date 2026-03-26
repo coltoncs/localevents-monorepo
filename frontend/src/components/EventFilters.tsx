@@ -130,7 +130,7 @@ export function EventFilters({
       </select>
 
       <select
-        value={radius ?? 25}
+        value={radius ?? 10}
         onChange={(e) => updateSearch({ radius: e.target.value })}
         className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
       >

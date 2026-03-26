@@ -229,7 +229,7 @@ function EventsList({
               {search.category}
             </span>
           )}
-          <span>within {search.radius ?? 25} mi</span>
+          <span>within {search.radius ?? 10} mi</span>
           {(search.date || search.category || search.radius || search.search) && (
             <button
               onClick={() =>
@@ -260,7 +260,7 @@ function EventsList({
 
       {view === 'map' && !hasDate ? (
         <div className="relative">
-          <EventMap events={[]} center={center} radiusMiles={search.radius ?? 25} />
+          <EventMap events={[]} center={center} radiusMiles={search.radius ?? 10} />
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-(--bg-base)/60 backdrop-blur-sm">
             <div className="rounded-xl border border-(--line) bg-(--surface-strong) px-8 py-6 text-center shadow-lg">
               <p className="text-lg font-semibold text-(--sea-ink)">
@@ -286,7 +286,7 @@ function EventsList({
       ) : view === 'map' ? (
         <div className="space-y-4">
           <div className="relative">
-            <EventMap events={mapEvents} center={center} radiusMiles={search.radius ?? 25} />
+            <EventMap events={mapEvents} center={center} radiusMiles={search.radius ?? 10} />
             <button
               onClick={() => setFullscreen(true)}
               className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) backdrop-blur-lg text-(--sea-ink) shadow-lg hover:bg-(--surface) cursor-pointer"

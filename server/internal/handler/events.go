@@ -44,7 +44,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	radiusMiles := 25.0
+	radiusMiles := 10.0
 	if v := r.URL.Query().Get("radius"); v != "" {
 		radiusMiles, err = strconv.ParseFloat(v, 64)
 		if err != nil {

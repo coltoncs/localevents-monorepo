@@ -30,7 +30,7 @@ interface EventMapProps {
 export function EventMap({
   events,
   center,
-  radiusMiles = 25,
+  radiusMiles = 10,
   zoom = 11,
   className = "h-[500px] w-full rounded-lg",
   onMapReady,

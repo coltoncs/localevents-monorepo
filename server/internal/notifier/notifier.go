@@ -58,7 +58,7 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 		return fmt.Errorf("user not found or email not enabled: %w", err)
 	}
 
-	radiusMeters := float64(25) * 1609.34
+	radiusMeters := float64(10) * 1609.34
 	if sub.DefaultRadiusMiles.Valid {
 		radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
 	}
@@ -123,7 +123,7 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			continue
 		}
 
-		radiusMeters := float64(25) * 1609.34 // default 25 miles
+		radiusMeters := float64(10) * 1609.34 // default 10 miles
 		if sub.DefaultRadiusMiles.Valid {
 			radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
 		}
@@ -209,7 +209,7 @@ func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Tim
 			}
 		}
 
-		radiusMeters := float64(25) * 1609.34
+		radiusMeters := float64(10) * 1609.34
 		if sub.DefaultRadiusMiles.Valid {
 			radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
 		}
