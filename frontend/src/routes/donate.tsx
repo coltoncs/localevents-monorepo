@@ -42,7 +42,8 @@ function DonatePage() {
             </h2>
             <p className="mt-1 text-center text-sm text-(--sea-ink-soft)">
               Set up a recurring $2/month donation to support ongoing development.
-              Subscribers get weekly SMS event digests. Cancel anytime!
+              Subscribers get acess to on-demand e-mail digests, with SMS digest 
+              and personalized planners coming soon. Cancel anytime!
             </p>
             <div className="mt-4">
               {isSignedIn ? (
