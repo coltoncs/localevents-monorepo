@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth, useClerk } from '@clerk/clerk-react'
 import { useEvent, eventDetailOptions, useDeleteEvent } from '#/lib/hooks/useEvents'
 import { useUserRole } from '#/lib/hooks/useUserRole'
 import { EventMap } from '#/components/EventMap'
@@ -90,6 +90,7 @@ function EventDetailPage() {
   const { eventId } = Route.useParams()
   const { data: event, isLoading } = useEvent(eventId)
   const { isSignedIn } = useAuth()
+  const { openSignIn } = useClerk()
   const { isAdmin, isAuthor } = useUserRole()
   const router = useRouter()
   const deleteEvent = useDeleteEvent()
@@ -143,10 +144,10 @@ function EventDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} />
-          {isSignedIn && !canEdit && (
+          {!canEdit && (
             <button
               type="button"
-              onClick={() => setShowSuggestEdit(true)}
+              onClick={() => isSignedIn ? setShowSuggestEdit(true) : openSignIn()}
               className="text-nowrap cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
             >
               Suggest Edit

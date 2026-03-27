@@ -211,6 +211,7 @@ function EventsList({
               "{search.search}"
             </span>
           )}
+          <span>within {search.radius ?? 10} mi</span>
           {locationName && (
             <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
               {locationName}
@@ -229,7 +230,6 @@ function EventsList({
               {search.category}
             </span>
           )}
-          <span>within {search.radius ?? 10} mi</span>
           {(search.date || search.category || search.radius || search.search) && (
             <button
               onClick={() =>

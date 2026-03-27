@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@clerk/clerk-react'
+import { useAuth, useClerk } from '@clerk/clerk-react'
 import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
 import { useVenue, venueDetailOptions, useUpdateVenue } from '#/lib/hooks/useVenues'
 import { useUnsaveEvent, useSaveEvent, useSavedEvents } from '#/lib/hooks/useSavedEvents'
@@ -176,6 +176,7 @@ function VenuePage() {
   const save = useSaveEvent()
   const { data: savedEvents } = useSavedEvents()
   const { isSignedIn } = useAuth()
+  const { openSignIn } = useClerk()
   const { isAdmin } = useUserRole()
   const [editing, setEditing] = useState(false)
   const [showSuggestEdit, setShowSuggestEdit] = useState(false)
@@ -223,10 +224,10 @@ function VenuePage() {
               {venue?.VenueName ?? 'Venue'}
             </h1>
             <div className="flex gap-2">
-              {isSignedIn && venue && (
+              {!isAdmin && venue && (
                 <button
                   type="button"
-                  onClick={() => setShowSuggestEdit(true)}
+                  onClick={() => isSignedIn ? setShowSuggestEdit(true) : openSignIn()}
                   className="cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
                 >
                   Suggest Edit

@@ -103,14 +103,14 @@ export function NotificationSettings() {
             Text/SMS digest <span className='text-xs text-gray-400 dark:text-gray-600'>(coming soon...)</span>
           </span>
         </label>
-        {!hasSubscription && (
+        {/* {!hasSubscription && (
           <Link
             to="/donate"
             className="text-xs font-medium text-(--lagoon-deep) no-underline hover:text-(--lagoon)"
           >
             Subscriber perk — subscribe to unlock
           </Link>
-        )}
+        )} */}
       </div>
 
       {smsEnabled && hasSubscription && (
