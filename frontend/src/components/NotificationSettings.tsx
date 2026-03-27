@@ -185,7 +185,7 @@ export function NotificationSettings() {
           {updatePrefs.isPending ? 'Saving...' : 'Save Preferences'}
         </button>
 
-        {emailEnabled && (
+        {emailEnabled && hasSubscription && (
           <div className="relative group">
             <button
               type="button"
@@ -195,11 +195,6 @@ export function NotificationSettings() {
             >
               {triggerDigest.isPending ? 'Sending...' : 'Send Digest Now'}
             </button>
-            {!hasSubscription && (
-              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs rounded bg-(--sea-ink) px-3 py-1.5 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                Subscribe to unlock this feature
-              </span>
-            )}
           </div>
         )}
       </div>

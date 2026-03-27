@@ -38,7 +38,7 @@ export function EmailNotifBanner() {
 				<button
 					type="button"
 					onClick={handleDismiss}
-					className="flex-shrink-0 cursor-pointer rounded-md p-1 text-(--sea-ink-soft) hover:text-(--sea-ink) hover:bg-(--surface)"
+					className="shrink-0 cursor-pointer rounded-md p-1 text-(--sea-ink-soft) hover:text-(--sea-ink) hover:bg-(--surface)"
 					aria-label="Dismiss"
 				>
 					<svg
