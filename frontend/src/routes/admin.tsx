@@ -1,6 +1,8 @@
+import { useGSAP } from "@gsap/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import gsap from "gsap";
+import { useRef, useState } from "react";
 import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
 import { Spinner } from "#/components/Spinner";
 import { SuggestionCard } from "#/components/SuggestionCard";
@@ -35,10 +37,30 @@ function MetricCard({
 	label: string;
 	value: string | number;
 }) {
+	const numRef = useRef<HTMLParagraphElement>(null);
+	const isNumber = typeof value === "number";
+
+	useGSAP(() => {
+		if (!isNumber || !numRef.current) return;
+		const obj = { val: 0 };
+		gsap.to(obj, {
+			val: value,
+			duration: 1,
+			ease: "power2.out",
+			onUpdate() {
+				if (numRef.current) {
+					numRef.current.textContent = Math.round(obj.val).toLocaleString();
+				}
+			},
+		});
+	}, [value]);
+
 	return (
 		<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4">
 			<p className="text-sm text-(--sea-ink-soft)">{label}</p>
-			<p className="mt-1 text-2xl font-bold text-(--sea-ink)">{value}</p>
+			<p ref={numRef} className="mt-1 text-2xl font-bold text-(--sea-ink)">
+				{isNumber ? "0" : value}
+			</p>
 		</div>
 	);
 }
@@ -51,6 +73,40 @@ function EventSourcesPanel({
 	sources: AdminStats["events_by_source"];
 }) {
 	const total = sources.reduce((sum, s) => sum + s.count, 0);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	useGSAP(
+		() => {
+			if (sources.length === 0 || !containerRef.current) return;
+			const bars =
+				containerRef.current.querySelectorAll<HTMLElement>("[data-bar]");
+			const counts =
+				containerRef.current.querySelectorAll<HTMLElement>("[data-count]");
+
+			gsap.from(bars, {
+				width: 0,
+				duration: 0.8,
+				ease: "power2.out",
+				stagger: 0.08,
+			});
+
+			for (const el of counts) {
+				const target = Number(el.dataset.count);
+				const obj = { val: 0 };
+				gsap.to(obj, {
+					val: target,
+					duration: 0.8,
+					ease: "power2.out",
+					delay: 0.08 * Array.from(counts).indexOf(el),
+					onUpdate() {
+						el.textContent = Math.round(obj.val).toLocaleString();
+					},
+				});
+			}
+		},
+		{ scope: containerRef, dependencies: [sources] },
+	);
+
 	return (
 		<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4">
 			<h3 className="font-semibold text-(--sea-ink)">Events by Source</h3>
@@ -59,7 +115,7 @@ function EventSourcesPanel({
 					No upcoming events.
 				</p>
 			) : (
-				<div className="mt-3 space-y-2">
+				<div ref={containerRef} className="mt-3 space-y-2">
 					{sources.map((s) => (
 						<div
 							key={s.source}
@@ -68,11 +124,15 @@ function EventSourcesPanel({
 							<span className="text-(--sea-ink)">{s.source}</span>
 							<div className="flex items-center gap-2">
 								<div
+									data-bar=""
 									className="h-2 rounded-full bg-[rgba(79,184,178,0.3)]"
 									style={{ width: `${Math.max((s.count / total) * 120, 8)}px` }}
 								/>
-								<span className="tabular-nums text-(--sea-ink-soft)">
-									{s.count}
+								<span
+									data-count={s.count}
+									className="tabular-nums text-(--sea-ink-soft)"
+								>
+									0
 								</span>
 							</div>
 						</div>
