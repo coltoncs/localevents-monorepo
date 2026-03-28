@@ -487,12 +487,13 @@ WHERE start_time >= NOW()
 GROUP BY source ORDER BY count DESC;
 
 -- name: AdminListAuthorsWithEventCounts :many
-SELECT aa.full_name, aa.email, COUNT(e.id)::bigint AS event_count
-FROM author_applications aa
-JOIN users u ON u.clerk_id = aa.clerk_id
-LEFT JOIN events e ON e.submitted_by = u.id AND e.start_time >= NOW()
-WHERE aa.status = 'approved'
-GROUP BY aa.full_name, aa.email
+SELECT
+  COALESCE(u.username, u.email, u.clerk_id) AS name,
+  COALESCE(u.email, '') AS email,
+  COUNT(e.id) FILTER (WHERE e.start_time >= NOW())::bigint AS event_count
+FROM users u
+JOIN events e ON e.submitted_by = u.id
+GROUP BY u.id, u.username, u.email, u.clerk_id
 ORDER BY event_count DESC;
 
 -- name: AdminRecentDigestStats :one

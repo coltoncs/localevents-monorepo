@@ -139,7 +139,7 @@ func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	if rows, err := h.queries.AdminListAuthorsWithEventCounts(ctx); err == nil {
 		for _, row := range rows {
 			resp.Authors = append(resp.Authors, authorWithEvents{
-				Name:       row.FullName,
+				Name:       row.Name,
 				Email:      row.Email,
 				EventCount: row.EventCount,
 			})

@@ -163,17 +163,18 @@ func (q *Queries) AdminEventsBySource(ctx context.Context) ([]AdminEventsBySourc
 }
 
 const adminListAuthorsWithEventCounts = `-- name: AdminListAuthorsWithEventCounts :many
-SELECT aa.full_name, aa.email, COUNT(e.id)::bigint AS event_count
-FROM author_applications aa
-JOIN users u ON u.clerk_id = aa.clerk_id
-LEFT JOIN events e ON e.submitted_by = u.id AND e.start_time >= NOW()
-WHERE aa.status = 'approved'
-GROUP BY aa.full_name, aa.email
+SELECT
+  COALESCE(u.username, u.email, u.clerk_id) AS name,
+  COALESCE(u.email, '') AS email,
+  COUNT(e.id) FILTER (WHERE e.start_time >= NOW())::bigint AS event_count
+FROM users u
+JOIN events e ON e.submitted_by = u.id
+GROUP BY u.id, u.username, u.email, u.clerk_id
 ORDER BY event_count DESC
 `
 
 type AdminListAuthorsWithEventCountsRow struct {
-	FullName   string
+	Name       string
 	Email      string
 	EventCount int64
 }
@@ -187,7 +188,7 @@ func (q *Queries) AdminListAuthorsWithEventCounts(ctx context.Context) ([]AdminL
 	var items []AdminListAuthorsWithEventCountsRow
 	for rows.Next() {
 		var i AdminListAuthorsWithEventCountsRow
-		if err := rows.Scan(&i.FullName, &i.Email, &i.EventCount); err != nil {
+		if err := rows.Scan(&i.Name, &i.Email, &i.EventCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
