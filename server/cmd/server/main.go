@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -49,6 +50,9 @@ func main() {
 	// Cleanup: delete past events, orphaned images, and stale deletion records daily at 3 AM
 	c.AddFunc("0 3 * * *", func() {
 		ctx := context.Background()
+		var eventsDeleted int64
+		var imagesDeleted int
+		var staleRemoved int64
 
 		// Collect orphaned image URLs before deleting events.
 		var orphanedURLs []string
@@ -69,28 +73,42 @@ func main() {
 		if err != nil {
 			log.Printf("Event cleanup failed: %v", err)
 		} else {
+			eventsDeleted = deleted
 			log.Printf("Event cleanup: deleted %d past events", deleted)
 		}
 
 		// Delete orphaned images from R2.
 		if len(orphanedURLs) > 0 {
-			cleaned := 0
 			for _, u := range orphanedURLs {
 				if err := r2.DeleteByPublicURL(ctx, u); err != nil {
 					log.Printf("Image cleanup: failed to delete %s: %v", u, err)
 				} else {
-					cleaned++
+					imagesDeleted++
 				}
 			}
-			log.Printf("Image cleanup: deleted %d orphaned images from R2", cleaned)
+			log.Printf("Image cleanup: deleted %d orphaned images from R2", imagesDeleted)
 		}
 
 		cleaned, err := queries.CleanOldDeletedExternalEvents(ctx)
 		if err != nil {
 			log.Printf("Deletion records cleanup failed: %v", err)
-		} else if cleaned > 0 {
-			log.Printf("Deletion records cleanup: removed %d stale records", cleaned)
+		} else {
+			staleRemoved = cleaned
+			if cleaned > 0 {
+				log.Printf("Deletion records cleanup: removed %d stale records", cleaned)
+			}
 		}
+
+		details, _ := json.Marshal(map[string]int{
+			"events_deleted": int(eventsDeleted),
+			"images_deleted": imagesDeleted,
+			"stale_removed":  int(staleRemoved),
+		})
+		queries.InsertCronLog(ctx, store.InsertCronLogParams{
+			JobName:       "cleanup",
+			ItemsAffected: int32(eventsDeleted),
+			Details:       details,
+		})
 	})
 
 	// Set up event scraper cron job

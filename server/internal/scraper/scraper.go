@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"math/big"
@@ -229,6 +230,13 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 
 	log.Printf("Event scrape complete: %d total events upserted, %d images mirrored", total, mirrored)
+
+	details, _ := json.Marshal(map[string]int{"mirrored": mirrored})
+	r.Queries.InsertCronLog(ctx, store.InsertCronLogParams{
+		JobName:       "scrape",
+		ItemsAffected: int32(total),
+		Details:       details,
+	})
 }
 
 // enrichPriorityEvent fills in missing fields on a priority (local) event

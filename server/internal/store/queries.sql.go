@@ -11,6 +11,222 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adminCountEmailSubscribers = `-- name: AdminCountEmailSubscribers :one
+SELECT COUNT(*) FROM notification_preferences np
+JOIN users u ON np.user_id = u.id
+WHERE np.email_enabled = TRUE AND u.email IS NOT NULL
+`
+
+func (q *Queries) AdminCountEmailSubscribers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountEmailSubscribers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountNewUsersThisWeek = `-- name: AdminCountNewUsersThisWeek :one
+SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days'
+`
+
+func (q *Queries) AdminCountNewUsersThisWeek(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountNewUsersThisWeek)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountPendingApplications = `-- name: AdminCountPendingApplications :one
+SELECT COUNT(*) FROM author_applications WHERE status = 'pending'
+`
+
+func (q *Queries) AdminCountPendingApplications(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountPendingApplications)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountPendingSuggestions = `-- name: AdminCountPendingSuggestions :one
+SELECT COUNT(*) FROM edit_suggestions WHERE status = 'pending'
+`
+
+func (q *Queries) AdminCountPendingSuggestions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountPendingSuggestions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountSMSSubscribers = `-- name: AdminCountSMSSubscribers :one
+SELECT COUNT(*) FROM notification_preferences np
+JOIN users u ON np.user_id = u.id
+WHERE np.sms_enabled = TRUE AND u.phone_number IS NOT NULL
+`
+
+func (q *Queries) AdminCountSMSSubscribers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountSMSSubscribers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountSavedEvents = `-- name: AdminCountSavedEvents :one
+SELECT COUNT(*) FROM saved_events
+`
+
+func (q *Queries) AdminCountSavedEvents(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountSavedEvents)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountUpcomingEvents = `-- name: AdminCountUpcomingEvents :one
+SELECT COUNT(*) FROM events WHERE start_time >= NOW()
+`
+
+func (q *Queries) AdminCountUpcomingEvents(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountUpcomingEvents)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountUsers = `-- name: AdminCountUsers :one
+
+SELECT COUNT(*) FROM users
+`
+
+// Admin Dashboard Metrics
+func (q *Queries) AdminCountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountVenues = `-- name: AdminCountVenues :one
+SELECT COUNT(*) FROM venues
+`
+
+func (q *Queries) AdminCountVenues(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountVenues)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountWeeklyActiveUsers = `-- name: AdminCountWeeklyActiveUsers :one
+SELECT COUNT(DISTINCT user_id)::bigint FROM (
+  SELECT user_id FROM saved_events WHERE created_at > NOW() - INTERVAL '7 days'
+  UNION
+  SELECT submitted_by AS user_id FROM edit_suggestions WHERE created_at > NOW() - INTERVAL '7 days'
+) active_users
+`
+
+func (q *Queries) AdminCountWeeklyActiveUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountWeeklyActiveUsers)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const adminEventsBySource = `-- name: AdminEventsBySource :many
+SELECT source, COUNT(*)::bigint AS count FROM events
+WHERE start_time >= NOW()
+GROUP BY source ORDER BY count DESC
+`
+
+type AdminEventsBySourceRow struct {
+	Source string
+	Count  int64
+}
+
+func (q *Queries) AdminEventsBySource(ctx context.Context) ([]AdminEventsBySourceRow, error) {
+	rows, err := q.db.Query(ctx, adminEventsBySource)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminEventsBySourceRow
+	for rows.Next() {
+		var i AdminEventsBySourceRow
+		if err := rows.Scan(&i.Source, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminListAuthorsWithEventCounts = `-- name: AdminListAuthorsWithEventCounts :many
+SELECT aa.full_name, aa.email, COUNT(e.id)::bigint AS event_count
+FROM author_applications aa
+JOIN users u ON u.clerk_id = aa.clerk_id
+LEFT JOIN events e ON e.submitted_by = u.id AND e.start_time >= NOW()
+WHERE aa.status = 'approved'
+GROUP BY aa.full_name, aa.email
+ORDER BY event_count DESC
+`
+
+type AdminListAuthorsWithEventCountsRow struct {
+	FullName   string
+	Email      string
+	EventCount int64
+}
+
+func (q *Queries) AdminListAuthorsWithEventCounts(ctx context.Context) ([]AdminListAuthorsWithEventCountsRow, error) {
+	rows, err := q.db.Query(ctx, adminListAuthorsWithEventCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminListAuthorsWithEventCountsRow
+	for rows.Next() {
+		var i AdminListAuthorsWithEventCountsRow
+		if err := rows.Scan(&i.FullName, &i.Email, &i.EventCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const adminRecentDigestStats = `-- name: AdminRecentDigestStats :one
+SELECT
+  COUNT(*)::bigint AS total,
+  COUNT(*) FILTER (WHERE status = 'sent')::bigint AS sent,
+  COUNT(*) FILTER (WHERE status != 'sent')::bigint AS failed,
+  COALESCE(SUM(event_count) FILTER (WHERE status = 'sent'), 0)::bigint AS total_events_included
+FROM notification_log
+WHERE sent_at > NOW() - INTERVAL '7 days'
+`
+
+type AdminRecentDigestStatsRow struct {
+	Total               int64
+	Sent                int64
+	Failed              int64
+	TotalEventsIncluded int64
+}
+
+func (q *Queries) AdminRecentDigestStats(ctx context.Context) (AdminRecentDigestStatsRow, error) {
+	row := q.db.QueryRow(ctx, adminRecentDigestStats)
+	var i AdminRecentDigestStatsRow
+	err := row.Scan(
+		&i.Total,
+		&i.Sent,
+		&i.Failed,
+		&i.TotalEventsIncluded,
+	)
+	return i, err
+}
+
 const approveApplication = `-- name: ApproveApplication :one
 UPDATE author_applications SET
     status = 'approved',
@@ -649,6 +865,26 @@ func (q *Queries) GetLastNotificationSent(ctx context.Context, arg GetLastNotifi
 	return i, err
 }
 
+const getLatestCronLog = `-- name: GetLatestCronLog :one
+SELECT id, job_name, ran_at, items_affected, details FROM cron_log
+WHERE job_name = $1
+ORDER BY ran_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestCronLog(ctx context.Context, jobName string) (CronLog, error) {
+	row := q.db.QueryRow(ctx, getLatestCronLog, jobName)
+	var i CronLog
+	err := row.Scan(
+		&i.ID,
+		&i.JobName,
+		&i.RanAt,
+		&i.ItemsAffected,
+		&i.Details,
+	)
+	return i, err
+}
+
 const getNotificationPreferences = `-- name: GetNotificationPreferences :one
 SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories FROM notification_preferences WHERE user_id = $1
 `
@@ -771,6 +1007,24 @@ func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertCronLog = `-- name: InsertCronLog :exec
+
+INSERT INTO cron_log (job_name, items_affected, details)
+VALUES ($1, $2, $3)
+`
+
+type InsertCronLogParams struct {
+	JobName       string
+	ItemsAffected int32
+	Details       []byte
+}
+
+// Cron Log
+func (q *Queries) InsertCronLog(ctx context.Context, arg InsertCronLogParams) error {
+	_, err := q.db.Exec(ctx, insertCronLog, arg.JobName, arg.ItemsAffected, arg.Details)
+	return err
 }
 
 const listEmailSubscribers = `-- name: ListEmailSubscribers :many

@@ -22,6 +22,14 @@ type AuthorApplication struct {
 	ReviewNotes pgtype.Text
 }
 
+type CronLog struct {
+	ID            pgtype.UUID
+	JobName       string
+	RanAt         pgtype.Timestamptz
+	ItemsAffected int32
+	Details       []byte
+}
+
 type DeletedExternalEvent struct {
 	Source     string
 	ExternalID string

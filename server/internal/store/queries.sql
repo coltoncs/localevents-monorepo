@@ -446,3 +446,78 @@ UPDATE edit_suggestions SET
     review_notes = $3
 WHERE id = $1
 RETURNING *;
+
+-- Admin Dashboard Metrics
+
+-- name: AdminCountUsers :one
+SELECT COUNT(*) FROM users;
+
+-- name: AdminCountNewUsersThisWeek :one
+SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days';
+
+-- name: AdminCountWeeklyActiveUsers :one
+SELECT COUNT(DISTINCT user_id)::bigint FROM (
+  SELECT user_id FROM saved_events WHERE created_at > NOW() - INTERVAL '7 days'
+  UNION
+  SELECT submitted_by AS user_id FROM edit_suggestions WHERE created_at > NOW() - INTERVAL '7 days'
+) active_users;
+
+-- name: AdminCountEmailSubscribers :one
+SELECT COUNT(*) FROM notification_preferences np
+JOIN users u ON np.user_id = u.id
+WHERE np.email_enabled = TRUE AND u.email IS NOT NULL;
+
+-- name: AdminCountSMSSubscribers :one
+SELECT COUNT(*) FROM notification_preferences np
+JOIN users u ON np.user_id = u.id
+WHERE np.sms_enabled = TRUE AND u.phone_number IS NOT NULL;
+
+-- name: AdminCountUpcomingEvents :one
+SELECT COUNT(*) FROM events WHERE start_time >= NOW();
+
+-- name: AdminCountVenues :one
+SELECT COUNT(*) FROM venues;
+
+-- name: AdminCountSavedEvents :one
+SELECT COUNT(*) FROM saved_events;
+
+-- name: AdminEventsBySource :many
+SELECT source, COUNT(*)::bigint AS count FROM events
+WHERE start_time >= NOW()
+GROUP BY source ORDER BY count DESC;
+
+-- name: AdminListAuthorsWithEventCounts :many
+SELECT aa.full_name, aa.email, COUNT(e.id)::bigint AS event_count
+FROM author_applications aa
+JOIN users u ON u.clerk_id = aa.clerk_id
+LEFT JOIN events e ON e.submitted_by = u.id AND e.start_time >= NOW()
+WHERE aa.status = 'approved'
+GROUP BY aa.full_name, aa.email
+ORDER BY event_count DESC;
+
+-- name: AdminRecentDigestStats :one
+SELECT
+  COUNT(*)::bigint AS total,
+  COUNT(*) FILTER (WHERE status = 'sent')::bigint AS sent,
+  COUNT(*) FILTER (WHERE status != 'sent')::bigint AS failed,
+  COALESCE(SUM(event_count) FILTER (WHERE status = 'sent'), 0)::bigint AS total_events_included
+FROM notification_log
+WHERE sent_at > NOW() - INTERVAL '7 days';
+
+-- name: AdminCountPendingSuggestions :one
+SELECT COUNT(*) FROM edit_suggestions WHERE status = 'pending';
+
+-- name: AdminCountPendingApplications :one
+SELECT COUNT(*) FROM author_applications WHERE status = 'pending';
+
+-- Cron Log
+
+-- name: InsertCronLog :exec
+INSERT INTO cron_log (job_name, items_affected, details)
+VALUES ($1, $2, $3);
+
+-- name: GetLatestCronLog :one
+SELECT * FROM cron_log
+WHERE job_name = $1
+ORDER BY ran_at DESC
+LIMIT 1;

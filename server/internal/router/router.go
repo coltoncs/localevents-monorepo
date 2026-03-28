@@ -30,6 +30,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	suggestionHandler := handler.NewSuggestionHandler(queries)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
+	adminHandler := handler.NewAdminHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
@@ -91,6 +92,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)
 			r.Post("/admin/digest/trigger", digestHandler.Trigger)
 			r.Get("/admin/suggestions", suggestionHandler.ListPending)
+			r.Get("/admin/stats", adminHandler.GetStats)
 		})
 	})
 
