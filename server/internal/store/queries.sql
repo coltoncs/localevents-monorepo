@@ -123,6 +123,15 @@ DELETE FROM saved_events WHERE user_id = $1 AND event_id = $2;
 -- name: GetEventSaveCount :one
 SELECT COUNT(*) FROM saved_events WHERE event_id = $1;
 
+-- name: GetUserCategoryAffinities :many
+SELECT unnest(e.categories)::text AS category, COUNT(*) AS save_count
+FROM saved_events se
+JOIN events e ON e.id = se.event_id
+WHERE se.user_id = $1
+GROUP BY category
+ORDER BY save_count DESC
+LIMIT 10;
+
 -- name: DeletePastEvents :execrows
 DELETE FROM events
 WHERE start_time < NOW()::date;

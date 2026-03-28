@@ -87,8 +87,10 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 		return fmt.Errorf("no events found for this week")
 	}
 
+	categories := r.resolvePreferredCategories(ctx, sub.ID, sub.PreferredCategories)
+
 	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-	html, err := RenderDigestEmail(events, savedEvents, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
+	html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL)
 	if err != nil {
 		return fmt.Errorf("rendering email: %w", err)
 	}
@@ -155,8 +157,10 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			continue
 		}
 
+		categories := r.resolvePreferredCategories(ctx, sub.ID, sub.PreferredCategories)
+
 		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-		html, err := RenderDigestEmail(events, savedEvents, sub.PreferredCategories, unsubscribeURL, r.FrontendURL)
+		html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL)
 		if err != nil {
 			log.Printf("Digest: failed to render email for user %s: %v", uuidToString(sub.ID), err)
 			continue
@@ -230,7 +234,8 @@ func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Tim
 			continue
 		}
 
-		events = sortByPreferredCategories(events, sub.PreferredCategories)
+		categories := r.resolvePreferredCategories(ctx, sub.ID, sub.PreferredCategories)
+		events = sortByPreferredCategories(events, categories)
 
 		body := composeSMSBody(events, r.FrontendURL)
 		err = r.SMS.Send(sub.PhoneNumber.String, body)
@@ -322,6 +327,27 @@ func hasPreferred(categories []string, prefSet map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+// resolvePreferredCategories returns explicit preferences if set, otherwise
+// infers top categories from the user's saved events.
+func (r *Runner) resolvePreferredCategories(ctx context.Context, userID pgtype.UUID, explicit []string) []string {
+	if len(explicit) > 0 {
+		return explicit
+	}
+	affinities, err := r.Queries.GetUserCategoryAffinities(ctx, userID)
+	if err != nil || len(affinities) == 0 {
+		return nil
+	}
+	// Use top 3 inferred categories
+	cats := make([]string, 0, 3)
+	for i, a := range affinities {
+		if i >= 3 {
+			break
+		}
+		cats = append(cats, a.Category)
+	}
+	return cats
 }
 
 func formatNumeric(n pgtype.Numeric) string {

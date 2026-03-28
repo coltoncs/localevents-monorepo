@@ -714,6 +714,41 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
+const getUserCategoryAffinities = `-- name: GetUserCategoryAffinities :many
+SELECT unnest(e.categories)::text AS category, COUNT(*) AS save_count
+FROM saved_events se
+JOIN events e ON e.id = se.event_id
+WHERE se.user_id = $1
+GROUP BY category
+ORDER BY save_count DESC
+LIMIT 10
+`
+
+type GetUserCategoryAffinitiesRow struct {
+	Category  string
+	SaveCount int64
+}
+
+func (q *Queries) GetUserCategoryAffinities(ctx context.Context, userID pgtype.UUID) ([]GetUserCategoryAffinitiesRow, error) {
+	rows, err := q.db.Query(ctx, getUserCategoryAffinities, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserCategoryAffinitiesRow
+	for rows.Next() {
+		var i GetUserCategoryAffinitiesRow
+		if err := rows.Scan(&i.Category, &i.SaveCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getVenue = `-- name: GetVenue :one
 SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at FROM venues WHERE id = $1
 `
