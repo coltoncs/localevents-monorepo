@@ -74,6 +74,7 @@ type Event struct {
 	ManuallyEdited bool
 	VenueID        pgtype.UUID
 	Categories     []string
+	SeriesID       pgtype.UUID
 }
 
 type Image struct {

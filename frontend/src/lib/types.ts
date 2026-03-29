@@ -20,6 +20,7 @@ export interface Event {
 	PriceMax?: number;
 	SubmittedBy?: string;
 	VenueID?: string;
+	SeriesID?: string;
 	CreatedAt: string;
 	UpdatedAt: string;
 }
@@ -80,6 +81,7 @@ export interface CreateEventInput {
 	price_min?: number;
 	price_max?: number;
 	venue_id?: string;
+	series_id?: string;
 }
 
 export interface Venue {

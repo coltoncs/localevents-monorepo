@@ -230,6 +230,7 @@ type createEventRequest struct {
 	PriceMin    *float64 `json:"price_min"`
 	PriceMax    *float64 `json:"price_max"`
 	VenueID     *string  `json:"venue_id"`
+	SeriesID    *string  `json:"series_id"`
 }
 
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -328,6 +329,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		PriceMax:    numericFromFloat(req.PriceMax),
 		SubmittedBy: user.ID,
 		VenueID:     venueID,
+		SeriesID:    uuidFromPtr(req.SeriesID),
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to create event"}`, http.StatusInternalServerError)
@@ -547,4 +549,114 @@ func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *EventHandler) ListSeriesEvents(w http.ResponseWriter, r *http.Request) {
+	seriesIDStr := chi.URLParam(r, "seriesId")
+	seriesID, err := uuid.Parse(seriesIDStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid series id"}`, http.StatusBadRequest)
+		return
+	}
+
+	events, err := h.queries.ListEventsBySeries(r.Context(), pgtype.UUID{Bytes: seriesID, Valid: true})
+	if err != nil {
+		http.Error(w, `{"error":"failed to query series events"}`, http.StatusInternalServerError)
+		return
+	}
+	if events == nil {
+		events = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+func (h *EventHandler) UpdateSeries(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	seriesIDStr := chi.URLParam(r, "seriesId")
+	seriesID, err := uuid.Parse(seriesIDStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid series id"}`, http.StatusBadRequest)
+		return
+	}
+	pgSeriesID := pgtype.UUID{Bytes: seriesID, Valid: true}
+
+	// Fetch series to verify ownership.
+	events, err := h.queries.ListEventsBySeries(r.Context(), pgSeriesID)
+	if err != nil || len(events) == 0 {
+		http.Error(w, `{"error":"series not found"}`, http.StatusNotFound)
+		return
+	}
+
+	role, err := middleware.GetUserRole(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
+		return
+	}
+
+	var ownerClerkID string
+	if events[0].SubmittedBy.Valid {
+		owner, err := h.queries.GetUserByID(r.Context(), events[0].SubmittedBy)
+		if err == nil {
+			ownerClerkID = owner.ClerkID
+		}
+	}
+
+	if !middleware.CanModifyEvent(role, ownerClerkID, clerkID) {
+		http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		return
+	}
+
+	var req createEventRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Title == "" {
+		http.Error(w, `{"error":"title is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Mirror external image URL to R2 if available.
+	if h.r2 != nil && req.ImageURL != nil && *req.ImageURL != "" {
+		if r2URL, err := h.r2.MirrorImage(r.Context(), *req.ImageURL); err == nil && r2URL != "" {
+			req.ImageURL = &r2URL
+		}
+	}
+
+	updated, err := h.queries.UpdateEventsBySeries(r.Context(), store.UpdateEventsBySeriesParams{
+		SeriesID:   pgSeriesID,
+		Title:      req.Title,
+		Description: textFromPtr(req.Description),
+		VenueName:  textFromPtr(req.VenueName),
+		Address:    textFromPtr(req.Address),
+		City:       textFromPtr(req.City),
+		State:      textFromPtr(req.State),
+		Zip:        textFromPtr(req.Zip),
+		Latitude:   req.Latitude,
+		Longitude:  req.Longitude,
+		Categories: req.Categories,
+		ImageUrl:   textFromPtr(req.ImageURL),
+		TicketUrl:  textFromPtr(req.TicketURL),
+		PriceMin:   numericFromFloat(req.PriceMin),
+		PriceMax:   numericFromFloat(req.PriceMax),
+		VenueID:    uuidFromPtr(req.VenueID),
+	})
+	if err != nil {
+		http.Error(w, `{"error":"failed to update series"}`, http.StatusInternalServerError)
+		return
+	}
+	if updated == nil {
+		updated = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updated)
 }

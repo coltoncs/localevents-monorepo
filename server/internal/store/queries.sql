@@ -83,11 +83,11 @@ LIMIT @event_limit OFFSET @event_offset;
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, submitted_by, venue_id
+    ticket_url, price_min, price_max, submitted_by, venue_id, series_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19
+    $15, $16, $17, $18, $19, $20
 ) RETURNING *;
 
 -- name: ListEventsBySubmitter :many
@@ -523,3 +523,32 @@ SELECT * FROM cron_log
 WHERE job_name = $1
 ORDER BY ran_at DESC
 LIMIT 1;
+
+-- Event Series
+
+-- name: ListEventsBySeries :many
+SELECT * FROM events
+WHERE series_id = $1
+ORDER BY start_time ASC;
+
+-- name: UpdateEventsBySeries :many
+UPDATE events SET
+    title = $2,
+    description = $3,
+    venue_name = $4,
+    address = $5,
+    city = $6,
+    state = $7,
+    zip = $8,
+    latitude = $9,
+    longitude = $10,
+    categories = $11,
+    image_url = $12,
+    ticket_url = $13,
+    price_min = $14,
+    price_max = $15,
+    venue_id = $16,
+    manually_edited = TRUE,
+    updated_at = NOW()
+WHERE series_id = $1
+RETURNING *;

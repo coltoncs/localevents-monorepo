@@ -42,6 +42,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.OptionalAuth())
 			r.Get("/events", eventHandler.List)
+			r.Get("/events/series/{seriesId}", eventHandler.ListSeriesEvents)
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
 			r.Get("/venues", venueHandler.List)
@@ -74,6 +75,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Use(middleware.RequireAuth())
 			r.Use(middleware.RequireRole(middleware.RoleAuthor, middleware.RoleAdmin))
 			r.Post("/events", eventHandler.Create)
+			r.Put("/events/series/{seriesId}", eventHandler.UpdateSeries)
 			r.Put("/events/{id}", eventHandler.Update)
 			r.Delete("/events/{id}", eventHandler.Delete)
 			r.Post("/venues", venueHandler.Create)

@@ -1,495 +1,528 @@
-import { useState } from 'react'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { useForm } from '@tanstack/react-form'
-import DatePicker from 'react-datepicker'
-import 'react-datepicker/dist/react-datepicker.css'
-import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
-import { useEvent, eventDetailOptions, useUpdateEvent } from '#/lib/hooks/useEvents'
-import { CategoryPicker } from '#/components/EventForm'
-import type { CreateEventInput, Venue } from '#/lib/types'
-import { LocationPickerMap } from '#/components/LocationPickerMap'
-import { VenueCombobox } from '#/components/VenueCombobox'
-import { ImageUpload } from '#/components/ImageUpload'
-import { SimpleEditor } from '#/components/tiptap-templates/simple/simple-editor'
-import { Spinner } from '#/components/Spinner'
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { CategoryPicker } from "#/components/EventForm";
+import { ImageUpload } from "#/components/ImageUpload";
+import { LocationPickerMap } from "#/components/LocationPickerMap";
+import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
+import { Spinner } from "#/components/Spinner";
+import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
+import { VenueCombobox } from "#/components/VenueCombobox";
+import {
+	eventDetailOptions,
+	useEvent,
+	useUpdateEvent,
+	useUpdateSeries,
+} from "#/lib/hooks/useEvents";
+import type { CreateEventInput, Venue } from "#/lib/types";
 
-
-export const Route = createFileRoute('/events/$eventId/edit')({
-  loader: async ({ context, params }) => {
-    await context.queryClient.prefetchQuery(
-      eventDetailOptions(params.eventId),
-    )
-  },
-  component: EditEventPage,
-})
+export const Route = createFileRoute("/events/$eventId/edit")({
+	loader: async ({ context, params }) => {
+		await context.queryClient.prefetchQuery(eventDetailOptions(params.eventId));
+	},
+	component: EditEventPage,
+});
 
 function EditEventPage() {
-  return (
-    <RoleProtectedRoute roles={['author', 'admin']}>
-      <EditEventContent />
-    </RoleProtectedRoute>
-  )
+	return (
+		<RoleProtectedRoute roles={["author", "admin"]}>
+			<EditEventContent />
+		</RoleProtectedRoute>
+	);
 }
 
-const inputClass = "mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-const labelClass = "block text-sm font-medium text-(--sea-ink-soft)"
+const inputClass =
+	"mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)";
+const labelClass = "block text-sm font-medium text-(--sea-ink-soft)";
 
 function EditEventContent() {
-  const { eventId } = Route.useParams()
-  const { data: event, isLoading } = useEvent(eventId)
-  const updateEvent = useUpdateEvent()
-  const router = useRouter()
+	const { eventId } = Route.useParams();
+	const { data: event, isLoading } = useEvent(eventId);
+	const updateEvent = useUpdateEvent();
+	const updateSeries = useUpdateSeries();
+	const router = useRouter();
+	const [applyToSeries, setApplyToSeries] = useState(false);
 
-  const [startDate, setStartDate] = useState<Date | null>(
-    event?.StartTime ? new Date(event.StartTime) : null,
-  )
-  const [endDate, setEndDate] = useState<Date | null>(
-    event?.EndTime ? new Date(event.EndTime) : null,
-  )
-  const [dateError, setDateError] = useState<string | null>(null)
+	const [startDate, setStartDate] = useState<Date | null>(
+		event?.StartTime ? new Date(event.StartTime) : null,
+	);
+	const [endDate, setEndDate] = useState<Date | null>(
+		event?.EndTime ? new Date(event.EndTime) : null,
+	);
+	const [dateError, setDateError] = useState<string | null>(null);
 
-  const form = useForm({
-    defaultValues: {
-      title: event?.Title ?? '',
-      description: event?.Description ?? '',
-      venue_name: event?.VenueName ?? '',
-      venue_id: event?.VenueID ?? '',
-      address: event?.Address ?? '',
-      city: event?.City ?? '',
-      state: event?.State ?? '',
-      zip: event?.Zip ?? '',
-      latitude: event?.Latitude ?? 0,
-      longitude: event?.Longitude ?? 0,
-      categories: event?.Categories ?? [],
-      image_url: event?.ImageUrl ?? '',
-      ticket_url: event?.TicketUrl ?? '',
-      price_min: event?.PriceMin != null ? String(event.PriceMin) : '',
-      price_max: event?.PriceMax != null ? String(event.PriceMax) : '',
-    } as Record<string, string | number | string[]>,
-    onSubmit: async ({ value }) => {
-      if (!startDate) {
-        setDateError('Start date & time is required')
-        return
-      }
-      setDateError(null)
+	const form = useForm({
+		defaultValues: {
+			title: event?.Title ?? "",
+			description: event?.Description ?? "",
+			venue_name: event?.VenueName ?? "",
+			venue_id: event?.VenueID ?? "",
+			address: event?.Address ?? "",
+			city: event?.City ?? "",
+			state: event?.State ?? "",
+			zip: event?.Zip ?? "",
+			latitude: event?.Latitude ?? 0,
+			longitude: event?.Longitude ?? 0,
+			categories: event?.Categories ?? [],
+			image_url: event?.ImageUrl ?? "",
+			ticket_url: event?.TicketUrl ?? "",
+			price_min: event?.PriceMin != null ? String(event.PriceMin) : "",
+			price_max: event?.PriceMax != null ? String(event.PriceMax) : "",
+		} as Record<string, string | number | string[]>,
+		onSubmit: async ({ value }) => {
+			if (!startDate) {
+				setDateError("Start date & time is required");
+				return;
+			}
+			setDateError(null);
 
-      const data: CreateEventInput = {
-        title: value.title as string,
-        latitude: Number(value.latitude),
-        longitude: Number(value.longitude),
-        start_time: startDate.toISOString(),
-      }
+			const data: CreateEventInput = {
+				title: value.title as string,
+				latitude: Number(value.latitude),
+				longitude: Number(value.longitude),
+				start_time: startDate.toISOString(),
+			};
 
-      if (value.description) data.description = value.description as string
-      if (value.venue_name) data.venue_name = value.venue_name as string
-      if (value.venue_id) data.venue_id = value.venue_id as string
-      if (value.address) data.address = value.address as string
-      if (value.city) data.city = value.city as string
-      if (value.state) data.state = value.state as string
-      if (value.zip) data.zip = value.zip as string
-      if (endDate) data.end_time = endDate.toISOString()
-      const cats = value.categories as string[]
-      if (cats.length > 0) data.categories = cats
-      if (value.image_url) data.image_url = value.image_url as string
-      if (value.ticket_url) data.ticket_url = value.ticket_url as string
-      if (value.price_min) data.price_min = Number(value.price_min)
-      if (value.price_max) data.price_max = Number(value.price_max)
+			if (value.description) data.description = value.description as string;
+			if (value.venue_name) data.venue_name = value.venue_name as string;
+			if (value.venue_id) data.venue_id = value.venue_id as string;
+			if (value.address) data.address = value.address as string;
+			if (value.city) data.city = value.city as string;
+			if (value.state) data.state = value.state as string;
+			if (value.zip) data.zip = value.zip as string;
+			if (endDate) data.end_time = endDate.toISOString();
+			const cats = value.categories as string[];
+			if (cats.length > 0) data.categories = cats;
+			if (value.image_url) data.image_url = value.image_url as string;
+			if (value.ticket_url) data.ticket_url = value.ticket_url as string;
+			if (value.price_min) data.price_min = Number(value.price_min);
+			if (value.price_max) data.price_max = Number(value.price_max);
 
-      await updateEvent.mutateAsync({ id: eventId, data })
-      router.history.back()
-    },
-  })
+			if (applyToSeries && event?.SeriesID) {
+				const { start_time: _st, end_time: _et, ...seriesData } = data;
+				await updateSeries.mutateAsync({
+					seriesId: event.SeriesID,
+					data: seriesData,
+				});
+			} else {
+				await updateEvent.mutateAsync({ id: eventId, data });
+			}
+			router.history.back();
+		},
+	});
 
-  function handleVenueSelect(venue: Venue) {
-    form.setFieldValue('venue_name', venue.VenueName)
-    form.setFieldValue('venue_id', venue.ID)
-    form.setFieldValue('address', venue.Address || '')
-    form.setFieldValue('city', venue.City || '')
-    form.setFieldValue('state', venue.State || '')
-    form.setFieldValue('zip', venue.Zip || '')
-    form.setFieldValue('latitude', venue.Latitude)
-    form.setFieldValue('longitude', venue.Longitude)
-  }
+	function handleVenueSelect(venue: Venue) {
+		form.setFieldValue("venue_name", venue.VenueName);
+		form.setFieldValue("venue_id", venue.ID);
+		form.setFieldValue("address", venue.Address || "");
+		form.setFieldValue("city", venue.City || "");
+		form.setFieldValue("state", venue.State || "");
+		form.setFieldValue("zip", venue.Zip || "");
+		form.setFieldValue("latitude", venue.Latitude);
+		form.setFieldValue("longitude", venue.Longitude);
+	}
 
-  if (isLoading) {
-    return <Spinner className="py-12" />
-  }
+	if (isLoading) {
+		return <Spinner className="py-12" />;
+	}
 
-  if (!event) {
-    return (
-      <div className="py-12 text-center text-(--sea-ink-soft)">
-        Event not found.
-      </div>
-    )
-  }
+	if (!event) {
+		return (
+			<div className="py-12 text-center text-(--sea-ink-soft)">
+				Event not found.
+			</div>
+		);
+	}
 
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
-        Edit Event
-      </h1>
-      <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
-          }}
-          className="space-y-6"
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <form.Field
-                name="title"
-                validators={{
-                  onChange: ({ value }) =>
-                    !value ? 'Title is required' : undefined,
-                }}
-              >
-                {(field) => (
-                  <div>
-                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={field.state.value as string}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                    />
-                    {field.state.meta.errors?.length > 0 && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {field.state.meta.errors[0]}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </form.Field>
-            </div>
+	return (
+		<div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+			<h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">Edit Event</h1>
+			<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
+				<form
+					onSubmit={(e) => {
+						e.preventDefault();
+						form.handleSubmit();
+					}}
+					className="space-y-6"
+				>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div className="sm:col-span-2">
+							<form.Field
+								name="title"
+								validators={{
+									onChange: ({ value }) =>
+										!value ? "Title is required" : undefined,
+								}}
+							>
+								{(field) => (
+									<div>
+										<label className="block text-sm font-medium text-(--sea-ink-soft)">
+											Title *
+										</label>
+										<input
+											type="text"
+											value={field.state.value as string}
+											onChange={(e) => field.handleChange(e.target.value)}
+											onBlur={field.handleBlur}
+											className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+										/>
+										{field.state.meta.errors?.length > 0 && (
+											<p className="mt-1 text-sm text-red-600">
+												{field.state.meta.errors[0]}
+											</p>
+										)}
+									</div>
+								)}
+							</form.Field>
+						</div>
 
-            <div className="sm:col-span-2">
-              <form.Field name="description">
-                {(field) => (
-                  <div>
-                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                      Description
-                    </label>
-                    <div className="mt-1">
-                      <SimpleEditor
-                        content={field.state.value as string}
-                        onChange={(html) => field.handleChange(html)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </form.Field>
-            </div>
+						<div className="sm:col-span-2">
+							<form.Field name="description">
+								{(field) => (
+									<div>
+										<label className="block text-sm font-medium text-(--sea-ink-soft)">
+											Description
+										</label>
+										<div className="mt-1">
+											<SimpleEditor
+												content={field.state.value as string}
+												onChange={(html) => field.handleChange(html)}
+											/>
+										</div>
+									</div>
+								)}
+							</form.Field>
+						</div>
 
-            <form.Subscribe selector={(s) => [s.values.latitude, s.values.longitude]}>
-              {([lat, lng]) => (
-                <VenueCombobox
-                  lat={Number(lat) || 0}
-                  lng={Number(lng) || 0}
-                  onSelect={handleVenueSelect}
-                />
-              )}
-            </form.Subscribe>
+						<form.Subscribe
+							selector={(s) => [s.values.latitude, s.values.longitude]}
+						>
+							{([lat, lng]) => (
+								<VenueCombobox
+									lat={Number(lat) || 0}
+									lng={Number(lng) || 0}
+									onSelect={handleVenueSelect}
+								/>
+							)}
+						</form.Subscribe>
 
-            <form.Field name="venue_name">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Venue Name
-                  </label>
-                  <input
-                    type="text"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+						<form.Field name="venue_name">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Venue Name
+									</label>
+									<input
+										type="text"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
 
-            <form.Field name="address">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+						<form.Field name="address">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Address
+									</label>
+									<input
+										type="text"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
 
-            <form.Field name="city">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+						<form.Field name="city">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										City
+									</label>
+									<input
+										type="text"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
 
-            <div className="flex gap-4">
-              <form.Field name="state">
-                {(field) => (
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                      State
-                    </label>
-                    <select
-                      value={field.state.value as string}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                    >
-                      <option value="NC">NC</option>
-                      <option value="SC">SC</option>
-                      <option value="VA">VA</option>
-                    </select>
-                  </div>
-                )}
-              </form.Field>
-              <form.Field name="zip">
-                {(field) => (
-                  <div className="w-28">
-                    <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                      ZIP
-                    </label>
-                    <input
-                      type="text"
-                      value={field.state.value as string}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                    />
-                  </div>
-                )}
-              </form.Field>
-            </div>
+						<div className="flex gap-4">
+							<form.Field name="state">
+								{(field) => (
+									<div className="flex-1">
+										<label className="block text-sm font-medium text-(--sea-ink-soft)">
+											State
+										</label>
+										<select
+											value={field.state.value as string}
+											onChange={(e) => field.handleChange(e.target.value)}
+											className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+										>
+											<option value="NC">NC</option>
+											<option value="SC">SC</option>
+											<option value="VA">VA</option>
+										</select>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="zip">
+								{(field) => (
+									<div className="w-28">
+										<label className="block text-sm font-medium text-(--sea-ink-soft)">
+											ZIP
+										</label>
+										<input
+											type="text"
+											value={field.state.value as string}
+											onChange={(e) => field.handleChange(e.target.value)}
+											className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+										/>
+									</div>
+								)}
+							</form.Field>
+						</div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-(--sea-ink-soft) mb-1">
-                Event Location *
-              </label>
-              <form.Subscribe selector={(s) => [s.values.latitude, s.values.longitude]}>
-                {([latitude, longitude]) => (
-                  <LocationPickerMap
-                    lat={Number(latitude) || 0}
-                    lng={Number(longitude) || 0}
-                    onCoordinateChange={(newLat, newLng) => {
-                      form.setFieldValue('latitude', newLat)
-                      form.setFieldValue('longitude', newLng)
-                    }}
-                  />
-                )}
-              </form.Subscribe>
-            </div>
+						<div className="sm:col-span-2">
+							<label className="block text-sm font-medium text-(--sea-ink-soft) mb-1">
+								Event Location *
+							</label>
+							<form.Subscribe
+								selector={(s) => [s.values.latitude, s.values.longitude]}
+							>
+								{([latitude, longitude]) => (
+									<LocationPickerMap
+										lat={Number(latitude) || 0}
+										lng={Number(longitude) || 0}
+										onCoordinateChange={(newLat, newLng) => {
+											form.setFieldValue("latitude", newLat);
+											form.setFieldValue("longitude", newLng);
+										}}
+									/>
+								)}
+							</form.Subscribe>
+						</div>
 
-            <form.Field
-              name="latitude"
-              validators={{
-                onChange: ({ value }) =>
-                  !value && value !== 0 ? 'Latitude is required' : undefined,
-              }}
-            >
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Latitude *
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={field.state.value as number}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                  {field.state.meta.errors?.length > 0 && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {field.state.meta.errors[0]}
-                    </p>
-                  )}
-                </div>
-              )}
-            </form.Field>
+						<form.Field
+							name="latitude"
+							validators={{
+								onChange: ({ value }) =>
+									!value && value !== 0 ? "Latitude is required" : undefined,
+							}}
+						>
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Latitude *
+									</label>
+									<input
+										type="number"
+										step="any"
+										value={field.state.value as number}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+									{field.state.meta.errors?.length > 0 && (
+										<p className="mt-1 text-sm text-red-600">
+											{field.state.meta.errors[0]}
+										</p>
+									)}
+								</div>
+							)}
+						</form.Field>
 
-            <form.Field
-              name="longitude"
-              validators={{
-                onChange: ({ value }) =>
-                  !value && value !== 0 ? 'Longitude is required' : undefined,
-              }}
-            >
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Longitude *
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={field.state.value as number}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                  {field.state.meta.errors?.length > 0 && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {field.state.meta.errors[0]}
-                    </p>
-                  )}
-                </div>
-              )}
-            </form.Field>
+						<form.Field
+							name="longitude"
+							validators={{
+								onChange: ({ value }) =>
+									!value && value !== 0 ? "Longitude is required" : undefined,
+							}}
+						>
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Longitude *
+									</label>
+									<input
+										type="number"
+										step="any"
+										value={field.state.value as number}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+									{field.state.meta.errors?.length > 0 && (
+										<p className="mt-1 text-sm text-red-600">
+											{field.state.meta.errors[0]}
+										</p>
+									)}
+								</div>
+							)}
+						</form.Field>
 
-            <div>
-              <label className={labelClass}>Start Date & Time *</label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date: Date | null) => {
-                  setStartDate(date)
-                  setDateError(null)
-                }}
-                showTimeSelect
-                timeIntervals={15}
-                timeCaption="Time"
-                dateFormat="MMM d, yyyy h:mm aa"
-                placeholderText="Select start date & time..."
-                className={inputClass}
-                calendarClassName="event-datepicker"
-                isClearable
-              />
-              {dateError && (
-                <p className="mt-1 text-sm text-red-600">{dateError}</p>
-              )}
-            </div>
+						<div>
+							<label className={labelClass}>Start Date & Time *</label>
+							<DatePicker
+								selected={startDate}
+								onChange={(date: Date | null) => {
+									setStartDate(date);
+									setDateError(null);
+								}}
+								showTimeSelect
+								timeIntervals={15}
+								timeCaption="Time"
+								dateFormat="MMM d, yyyy h:mm aa"
+								placeholderText="Select start date & time..."
+								className={inputClass}
+								calendarClassName="event-datepicker"
+								isClearable
+							/>
+							{dateError && (
+								<p className="mt-1 text-sm text-red-600">{dateError}</p>
+							)}
+						</div>
 
-            <div>
-              <label className={labelClass}>End Date & Time</label>
-              <DatePicker
-                selected={endDate}
-                onChange={(date: Date | null) => setEndDate(date)}
-                showTimeSelect
-                timeIntervals={15}
-                timeCaption="Time"
-                dateFormat="MMM d, yyyy h:mm aa"
-                minDate={startDate ?? undefined}
-                placeholderText="Select end date & time..."
-                className={inputClass}
-                calendarClassName="event-datepicker"
-                isClearable
-              />
-            </div>
+						<div>
+							<label className={labelClass}>End Date & Time</label>
+							<DatePicker
+								selected={endDate}
+								onChange={(date: Date | null) => setEndDate(date)}
+								showTimeSelect
+								timeIntervals={15}
+								timeCaption="Time"
+								dateFormat="MMM d, yyyy h:mm aa"
+								minDate={startDate ?? undefined}
+								placeholderText="Select end date & time..."
+								className={inputClass}
+								calendarClassName="event-datepicker"
+								isClearable
+							/>
+						</div>
 
-            <form.Field name="categories">
-              {(field) => (
-                <CategoryPicker
-                  value={field.state.value as string[]}
-                  onChange={(v) => field.handleChange(v)}
-                />
-              )}
-            </form.Field>
+						<form.Field name="categories">
+							{(field) => (
+								<CategoryPicker
+									value={field.state.value as string[]}
+									onChange={(v) => field.handleChange(v)}
+								/>
+							)}
+						</form.Field>
 
-            <div className="sm:col-span-2">
-              <form.Field name="image_url">
-                {(field) => (
-                  <ImageUpload
-                    value={field.state.value as string}
-                    onChange={(url) => field.handleChange(url)}
-                  />
-                )}
-              </form.Field>
-            </div>
+						<div className="sm:col-span-2">
+							<form.Field name="image_url">
+								{(field) => (
+									<ImageUpload
+										value={field.state.value as string}
+										onChange={(url) => field.handleChange(url)}
+									/>
+								)}
+							</form.Field>
+						</div>
 
-            <form.Field name="ticket_url">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Ticket URL
-                  </label>
-                  <input
-                    type="url"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+						<form.Field name="ticket_url">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Ticket URL
+									</label>
+									<input
+										type="url"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
 
-            <form.Field name="price_min">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Min Price ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
+						<form.Field name="price_min">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Min Price ($)
+									</label>
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
 
-            <form.Field name="price_max">
-              {(field) => (
-                <div>
-                  <label className="block text-sm font-medium text-(--sea-ink-soft)">
-                    Max Price ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={field.state.value as string}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
-                  />
-                </div>
-              )}
-            </form.Field>
-          </div>
+						<form.Field name="price_max">
+							{(field) => (
+								<div>
+									<label className="block text-sm font-medium text-(--sea-ink-soft)">
+										Max Price ($)
+									</label>
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										value={field.state.value as string}
+										onChange={(e) => field.handleChange(e.target.value)}
+										className="mt-1 block w-full rounded-md border border-(--line) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
+									/>
+								</div>
+							)}
+						</form.Field>
+					</div>
 
-          {updateEvent.isError && (
-            <p className="text-sm text-red-600">
-              Failed to update event. Please try again.
-            </p>
-          )}
+					{event?.SeriesID && (
+						<div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+							<p className="text-sm font-medium text-amber-800">
+								This event is part of a series
+							</p>
+							<label className="mt-2 flex items-center gap-2 text-sm text-amber-700 cursor-pointer">
+								<input
+									type="checkbox"
+									checked={applyToSeries}
+									onChange={(e) => setApplyToSeries(e.target.checked)}
+								/>
+								Apply changes to all events in this series (date/time will not
+								be changed)
+							</label>
+						</div>
+					)}
 
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => router.history.back()
-              }
-              className="cursor-pointer rounded-md border border-(--line) px-6 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updateEvent.isPending}
-              className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
-            >
-              {updateEvent.isPending ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
+					{(updateEvent.isError || updateSeries.isError) && (
+						<p className="text-sm text-red-600">
+							Failed to update event. Please try again.
+						</p>
+					)}
+
+					<div className="flex justify-end gap-3">
+						<button
+							type="button"
+							onClick={() => router.history.back()}
+							className="cursor-pointer rounded-md border border-(--line) px-6 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={updateEvent.isPending || updateSeries.isPending}
+							className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
+						>
+							{updateEvent.isPending || updateSeries.isPending
+								? "Saving..."
+								: "Save Changes"}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
 }
