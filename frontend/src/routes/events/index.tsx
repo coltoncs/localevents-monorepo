@@ -10,6 +10,7 @@ import { EventMap } from '#/components/EventMap'
 import { FullscreenMap } from '#/components/FullscreenMap'
 import { LocationSearch, getSavedLocation } from '#/components/LocationSearch'
 import { Pagination } from '#/components/Pagination'
+import { ViewToggle } from '#/components/ViewToggle'
 import { Spinner } from '#/components/Spinner'
 
 interface EventsSearch {
@@ -131,6 +132,7 @@ function EventsList({
   const navigate = useNavigate()
   const [locationName, setLocationName] = useState<string | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [mapDisplayMode, setMapDisplayMode] = useState<'cards' | 'list'>('cards')
 
   useEffect(() => {
     const saved = getSavedLocation()
@@ -297,11 +299,20 @@ function EventsList({
               </svg>
             </button>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {fetchedEvents.map((event) => (
-              <EventCard key={event.ID} event={event} />
-            ))}
+          <div className="flex justify-end">
+            <ViewToggle view={mapDisplayMode} onChange={setMapDisplayMode} />
           </div>
+          {mapDisplayMode === 'cards' ? (
+            <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+              {fetchedEvents.map((event) => (
+                <div key={event.ID} className="mb-4 break-inside-avoid">
+                  <EventCard event={event} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EventTable events={fetchedEvents} />
+          )}
         </div>
       ) : (
         <EventTable events={fetchedEvents} />

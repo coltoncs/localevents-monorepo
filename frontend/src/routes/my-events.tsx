@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
 import { useMyEvents } from '#/lib/hooks/useEvents'
 import { useMySuggestions } from '#/lib/hooks/useSuggestions'
 import { EventCard } from '#/components/EventCard'
+import { EventTable } from '#/components/EventTable'
 import { SuggestionCard } from '#/components/SuggestionCard'
+import { ViewToggle } from '#/components/ViewToggle'
 import { Spinner } from '#/components/Spinner'
 
 export const Route = createFileRoute('/my-events')({
@@ -21,17 +24,21 @@ function MyEventsPage() {
 function MyEventsContent() {
   const { data: events = [], isLoading } = useMyEvents()
   const { data: suggestions = [], isLoading: suggestionsLoading } = useMySuggestions()
+  const [displayMode, setDisplayMode] = useState<'cards' | 'list'>('cards')
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-(--sea-ink)">My Submitted Events</h1>
-        <Link
-          to="/submit"
-          className="rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon)"
-        >
-          Submit Event
-        </Link>
+        <div className="flex items-center gap-3">
+          <ViewToggle view={displayMode} onChange={setDisplayMode} />
+          <Link
+            to="/submit"
+            className="rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon)"
+          >
+            Submit Event
+          </Link>
+        </div>
       </div>
 
       {suggestions.length > 0 && (
@@ -56,11 +63,17 @@ function MyEventsContent() {
           You haven't submitted any events yet.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map((event) => (
-            <EventCard key={event.ID} event={event} />
-          ))}
-        </div>
+        displayMode === 'cards' ? (
+          <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+            {events.map((event) => (
+              <div key={event.ID} className="mb-4 break-inside-avoid">
+                <EventCard event={event} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EventTable events={events} />
+        )
       )}
     </div>
   )
