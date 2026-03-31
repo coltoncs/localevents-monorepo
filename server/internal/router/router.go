@@ -3,9 +3,11 @@ package router
 import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/handler"
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
@@ -19,6 +21,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.CORS(cfg.CORSOrigins))
+	r.Use(metrics.Middleware)
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	eventHandler := handler.NewEventHandler(queries, r2)
 	venueHandler := handler.NewVenueHandler(queries)

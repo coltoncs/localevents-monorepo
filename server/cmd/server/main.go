@@ -12,6 +12,7 @@ import (
 
 	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/database"
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/router"
@@ -49,10 +50,12 @@ func main() {
 
 	// Cleanup: delete past events, orphaned images, and stale deletion records daily at 3 AM
 	c.AddFunc("0 3 * * *", func() {
+		start := time.Now()
 		ctx := context.Background()
 		var eventsDeleted int64
 		var imagesDeleted int
 		var staleRemoved int64
+		jobStatus := "success"
 
 		// Collect orphaned image URLs before deleting events.
 		var orphanedURLs []string
@@ -72,6 +75,7 @@ func main() {
 		deleted, err := queries.DeletePastEvents(ctx)
 		if err != nil {
 			log.Printf("Event cleanup failed: %v", err)
+			jobStatus = "error"
 		} else {
 			eventsDeleted = deleted
 			log.Printf("Event cleanup: deleted %d past events", deleted)
@@ -92,12 +96,17 @@ func main() {
 		cleaned, err := queries.CleanOldDeletedExternalEvents(ctx)
 		if err != nil {
 			log.Printf("Deletion records cleanup failed: %v", err)
+			jobStatus = "error"
 		} else {
 			staleRemoved = cleaned
 			if cleaned > 0 {
 				log.Printf("Deletion records cleanup: removed %d stale records", cleaned)
 			}
 		}
+
+		metrics.CronJobRunsTotal.WithLabelValues("cleanup", jobStatus).Inc()
+		metrics.CronJobDuration.WithLabelValues("cleanup").Observe(time.Since(start).Seconds())
+		metrics.CronJobItemsAffected.WithLabelValues("cleanup").Set(float64(eventsDeleted))
 
 		details, _ := json.Marshal(map[string]int{
 			"events_deleted": int(eventsDeleted),
@@ -154,13 +163,19 @@ func main() {
 		}
 
 		c.AddFunc(cfg.ScraperCronSchedule, func() {
+			start := time.Now()
 			runner.Run(context.Background())
+			metrics.CronJobRunsTotal.WithLabelValues("scraper", "success").Inc()
+			metrics.CronJobDuration.WithLabelValues("scraper").Observe(time.Since(start).Seconds())
 		})
 
 		// Run once on startup
 		go func() {
 			log.Println("Running initial event scrape...")
+			start := time.Now()
 			runner.Run(context.Background())
+			metrics.CronJobRunsTotal.WithLabelValues("scraper", "success").Inc()
+			metrics.CronJobDuration.WithLabelValues("scraper").Observe(time.Since(start).Seconds())
 		}()
 
 		log.Printf("Scraper enabled (schedule: %s)", cfg.ScraperCronSchedule)
@@ -186,7 +201,10 @@ func main() {
 	// Set up weekly digest cron job
 	if cfg.DigestEnabled {
 		c.AddFunc(cfg.DigestCronSchedule, func() {
+			start := time.Now()
 			digestRunner.Run(context.Background())
+			metrics.CronJobRunsTotal.WithLabelValues("digest", "success").Inc()
+			metrics.CronJobDuration.WithLabelValues("digest").Observe(time.Since(start).Seconds())
 		})
 		log.Printf("Digest enabled (schedule: %s)", cfg.DigestCronSchedule)
 	}
