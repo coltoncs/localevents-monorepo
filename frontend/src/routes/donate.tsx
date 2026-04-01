@@ -42,12 +42,19 @@ function DonatePage() {
             </h2>
             <p className="mt-1 text-center text-sm text-(--sea-ink-soft)">
               Set up a recurring $2/month donation to support ongoing development.
-              Subscribers get acess to on-demand e-mail digests, with SMS digest 
-              and personalized planners coming soon. Cancel anytime!
+              Subscribers get acess to on-demand e-mail digests. Cancel anytime!
             </p>
             <div className="mt-4">
               {isSignedIn ? (
-                <PricingTable />
+                <PricingTable
+                  checkoutProps={{
+                    appearance: {
+                      elements: {
+                        drawerRoot: { zIndex: 100 },
+                      },
+                    },
+                  }}
+                />
               ) : (
                 <div className="mt-2 text-center">
                   <button

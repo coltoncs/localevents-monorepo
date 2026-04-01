@@ -632,22 +632,22 @@ func (h *EventHandler) UpdateSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updated, err := h.queries.UpdateEventsBySeries(r.Context(), store.UpdateEventsBySeriesParams{
-		SeriesID:   pgSeriesID,
-		Title:      req.Title,
+		SeriesID:    pgSeriesID,
+		Title:       req.Title,
 		Description: textFromPtr(req.Description),
-		VenueName:  textFromPtr(req.VenueName),
-		Address:    textFromPtr(req.Address),
-		City:       textFromPtr(req.City),
-		State:      textFromPtr(req.State),
-		Zip:        textFromPtr(req.Zip),
-		Latitude:   req.Latitude,
-		Longitude:  req.Longitude,
-		Categories: req.Categories,
-		ImageUrl:   textFromPtr(req.ImageURL),
-		TicketUrl:  textFromPtr(req.TicketURL),
-		PriceMin:   numericFromFloat(req.PriceMin),
-		PriceMax:   numericFromFloat(req.PriceMax),
-		VenueID:    uuidFromPtr(req.VenueID),
+		VenueName:   textFromPtr(req.VenueName),
+		Address:     textFromPtr(req.Address),
+		City:        textFromPtr(req.City),
+		State:       textFromPtr(req.State),
+		Zip:         textFromPtr(req.Zip),
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
+		Categories:  req.Categories,
+		ImageUrl:    textFromPtr(req.ImageURL),
+		TicketUrl:   textFromPtr(req.TicketURL),
+		PriceMin:    numericFromFloat(req.PriceMin),
+		PriceMax:    numericFromFloat(req.PriceMax),
+		VenueID:     uuidFromPtr(req.VenueID),
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to update series"}`, http.StatusInternalServerError)

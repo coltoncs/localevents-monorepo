@@ -87,7 +87,8 @@ export function NotificationSettings() {
         )}
       </label>
 
-      <div className="flex items-center gap-3">
+      {/** TODO: remove conditional when SMS ready */}
+      {false && <div className="flex items-center gap-3">
         <label className={`flex items-center gap-3${!hasSubscription ? ' pointer-events-none' : ''}`}>
           <input
             type="checkbox"
@@ -111,7 +112,7 @@ export function NotificationSettings() {
             Subscriber perk — subscribe to unlock
           </Link>
         )} */}
-      </div>
+      </div>}
 
       {smsEnabled && hasSubscription && (
         <div>

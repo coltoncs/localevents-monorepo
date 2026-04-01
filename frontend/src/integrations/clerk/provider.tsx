@@ -40,7 +40,17 @@ export default function AppClerkProvider({
     <ClerkProvider
       publishableKey={PUBLISHABLE_KEY}
       afterSignOutUrl="/"
-      appearance={isDark ? { baseTheme: dark } : undefined}
+      appearance={{
+        baseTheme: isDark ? dark : undefined,
+        variables: {
+          colorPrimary: 'var(--lagoon-deep)',
+          colorText: 'var(--sea-ink)',
+          colorTextSecondary: 'var(--sea-ink-soft)',
+          colorBackground: 'var(--foam)',
+          colorInputBackground: 'var(--surface-strong)',
+          colorInputText: 'var(--sea-ink)',
+        },
+      }}
     >
       {children}
     </ClerkProvider>
