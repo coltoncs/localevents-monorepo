@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 type planResponse struct {
@@ -22,6 +25,8 @@ type subscriptionResponse struct {
 	SubscriptionItems []subscriptionItemResponse `json:"subscription_items"`
 }
 
+var clerkBillingClient = metrics.NewInstrumentedClient("clerk_billing", 10*time.Second)
+
 // HasActiveSubscription checks if a Clerk user has an active *paid* billing subscription.
 // Free-tier subscriptions (amount == 0) are not considered active for gating purposes.
 func HasActiveSubscription(clerkSecretKey, clerkUserID string) (bool, error) {
@@ -33,7 +38,7 @@ func HasActiveSubscription(clerkSecretKey, clerkUserID string) (bool, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+clerkSecretKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := clerkBillingClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("clerk billing request: %w", err)
 	}

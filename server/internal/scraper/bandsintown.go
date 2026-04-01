@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 // Bandsintown implements EventSource using the Bandsintown Events Search API.
@@ -20,7 +22,7 @@ type Bandsintown struct {
 func NewBandsintown(appID string) *Bandsintown {
 	return &Bandsintown{
 		AppID:  appID,
-		Client: &http.Client{Timeout: 30 * time.Second},
+		Client: metrics.NewInstrumentedClient("bandsintown", 30*time.Second),
 	}
 }
 

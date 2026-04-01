@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 // SeatGeek implements EventSource using the SeatGeek API v2.
@@ -19,7 +21,7 @@ type SeatGeek struct {
 func NewSeatGeek(clientID string) *SeatGeek {
 	return &SeatGeek{
 		ClientID: clientID,
-		Client:   &http.Client{Timeout: 30 * time.Second},
+		Client:   metrics.NewInstrumentedClient("seatgeek", 30*time.Second),
 	}
 }
 

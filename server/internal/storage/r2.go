@@ -14,13 +14,15 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 // R2Client wraps an S3-compatible client for Cloudflare R2.
 type R2Client struct {
-	client    *s3.Client
-	bucket    string
-	publicURL string // e.g. "https://img.919events.com"
+	client     *s3.Client
+	bucket     string
+	publicURL  string // e.g. "https://img.919events.com"
+	httpClient *http.Client
 }
 
 // NewR2Client creates a new R2 client from Cloudflare credentials.
@@ -34,9 +36,10 @@ func NewR2Client(accountID, accessKeyID, secretAccessKey, publicURL, bucket stri
 	})
 
 	return &R2Client{
-		client:    s3Client,
-		bucket:    bucket,
-		publicURL: strings.TrimRight(publicURL, "/"),
+		client:     s3Client,
+		bucket:     bucket,
+		publicURL:  strings.TrimRight(publicURL, "/"),
+		httpClient: metrics.NewInstrumentedClient("r2_mirror", 15*time.Second),
 	}
 }
 
@@ -83,8 +86,7 @@ func (r *R2Client) MirrorImage(ctx context.Context, sourceURL string) (string, e
 	}
 
 	// Download the external image.
-	httpClient := &http.Client{Timeout: 15 * time.Second}
-	resp, err := httpClient.Get(sourceURL)
+	resp, err := r.httpClient.Get(sourceURL)
 	if err != nil {
 		return "", fmt.Errorf("download image: %w", err)
 	}

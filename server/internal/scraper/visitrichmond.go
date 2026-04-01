@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 const (
@@ -25,7 +27,7 @@ type VisitRichmond struct {
 
 func NewVisitRichmond() *VisitRichmond {
 	return &VisitRichmond{
-		Client: &http.Client{Timeout: 30 * time.Second},
+		Client: metrics.NewInstrumentedClient("visitrichmond", 30*time.Second),
 	}
 }
 

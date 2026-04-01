@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 const ddBaseURL = "https://www.discoverdurham.com"
@@ -22,7 +24,7 @@ type DiscoverDurham struct {
 // NewDiscoverDurham creates a new DiscoverDurham source.
 func NewDiscoverDurham() *DiscoverDurham {
 	return &DiscoverDurham{
-		Client: &http.Client{Timeout: 30 * time.Second},
+		Client: metrics.NewInstrumentedClient("discoverdurham", 30*time.Second),
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 type contextKey string
@@ -46,12 +47,14 @@ func RequireAuth() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractToken(r)
 			if token == "" {
+				metrics.AuthFailuresTotal.WithLabelValues("missing_token").Inc()
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
 
 			claims, err := jwt.Verify(r.Context(), &jwt.VerifyParams{Token: token})
 			if err != nil {
+				metrics.AuthFailuresTotal.WithLabelValues("invalid_token").Inc()
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}

@@ -5,15 +5,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 type EmailSender struct {
 	apiKey string
 	from   string
+	client *http.Client
 }
 
 func NewEmailSender(apiKey, from string) *EmailSender {
-	return &EmailSender{apiKey: apiKey, from: from}
+	return &EmailSender{
+		apiKey: apiKey,
+		from:   from,
+		client: metrics.NewInstrumentedClient("resend", 30*time.Second),
+	}
 }
 
 type resendPayload struct {
@@ -43,7 +51,7 @@ func (s *EmailSender) Send(to, subject, html string) error {
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send email: %w", err)
 	}

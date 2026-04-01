@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 // Ticketmaster implements EventSource using the Ticketmaster Discovery API v2.
@@ -21,7 +23,7 @@ type Ticketmaster struct {
 func NewTicketmaster(apiKey string) *Ticketmaster {
 	return &Ticketmaster{
 		APIKey: apiKey,
-		Client: &http.Client{Timeout: 30 * time.Second},
+		Client: metrics.NewInstrumentedClient("ticketmaster", 30*time.Second),
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	clerkuser "github.com/clerk/clerk-sdk-go/v2/user"
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 type Role string
@@ -67,17 +68,20 @@ func RequireRole(roles ...Role) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clerkID := GetClerkUserID(r.Context())
 			if clerkID == "" {
+				metrics.AuthFailuresTotal.WithLabelValues("missing_clerk_id").Inc()
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
 
 			role, err := GetUserRole(r.Context(), clerkID)
 			if err != nil {
+				metrics.AuthFailuresTotal.WithLabelValues("role_check_error").Inc()
 				http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
 				return
 			}
 
 			if !allowed[role] {
+				metrics.AuthFailuresTotal.WithLabelValues("insufficient_role").Inc()
 				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 				return
 			}

@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
+
+	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 type SMSSender struct {
 	accountSID string
 	authToken  string
 	fromNumber string
+	client     *http.Client
 }
 
 func NewSMSSender(accountSID, authToken, fromNumber string) *SMSSender {
@@ -18,6 +22,7 @@ func NewSMSSender(accountSID, authToken, fromNumber string) *SMSSender {
 		accountSID: accountSID,
 		authToken:  authToken,
 		fromNumber: fromNumber,
+		client:     metrics.NewInstrumentedClient("twilio", 30*time.Second),
 	}
 }
 
@@ -36,7 +41,7 @@ func (s *SMSSender) Send(to, body string) error {
 	req.SetBasicAuth(s.accountSID, s.authToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send sms: %w", err)
 	}

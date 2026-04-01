@@ -38,6 +38,10 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	dbPoolDone := make(chan struct{})
+	metrics.StartDBPoolCollector(pool, 15*time.Second, dbPoolDone)
+	defer close(dbPoolDone)
+
 	queries := store.New(pool)
 
 	// Create shared R2 client if credentials are configured.
