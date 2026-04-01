@@ -167,6 +167,11 @@ func (r *Runner) Run(ctx context.Context) {
 	total := 0
 	mirrored := 0
 	for _, e := range append(priorityEvents, survivingAggregator...) {
+		// Map source-provided categories to canonical frontend categories.
+		if mapped := Categorize(&e); len(mapped) > 0 {
+			e.Categories = mapped
+		}
+
 		// Mirror external image to R2 if configured.
 		if r.R2 != nil && e.ImageURL != "" {
 			if r2URL, err := r.R2.MirrorImage(ctx, e.ImageURL); err != nil {
