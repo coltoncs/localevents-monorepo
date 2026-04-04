@@ -29,6 +29,7 @@ const CYCLING_WORDS = [
   'You',
   'Raleigh',
   'Durham',
+  'Clayton',
   'Charlotte',
   'Greensboro',
   'Wilmington',

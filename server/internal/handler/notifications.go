@@ -33,6 +33,8 @@ type notificationPrefsResponse struct {
 	PhoneNumber         string   `json:"phone_number,omitempty"`
 	HasSubscription     bool     `json:"has_subscription"`
 	PreferredCategories []string `json:"preferred_categories"`
+	DigestFormat        string   `json:"digest_format"`
+	EmailStyle          string   `json:"email_style"`
 }
 
 func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
@@ -54,15 +56,25 @@ func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		// No preferences yet, return defaults
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(notificationPrefsResponse{HasSubscription: hasSubscription})
+		json.NewEncoder(w).Encode(notificationPrefsResponse{HasSubscription: hasSubscription, DigestFormat: "daily", EmailStyle: "detailed"})
 		return
 	}
 
+	digestFormat := prefs.DigestFormat
+	if digestFormat == "" {
+		digestFormat = "daily"
+	}
+	emailStyle := prefs.EmailStyle
+	if emailStyle == "" {
+		emailStyle = "detailed"
+	}
 	resp := notificationPrefsResponse{
 		EmailEnabled:        prefs.EmailEnabled,
 		SMSEnabled:          prefs.SmsEnabled,
 		HasSubscription:     hasSubscription,
 		PreferredCategories: prefs.PreferredCategories,
+		DigestFormat:        digestFormat,
+		EmailStyle:          emailStyle,
 	}
 	if user.PhoneNumber.Valid {
 		resp.PhoneNumber = user.PhoneNumber.String
@@ -77,6 +89,8 @@ type updateNotificationRequest struct {
 	SMSEnabled          bool     `json:"sms_enabled"`
 	PhoneNumber         string   `json:"phone_number,omitempty"`
 	PreferredCategories []string `json:"preferred_categories"`
+	DigestFormat        string   `json:"digest_format"`
+	EmailStyle          string   `json:"email_style"`
 }
 
 var e164Regex = regexp.MustCompile(`^\+1\d{10}$`)
@@ -133,6 +147,20 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 		http.Error(w, `{"error":"maximum 3 preferred categories allowed"}`, http.StatusBadRequest)
 		return
 	}
+	if req.DigestFormat == "" {
+		req.DigestFormat = "daily"
+	}
+	if req.DigestFormat != "daily" && req.DigestFormat != "bulk" {
+		http.Error(w, `{"error":"digest_format must be 'daily' or 'bulk'"}`, http.StatusBadRequest)
+		return
+	}
+	if req.EmailStyle == "" {
+		req.EmailStyle = "detailed"
+	}
+	if req.EmailStyle != "detailed" && req.EmailStyle != "compact" {
+		http.Error(w, `{"error":"email_style must be 'detailed' or 'compact'"}`, http.StatusBadRequest)
+		return
+	}
 
 	// Update phone number if provided
 	if req.PhoneNumber != "" {
@@ -151,6 +179,8 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 		EmailEnabled:        req.EmailEnabled,
 		SmsEnabled:          req.SMSEnabled,
 		PreferredCategories: req.PreferredCategories,
+		DigestFormat:        req.DigestFormat,
+		EmailStyle:          req.EmailStyle,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to update notification preferences"}`, http.StatusInternalServerError)
@@ -163,6 +193,8 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 		SMSEnabled:          prefs.SmsEnabled,
 		PreferredCategories: prefs.PreferredCategories,
 		HasSubscription:     hasSubscription,
+		DigestFormat:        prefs.DigestFormat,
+		EmailStyle:          prefs.EmailStyle,
 	}
 	if req.PhoneNumber != "" {
 		resp.PhoneNumber = req.PhoneNumber

@@ -317,12 +317,14 @@ SELECT id, updated_at FROM events WHERE start_time >= NOW() ORDER BY start_time 
 SELECT id, updated_at FROM venues ORDER BY id ASC;
 
 -- name: UpsertNotificationPreferences :one
-INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories)
-VALUES ($1, $2, $3, $4)
+INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories, digest_format, email_style)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (user_id) DO UPDATE SET
     email_enabled = EXCLUDED.email_enabled,
     sms_enabled = EXCLUDED.sms_enabled,
     preferred_categories = EXCLUDED.preferred_categories,
+    digest_format = EXCLUDED.digest_format,
+    email_style = EXCLUDED.email_style,
     updated_at = NOW()
 RETURNING *;
 
@@ -334,7 +336,7 @@ UPDATE users SET phone_number = $2, updated_at = NOW() WHERE id = $1;
 
 -- name: ListEmailSubscribers :many
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token, np.preferred_categories
+       np.email_unsubscribe_token, np.preferred_categories, np.digest_format, np.email_style
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.email_enabled = TRUE
@@ -344,7 +346,7 @@ WHERE np.email_enabled = TRUE
 
 -- name: GetEmailSubscriberByID :one
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token, np.preferred_categories
+       np.email_unsubscribe_token, np.preferred_categories, np.digest_format, np.email_style
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE u.id = $1
@@ -390,7 +392,7 @@ WHERE ST_DWithin(
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 ORDER BY start_time ASC
-LIMIT 50;
+LIMIT @max_events::int;
 
 -- name: CreateNotificationLog :exec
 INSERT INTO notification_log (user_id, channel, event_count, status, error_message)

@@ -741,7 +741,7 @@ func (q *Queries) GetEditSuggestion(ctx context.Context, id pgtype.UUID) (EditSu
 
 const getEmailSubscriberByID = `-- name: GetEmailSubscriberByID :one
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token, np.preferred_categories
+       np.email_unsubscribe_token, np.preferred_categories, np.digest_format, np.email_style
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE u.id = $1
@@ -759,6 +759,8 @@ type GetEmailSubscriberByIDRow struct {
 	DefaultRadiusMiles    pgtype.Int4
 	EmailUnsubscribeToken pgtype.UUID
 	PreferredCategories   []string
+	DigestFormat          string
+	EmailStyle            string
 }
 
 func (q *Queries) GetEmailSubscriberByID(ctx context.Context, id pgtype.UUID) (GetEmailSubscriberByIDRow, error) {
@@ -772,6 +774,8 @@ func (q *Queries) GetEmailSubscriberByID(ctx context.Context, id pgtype.UUID) (G
 		&i.DefaultRadiusMiles,
 		&i.EmailUnsubscribeToken,
 		&i.PreferredCategories,
+		&i.DigestFormat,
+		&i.EmailStyle,
 	)
 	return i, err
 }
@@ -892,7 +896,7 @@ func (q *Queries) GetLatestCronLog(ctx context.Context, jobName string) (CronLog
 }
 
 const getNotificationPreferences = `-- name: GetNotificationPreferences :one
-SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories FROM notification_preferences WHERE user_id = $1
+SELECT id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories, digest_format, email_style FROM notification_preferences WHERE user_id = $1
 `
 
 func (q *Queries) GetNotificationPreferences(ctx context.Context, userID pgtype.UUID) (NotificationPreference, error) {
@@ -908,6 +912,8 @@ func (q *Queries) GetNotificationPreferences(ctx context.Context, userID pgtype.
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PreferredCategories,
+		&i.DigestFormat,
+		&i.EmailStyle,
 	)
 	return i, err
 }
@@ -1035,7 +1041,7 @@ func (q *Queries) InsertCronLog(ctx context.Context, arg InsertCronLogParams) er
 
 const listEmailSubscribers = `-- name: ListEmailSubscribers :many
 SELECT u.id, u.email, u.default_latitude, u.default_longitude, u.default_radius_miles,
-       np.email_unsubscribe_token, np.preferred_categories
+       np.email_unsubscribe_token, np.preferred_categories, np.digest_format, np.email_style
 FROM users u
 JOIN notification_preferences np ON np.user_id = u.id
 WHERE np.email_enabled = TRUE
@@ -1052,6 +1058,8 @@ type ListEmailSubscribersRow struct {
 	DefaultRadiusMiles    pgtype.Int4
 	EmailUnsubscribeToken pgtype.UUID
 	PreferredCategories   []string
+	DigestFormat          string
+	EmailStyle            string
 }
 
 func (q *Queries) ListEmailSubscribers(ctx context.Context) ([]ListEmailSubscribersRow, error) {
@@ -1071,6 +1079,8 @@ func (q *Queries) ListEmailSubscribers(ctx context.Context) ([]ListEmailSubscrib
 			&i.DefaultRadiusMiles,
 			&i.EmailUnsubscribeToken,
 			&i.PreferredCategories,
+			&i.DigestFormat,
+			&i.EmailStyle,
 		); err != nil {
 			return nil, err
 		}
@@ -1807,7 +1817,7 @@ WHERE ST_DWithin(
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
 ORDER BY start_time ASC
-LIMIT 50
+LIMIT $6::int
 `
 
 type ListUpcomingEventsForDigestParams struct {
@@ -1816,6 +1826,7 @@ type ListUpcomingEventsForDigestParams struct {
 	RadiusMeters float64
 	StartDate    pgtype.Timestamptz
 	EndDate      pgtype.Timestamptz
+	MaxEvents    int32
 }
 
 func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcomingEventsForDigestParams) ([]Event, error) {
@@ -1825,6 +1836,7 @@ func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcom
 		arg.RadiusMeters,
 		arg.StartDate,
 		arg.EndDate,
+		arg.MaxEvents,
 	)
 	if err != nil {
 		return nil, err
@@ -2529,14 +2541,16 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 }
 
 const upsertNotificationPreferences = `-- name: UpsertNotificationPreferences :one
-INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories)
-VALUES ($1, $2, $3, $4)
+INSERT INTO notification_preferences (user_id, email_enabled, sms_enabled, preferred_categories, digest_format, email_style)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (user_id) DO UPDATE SET
     email_enabled = EXCLUDED.email_enabled,
     sms_enabled = EXCLUDED.sms_enabled,
     preferred_categories = EXCLUDED.preferred_categories,
+    digest_format = EXCLUDED.digest_format,
+    email_style = EXCLUDED.email_style,
     updated_at = NOW()
-RETURNING id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories
+RETURNING id, user_id, email_enabled, sms_enabled, email_unsubscribe_token, sms_unsubscribe_token, created_at, updated_at, preferred_categories, digest_format, email_style
 `
 
 type UpsertNotificationPreferencesParams struct {
@@ -2544,6 +2558,8 @@ type UpsertNotificationPreferencesParams struct {
 	EmailEnabled        bool
 	SmsEnabled          bool
 	PreferredCategories []string
+	DigestFormat        string
+	EmailStyle          string
 }
 
 func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertNotificationPreferencesParams) (NotificationPreference, error) {
@@ -2552,6 +2568,8 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		arg.EmailEnabled,
 		arg.SmsEnabled,
 		arg.PreferredCategories,
+		arg.DigestFormat,
+		arg.EmailStyle,
 	)
 	var i NotificationPreference
 	err := row.Scan(
@@ -2564,6 +2582,8 @@ func (q *Queries) UpsertNotificationPreferences(ctx context.Context, arg UpsertN
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PreferredCategories,
+		&i.DigestFormat,
+		&i.EmailStyle,
 	)
 	return i, err
 }

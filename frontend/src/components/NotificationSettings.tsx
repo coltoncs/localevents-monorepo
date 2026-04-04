@@ -20,6 +20,8 @@ export function NotificationSettings() {
   const [smsEnabled, setSmsEnabled] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState<Value | undefined>()
   const [preferredCategories, setPreferredCategories] = useState<string[]>([])
+  const [digestFormat, setDigestFormat] = useState<'daily' | 'bulk'>('daily')
+  const [emailStyle, setEmailStyle] = useState<'detailed' | 'compact'>('detailed')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -28,6 +30,8 @@ export function NotificationSettings() {
       setSmsEnabled(prefs.sms_enabled)
       setPhoneNumber((prefs.phone_number as Value) ?? undefined)
       setPreferredCategories(prefs.preferred_categories ?? [])
+      setDigestFormat(prefs.digest_format ?? 'daily')
+      setEmailStyle(prefs.email_style ?? 'detailed')
     }
   }, [prefs])
 
@@ -61,6 +65,8 @@ export function NotificationSettings() {
       sms_enabled: smsEnabled,
       phone_number: phoneNumber ?? undefined,
       preferred_categories: preferredCategories,
+      digest_format: digestFormat,
+      email_style: emailStyle,
     })
   }
 
@@ -130,12 +136,93 @@ export function NotificationSettings() {
       )}
 
       {(emailEnabled || smsEnabled) && (
+        <>
+        <div>
+          <label className="block text-sm font-medium text-(--sea-ink-soft) mb-2">
+            Digest Format
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="digestFormat"
+                value="daily"
+                checked={digestFormat === 'daily'}
+                onChange={() => setDigestFormat('daily')}
+                className="mt-0.5 h-4 w-4 border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon)"
+              />
+              <div>
+                <span className="text-sm text-(--sea-ink)">Grouped by day</span>
+                <p className="text-xs text-(--sea-ink-soft)">
+                  See the closest events for each day of the week (up to 10 per day).
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="digestFormat"
+                value="bulk"
+                checked={digestFormat === 'bulk'}
+                onChange={() => setDigestFormat('bulk')}
+                className="mt-0.5 h-4 w-4 border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon)"
+              />
+              <div>
+                <span className="text-sm text-(--sea-ink)">All events</span>
+                <p className="text-xs text-(--sea-ink-soft)">
+                  Receive all nearby events in a single list, sorted by your preferred categories.
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-(--sea-ink-soft) mb-2">
+            Email Style
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="emailStyle"
+                value="detailed"
+                checked={emailStyle === 'detailed'}
+                onChange={() => setEmailStyle('detailed')}
+                className="mt-0.5 h-4 w-4 border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon)"
+              />
+              <div>
+                <span className="text-sm text-(--sea-ink)">Detailed</span>
+                <p className="text-xs text-(--sea-ink-soft)">
+                  Rich cards with images, price, and category for each event.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="emailStyle"
+                value="compact"
+                checked={emailStyle === 'compact'}
+                onChange={() => setEmailStyle('compact')}
+                className="mt-0.5 h-4 w-4 border-(--line) text-(--lagoon-deep) focus:ring-(--lagoon)"
+              />
+              <div>
+                <span className="text-sm text-(--sea-ink)">Compact</span>
+                <p className="text-xs text-(--sea-ink-soft)">
+                  A concise text list showing event name, venue, and time on one line.
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-medium text-(--sea-ink-soft) mb-2">
             Preferred Categories (up to 3)
           </label>
           <p className="text-xs text-(--sea-ink-soft) mb-2">
-            Events in these categories will appear first in your digest.
+            {digestFormat === 'daily'
+              ? 'Events in these categories will be prioritized in your daily digest.'
+              : 'Events in these categories will appear first in your digest.'}
           </p>
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => {
@@ -165,6 +252,7 @@ export function NotificationSettings() {
             })}
           </div>
         </div>
+        </>
       )}
 
       {!hasLocation && (emailEnabled || smsEnabled) && (

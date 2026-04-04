@@ -12,6 +12,7 @@ const NC_CITIES: Record<string, { lat: number; lng: number }> = {
   Asheville: { lat: 35.5951, lng: -82.5515 },
   Wilmington: { lat: 34.2257, lng: -77.9447 },
   Cary: { lat: 35.7915, lng: -78.7811 },
+  Clayton: { lat: 35.6507, lng: -78.4564 },
 }
 
 const VA_CITIES: Record<string, { lat: number; lng: number }> = {

@@ -108,6 +108,8 @@ type NotificationPreference struct {
 	CreatedAt             pgtype.Timestamptz
 	UpdatedAt             pgtype.Timestamptz
 	PreferredCategories   []string
+	DigestFormat          string
+	EmailStyle            string
 }
 
 type SavedEvent struct {

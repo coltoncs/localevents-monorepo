@@ -163,6 +163,8 @@ export interface NotificationPreferences {
 	phone_number?: string;
 	has_subscription: boolean;
 	preferred_categories: string[];
+	digest_format: 'daily' | 'bulk';
+	email_style: 'detailed' | 'compact';
 }
 
 export interface UpdateNotificationInput {
@@ -170,6 +172,8 @@ export interface UpdateNotificationInput {
 	sms_enabled: boolean;
 	phone_number?: string;
 	preferred_categories: string[];
+	digest_format: 'daily' | 'bulk';
+	email_style: 'detailed' | 'compact';
 }
 
 export interface EditSuggestion {

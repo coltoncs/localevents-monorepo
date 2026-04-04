@@ -16,6 +16,18 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
+const (
+	digestLimitDetailed int32 = 50
+	digestLimitCompact  int32 = 150
+)
+
+func digestLimit(emailStyle string) int32 {
+	if emailStyle == "compact" {
+		return digestLimitCompact
+	}
+	return digestLimitDetailed
+}
+
 type Runner struct {
 	Queries        *store.Queries
 	Email          *EmailSender
@@ -58,6 +70,11 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 		return fmt.Errorf("user not found or email not enabled: %w", err)
 	}
 
+	emailStyle := sub.EmailStyle
+	if emailStyle == "" {
+		emailStyle = "detailed"
+	}
+
 	radiusMeters := float64(10) * 1609.34
 	if sub.DefaultRadiusMiles.Valid {
 		radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
@@ -69,6 +86,7 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 		RadiusMeters: radiusMeters,
 		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+		MaxEvents:    digestLimit(emailStyle),
 	})
 	if err != nil {
 		return fmt.Errorf("querying events: %w", err)
@@ -89,8 +107,13 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 
 	categories := r.resolvePreferredCategories(ctx, sub.ID, sub.PreferredCategories)
 
+	digestFormat := sub.DigestFormat
+	if digestFormat == "" {
+		digestFormat = "daily"
+	}
+
 	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-	html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL)
+	html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
 	if err != nil {
 		return fmt.Errorf("rendering email: %w", err)
 	}
@@ -125,6 +148,11 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			continue
 		}
 
+		emailStyle := sub.EmailStyle
+		if emailStyle == "" {
+			emailStyle = "detailed"
+		}
+
 		radiusMeters := float64(10) * 1609.34 // default 10 miles
 		if sub.DefaultRadiusMiles.Valid {
 			radiusMeters = float64(sub.DefaultRadiusMiles.Int32) * 1609.34
@@ -136,6 +164,7 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			RadiusMeters: radiusMeters,
 			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+			MaxEvents:    digestLimit(emailStyle),
 		})
 		if err != nil {
 			log.Printf("Digest: failed to query events for user %s: %v", uuidToString(sub.ID), err)
@@ -159,8 +188,13 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 
 		categories := r.resolvePreferredCategories(ctx, sub.ID, sub.PreferredCategories)
 
+		digestFormat := sub.DigestFormat
+		if digestFormat == "" {
+			digestFormat = "daily"
+		}
+
 		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
-		html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL)
+		html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
 		if err != nil {
 			log.Printf("Digest: failed to render email for user %s: %v", uuidToString(sub.ID), err)
 			continue
@@ -224,6 +258,7 @@ func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Tim
 			RadiusMeters: radiusMeters,
 			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+			MaxEvents:    digestLimitDetailed,
 		})
 		if err != nil {
 			log.Printf("Digest: failed to query events for user %s: %v", uuidToString(sub.ID), err)
