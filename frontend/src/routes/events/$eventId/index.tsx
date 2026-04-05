@@ -25,9 +25,13 @@ import type { Event } from "#/lib/types";
 export const Route = createFileRoute("/events/$eventId/")({
 	ssr: false,
 	loader: async ({ context, params }) => {
-		return await context.queryClient.ensureQueryData(
-			eventDetailOptions(params.eventId),
-		);
+		try {
+			return await context.queryClient.ensureQueryData(
+				eventDetailOptions(params.eventId),
+			);
+		} catch {
+			return null;
+		}
 	},
 	head: ({ loaderData }) => {
 		const event = loaderData as Event | undefined;
@@ -115,8 +119,21 @@ function EventDetailPage() {
 
 	if (!event) {
 		return (
-			<div className="py-12 text-center text-(--sea-ink-soft)">
-				Event not found.
+			<div className="mx-auto max-w-md px-4 py-24 text-center">
+				<h1 className="text-6xl font-bold text-(--lagoon-deep)">404</h1>
+				<p className="mt-4 text-lg text-(--sea-ink)">
+					This event doesn't exist or has already passed.
+				</p>
+				<p className="mt-2 text-sm text-(--sea-ink-soft)">
+					Past events are removed automatically, so links from older digests may
+					no longer work.
+				</p>
+				<Link
+					to="/events"
+					className="mt-6 inline-block rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon)"
+				>
+					Browse Upcoming Events
+				</Link>
 			</div>
 		);
 	}
