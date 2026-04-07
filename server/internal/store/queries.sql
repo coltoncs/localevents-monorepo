@@ -567,7 +567,10 @@ WHERE ST_DWithin(
     @radius_meters::float
 )
 AND (NULLIF(@bev_type::text, '') IS NULL OR type = @bev_type)
-ORDER BY name ASC;
+ORDER BY ST_Distance(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography
+) ASC;
 
 -- name: CreateBeverage :one
 INSERT INTO beverages (name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level)

@@ -1157,7 +1157,10 @@ WHERE ST_DWithin(
     $3::float
 )
 AND (NULLIF($4::text, '') IS NULL OR type = $4)
-ORDER BY name ASC
+ORDER BY ST_Distance(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
+) ASC
 `
 
 type ListBeveragesByLocationParams struct {

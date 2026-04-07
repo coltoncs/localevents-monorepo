@@ -8,9 +8,10 @@ const MAX_SIZE_MB = 10
 interface ImageUploadProps {
   value: string
   onChange: (url: string) => void
+  label?: string
 }
 
-export function ImageUpload({ value, onChange }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label = 'Event Image' }: ImageUploadProps) {
   const [showGallery, setShowGallery] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +71,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
-        Event Image
+        {label}
       </label>
 
       {/* Preview */}

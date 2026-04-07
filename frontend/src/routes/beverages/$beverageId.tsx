@@ -11,6 +11,7 @@ import {
 	useUpdateBeverage,
 } from "#/lib/hooks/useBeverages";
 import { useUserRole } from "#/lib/hooks/useUserRole";
+import { ImageUpload } from "#/components/ImageUpload";
 import type { Beverage, CreateBeverageInput } from "#/lib/types";
 
 export const Route = createFileRoute("/beverages/$beverageId")({
@@ -217,15 +218,13 @@ function BeverageEditForm({
 						className={editInputClass}
 					/>
 				</label>
-				<label className={editLabelClass}>
-					Image URL
-					<input
-						type="text"
+				<div className="sm:col-span-2">
+					<ImageUpload
 						value={imageUrl}
-						onChange={(e) => setImageUrl(e.target.value)}
-						className={editInputClass}
+						onChange={setImageUrl}
+						label="Image"
 					/>
-				</label>
+				</div>
 				<label className={editLabelClass}>
 					Tags (comma-separated)
 					<input
@@ -317,8 +316,8 @@ function BeverageDetailPage() {
 	const typeLabel = bev.Type === "brewery" ? "Brewery" : "Bar";
 	const typeColor =
 		bev.Type === "brewery"
-			? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-			: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+			? "bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300"
+			: "bg-purple-200 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300";
 
 	const addressParts = [bev.Address, bev.City, bev.State, bev.Zip].filter(
 		Boolean,

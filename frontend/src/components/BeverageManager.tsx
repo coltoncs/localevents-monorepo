@@ -400,12 +400,12 @@ function BeverageRow({
 					{beverage.Name}
 				</Link>
 			</td>
-			<td className="px-4 py-2 text-(--sea-ink-soft)">
+			<td className="px-4 py-2">
 				<span
 					className={`rounded-full px-2 py-0.5 text-xs font-medium ${
 						beverage.Type === "brewery"
-							? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-							: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+							? "bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300"
+							: "bg-purple-200 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300"
 					}`}
 				>
 					{beverage.Type === "brewery" ? "Brewery" : "Bar"}
