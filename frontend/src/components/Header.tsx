@@ -28,6 +28,7 @@ export default function Header() {
 			>
 				Events
 			</Link>
+			{/* TODO: unhide once beverage listings are populated
 			<Link
 				to="/beverages"
 				className="nav-link"
@@ -36,6 +37,7 @@ export default function Header() {
 			>
 				Drinks
 			</Link>
+			*/}
 			{isSignedIn && canCreateEvent && (
 				<Link
 					to="/submit"
