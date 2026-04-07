@@ -2,18 +2,19 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 const NC_CITIES: Record<string, { lat: number; lng: number }> = {
-	Raleigh: { lat: 35.7796, lng: -78.6382 },
-	Durham: { lat: 35.994, lng: -78.8986 },
-	"Chapel Hill": { lat: 35.9132, lng: -79.0558 },
-	Charlotte: { lat: 35.2271, lng: -80.8431 },
-	Greensboro: { lat: 36.0726, lng: -79.792 },
-	"Winston-Salem": { lat: 36.0999, lng: -80.2442 },
-	Fayetteville: { lat: 35.0527, lng: -78.8784 },
-	Asheville: { lat: 35.5951, lng: -82.5515 },
-	Wilmington: { lat: 34.2257, lng: -77.9447 },
-	Cary: { lat: 35.7915, lng: -78.7811 },
-	Clayton: { lat: 35.6507, lng: -78.4564 },
-};
+  Raleigh: { lat: 35.7796, lng: -78.6382 },
+  Durham: { lat: 35.994, lng: -78.8986 },
+  'Chapel Hill': { lat: 35.9132, lng: -79.0558 },
+  'Wake Forest': { lat: 35.97572981255188, lng: -78.51321038126592 },
+  Cary: { lat: 35.7915, lng: -78.7811 },
+  Clayton: { lat: 35.6507, lng: -78.4564 },
+  Charlotte: { lat: 35.2271, lng: -80.8431 },
+  Greensboro: { lat: 36.0726, lng: -79.792 },
+  'Winston-Salem': { lat: 36.0999, lng: -80.2442 },
+  Fayetteville: { lat: 35.0527, lng: -78.8784 },
+  Asheville: { lat: 35.5951, lng: -82.5515 },
+  Wilmington: { lat: 34.2257, lng: -77.9447 },
+}
 
 const VA_CITIES: Record<string, { lat: number; lng: number }> = {
 	Richmond: { lat: 37.5407, lng: -77.436 },
