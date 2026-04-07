@@ -395,6 +395,75 @@ func (q *Queries) CreateAuthorApplication(ctx context.Context, arg CreateAuthorA
 	return i, err
 }
 
+const createBeverage = `-- name: CreateBeverage :one
+INSERT INTO beverages (name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING id, name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level, created_at, updated_at
+`
+
+type CreateBeverageParams struct {
+	Name        string
+	Type        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Phone       pgtype.Text
+	Website     pgtype.Text
+	Hours       pgtype.Text
+	Description pgtype.Text
+	Review      pgtype.Text
+	ImageUrl    pgtype.Text
+	Tags        []string
+	PriceLevel  pgtype.Int4
+}
+
+func (q *Queries) CreateBeverage(ctx context.Context, arg CreateBeverageParams) (Beverage, error) {
+	row := q.db.QueryRow(ctx, createBeverage,
+		arg.Name,
+		arg.Type,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Phone,
+		arg.Website,
+		arg.Hours,
+		arg.Description,
+		arg.Review,
+		arg.ImageUrl,
+		arg.Tags,
+		arg.PriceLevel,
+	)
+	var i Beverage
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Phone,
+		&i.Website,
+		&i.Hours,
+		&i.Description,
+		&i.Review,
+		&i.ImageUrl,
+		&i.Tags,
+		&i.PriceLevel,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createEditSuggestion = `-- name: CreateEditSuggestion :one
 
 INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes)
@@ -632,6 +701,15 @@ func (q *Queries) CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue
 	return i, err
 }
 
+const deleteBeverage = `-- name: DeleteBeverage :exec
+DELETE FROM beverages WHERE id = $1
+`
+
+func (q *Queries) DeleteBeverage(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteBeverage, id)
+	return err
+}
+
 const deleteEvent = `-- name: DeleteEvent :exec
 DELETE FROM events WHERE id = $1
 `
@@ -713,6 +791,37 @@ func (q *Queries) GetAuthorApplicationByClerkID(ctx context.Context, clerkID str
 		&i.ReviewedAt,
 		&i.ReviewedBy,
 		&i.ReviewNotes,
+	)
+	return i, err
+}
+
+const getBeverage = `-- name: GetBeverage :one
+SELECT id, name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level, created_at, updated_at FROM beverages WHERE id = $1
+`
+
+func (q *Queries) GetBeverage(ctx context.Context, id pgtype.UUID) (Beverage, error) {
+	row := q.db.QueryRow(ctx, getBeverage, id)
+	var i Beverage
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Phone,
+		&i.Website,
+		&i.Hours,
+		&i.Description,
+		&i.Review,
+		&i.ImageUrl,
+		&i.Tags,
+		&i.PriceLevel,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1037,6 +1146,70 @@ type InsertCronLogParams struct {
 func (q *Queries) InsertCronLog(ctx context.Context, arg InsertCronLogParams) error {
 	_, err := q.db.Exec(ctx, insertCronLog, arg.JobName, arg.ItemsAffected, arg.Details)
 	return err
+}
+
+const listBeveragesByLocation = `-- name: ListBeveragesByLocation :many
+SELECT id, name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level, created_at, updated_at
+FROM beverages
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+AND (NULLIF($4::text, '') IS NULL OR type = $4)
+ORDER BY name ASC
+`
+
+type ListBeveragesByLocationParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+	BevType      string
+}
+
+func (q *Queries) ListBeveragesByLocation(ctx context.Context, arg ListBeveragesByLocationParams) ([]Beverage, error) {
+	rows, err := q.db.Query(ctx, listBeveragesByLocation,
+		arg.Lng,
+		arg.Lat,
+		arg.RadiusMeters,
+		arg.BevType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Beverage
+	for rows.Next() {
+		var i Beverage
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Type,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Phone,
+			&i.Website,
+			&i.Hours,
+			&i.Description,
+			&i.Review,
+			&i.ImageUrl,
+			&i.Tags,
+			&i.PriceLevel,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listEmailSubscribers = `-- name: ListEmailSubscribers :many
@@ -2122,6 +2295,94 @@ WHERE user_id = (SELECT id FROM users WHERE phone_number = $1 LIMIT 1)
 func (q *Queries) UnsubscribeSMSByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) error {
 	_, err := q.db.Exec(ctx, unsubscribeSMSByPhoneNumber, phoneNumber)
 	return err
+}
+
+const updateBeverage = `-- name: UpdateBeverage :one
+UPDATE beverages SET
+    name = $2,
+    type = $3,
+    address = $4,
+    city = $5,
+    state = $6,
+    zip = $7,
+    latitude = $8,
+    longitude = $9,
+    phone = $10,
+    website = $11,
+    hours = $12,
+    description = $13,
+    review = $14,
+    image_url = $15,
+    tags = $16,
+    price_level = $17,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, type, address, city, state, zip, latitude, longitude, phone, website, hours, description, review, image_url, tags, price_level, created_at, updated_at
+`
+
+type UpdateBeverageParams struct {
+	ID          pgtype.UUID
+	Name        string
+	Type        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Phone       pgtype.Text
+	Website     pgtype.Text
+	Hours       pgtype.Text
+	Description pgtype.Text
+	Review      pgtype.Text
+	ImageUrl    pgtype.Text
+	Tags        []string
+	PriceLevel  pgtype.Int4
+}
+
+func (q *Queries) UpdateBeverage(ctx context.Context, arg UpdateBeverageParams) (Beverage, error) {
+	row := q.db.QueryRow(ctx, updateBeverage,
+		arg.ID,
+		arg.Name,
+		arg.Type,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Phone,
+		arg.Website,
+		arg.Hours,
+		arg.Description,
+		arg.Review,
+		arg.ImageUrl,
+		arg.Tags,
+		arg.PriceLevel,
+	)
+	var i Beverage
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Phone,
+		&i.Website,
+		&i.Hours,
+		&i.Description,
+		&i.Review,
+		&i.ImageUrl,
+		&i.Tags,
+		&i.PriceLevel,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateEvent = `-- name: UpdateEvent :one

@@ -37,6 +37,11 @@ var allowedVenueFields = map[string]bool{
 	"hours": true, "description": true,
 }
 
+var allowedBeverageFields = map[string]bool{
+	"name": true, "address": true, "city": true, "state": true, "zip": true,
+	"phone": true, "website": true, "hours": true, "description": true,
+}
+
 type createSuggestionRequest struct {
 	TargetType      string                 `json:"target_type"`
 	TargetID        string                 `json:"target_id"`
@@ -101,8 +106,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.TargetType != "event" && req.TargetType != "venue" {
-		http.Error(w, `{"error":"target_type must be event or venue"}`, http.StatusBadRequest)
+	if req.TargetType != "event" && req.TargetType != "venue" && req.TargetType != "beverage" {
+		http.Error(w, `{"error":"target_type must be event, venue, or beverage"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -122,6 +127,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	allowed := allowedEventFields
 	if req.TargetType == "venue" {
 		allowed = allowedVenueFields
+	} else if req.TargetType == "beverage" {
+		allowed = allowedBeverageFields
 	}
 	for key := range req.ProposedChanges {
 		if !allowed[key] {
@@ -131,14 +138,20 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify target exists
-	if req.TargetType == "event" {
+	switch req.TargetType {
+	case "event":
 		if _, err := h.queries.GetEvent(r.Context(), pgTargetID); err != nil {
 			http.Error(w, `{"error":"event not found"}`, http.StatusNotFound)
 			return
 		}
-	} else {
+	case "venue":
 		if _, err := h.queries.GetVenue(r.Context(), pgTargetID); err != nil {
 			http.Error(w, `{"error":"venue not found"}`, http.StatusNotFound)
+			return
+		}
+	case "beverage":
+		if _, err := h.queries.GetBeverage(r.Context(), pgTargetID); err != nil {
+			http.Error(w, `{"error":"beverage not found"}`, http.StatusNotFound)
 			return
 		}
 	}
@@ -267,13 +280,19 @@ func (h *SuggestionHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if suggestion.TargetType == "event" {
+	switch suggestion.TargetType {
+	case "event":
 		if err := h.applyEventChanges(r, suggestion.TargetID, changes); err != nil {
 			http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
-	} else {
+	case "venue":
 		if err := h.applyVenueChanges(r, suggestion.TargetID, changes); err != nil {
+			http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+	case "beverage":
+		if err := h.applyBeverageChanges(r, suggestion.TargetID, changes); err != nil {
 			http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
@@ -368,15 +387,21 @@ func (h *SuggestionHandler) Reject(w http.ResponseWriter, r *http.Request) {
 
 // resolveTargetName fetches the display name for a suggestion's target.
 func (h *SuggestionHandler) resolveTargetName(r *http.Request, targetType string, targetID pgtype.UUID) string {
-	if targetType == "event" {
+	switch targetType {
+	case "event":
 		event, err := h.queries.GetEvent(r.Context(), targetID)
 		if err == nil {
 			return event.Title
 		}
-	} else {
+	case "venue":
 		venue, err := h.queries.GetVenue(r.Context(), targetID)
 		if err == nil {
 			return venue.Name
+		}
+	case "beverage":
+		bev, err := h.queries.GetBeverage(r.Context(), targetID)
+		if err == nil {
+			return bev.Name
 		}
 	}
 	return ""
@@ -531,5 +556,59 @@ func (h *SuggestionHandler) applyVenueChanges(r *http.Request, targetID pgtype.U
 	}
 
 	_, err = h.queries.UpdateVenue(r.Context(), params)
+	return err
+}
+
+func (h *SuggestionHandler) applyBeverageChanges(r *http.Request, targetID pgtype.UUID, changes map[string]interface{}) error {
+	bev, err := h.queries.GetBeverage(r.Context(), targetID)
+	if err != nil {
+		return err
+	}
+
+	params := store.UpdateBeverageParams{
+		ID:          targetID,
+		Name:        bev.Name,
+		Type:        bev.Type,
+		Address:     bev.Address,
+		City:        bev.City,
+		State:       bev.State,
+		Zip:         bev.Zip,
+		Latitude:    bev.Latitude,
+		Longitude:   bev.Longitude,
+		Phone:       bev.Phone,
+		Website:     bev.Website,
+		Hours:       bev.Hours,
+		Description: bev.Description,
+		Review:      bev.Review,
+		ImageUrl:    bev.ImageUrl,
+		Tags:        bev.Tags,
+		PriceLevel:  bev.PriceLevel,
+	}
+
+	for key, val := range changes {
+		str, _ := val.(string)
+		switch key {
+		case "name":
+			params.Name = str
+		case "address":
+			params.Address = pgtype.Text{String: str, Valid: str != ""}
+		case "city":
+			params.City = pgtype.Text{String: str, Valid: str != ""}
+		case "state":
+			params.State = pgtype.Text{String: str, Valid: str != ""}
+		case "zip":
+			params.Zip = pgtype.Text{String: str, Valid: str != ""}
+		case "phone":
+			params.Phone = pgtype.Text{String: str, Valid: str != ""}
+		case "website":
+			params.Website = pgtype.Text{String: str, Valid: str != ""}
+		case "hours":
+			params.Hours = pgtype.Text{String: str, Valid: str != ""}
+		case "description":
+			params.Description = pgtype.Text{String: str, Valid: str != ""}
+		}
+	}
+
+	_, err = h.queries.UpdateBeverage(r.Context(), params)
 	return err
 }

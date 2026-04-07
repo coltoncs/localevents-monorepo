@@ -22,6 +22,28 @@ type AuthorApplication struct {
 	ReviewNotes pgtype.Text
 }
 
+type Beverage struct {
+	ID          pgtype.UUID
+	Name        string
+	Type        string
+	Address     pgtype.Text
+	City        pgtype.Text
+	State       pgtype.Text
+	Zip         pgtype.Text
+	Latitude    float64
+	Longitude   float64
+	Phone       pgtype.Text
+	Website     pgtype.Text
+	Hours       pgtype.Text
+	Description pgtype.Text
+	Review      pgtype.Text
+	ImageUrl    pgtype.Text
+	Tags        []string
+	PriceLevel  pgtype.Int4
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type CronLog struct {
 	ID            pgtype.UUID
 	JobName       string

@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import gsap from "gsap";
 import { useRef, useState } from "react";
+import { BeverageManager } from "#/components/BeverageManager";
 import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
 import { Spinner } from "#/components/Spinner";
 import { SuggestionCard } from "#/components/SuggestionCard";
@@ -432,6 +433,9 @@ function AdminContent() {
 
 			{/* Actions */}
 			<DigestTrigger />
+
+			{/* Beverage Management */}
+			<BeverageManager />
 
 			{/* Pending Edit Suggestions */}
 			<div>

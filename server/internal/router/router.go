@@ -35,6 +35,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	suggestionHandler := handler.NewSuggestionHandler(queries)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
+	beverageHandler := handler.NewBeverageHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
@@ -52,6 +53,8 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
 			r.Get("/venues", venueHandler.List)
 			r.Get("/venues/{id}", venueHandler.Get)
+			r.Get("/beverages", beverageHandler.List)
+			r.Get("/beverages/{id}", beverageHandler.Get)
 		})
 
 		// Authenticated routes (any signed-in user)
@@ -94,6 +97,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAuth())
 			r.Use(middleware.RequireRole(middleware.RoleAdmin))
+			r.Post("/beverages", beverageHandler.Create)
+			r.Put("/beverages/{id}", beverageHandler.Update)
+			r.Delete("/beverages/{id}", beverageHandler.Delete)
 			r.Get("/admin/applications", appHandler.ListPending)
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)

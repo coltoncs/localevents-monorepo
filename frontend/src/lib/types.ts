@@ -113,6 +113,56 @@ export interface UpdateVenueInput {
 	description?: string;
 }
 
+export interface Beverage {
+	ID: string;
+	Name: string;
+	Type: 'brewery' | 'bar';
+	Address: string;
+	City: string;
+	State: string;
+	Zip: string;
+	Latitude: number;
+	Longitude: number;
+	Phone?: string;
+	Website?: string;
+	Hours?: string;
+	Description?: string;
+	Review?: string;
+	ImageUrl?: string;
+	Tags?: string[];
+	PriceLevel?: number;
+}
+
+export interface BeverageListResponse {
+	beverages: Beverage[];
+}
+
+export interface BeverageFilters {
+	lat: number;
+	lng: number;
+	radius?: number;
+	type?: 'brewery' | 'bar';
+}
+
+export interface CreateBeverageInput {
+	name: string;
+	type: 'brewery' | 'bar';
+	address?: string;
+	city?: string;
+	state?: string;
+	zip?: string;
+	latitude: number;
+	longitude: number;
+	phone?: string;
+	website?: string;
+	hours?: string;
+	description?: string;
+	review?: string;
+	image_url?: string;
+	tags?: string[];
+	price_level?: number;
+}
+
 export interface UpdateUserInput {
 	default_latitude?: number;
 	default_longitude?: number;
