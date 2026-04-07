@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BeverageCard } from "#/components/BeverageCard";
 import { BeverageMap } from "#/components/BeverageMap";
 import { getSavedLocation, LocationSearch } from "#/components/LocationSearch";
@@ -110,6 +110,54 @@ function BeveragesPage() {
 	);
 }
 
+const BANNER_STORAGE_KEY = "beverages-banner-dismissed";
+
+function BeverageBanner() {
+	const [dismissed, setDismissed] = useState(true);
+
+	useEffect(() => {
+		setDismissed(localStorage.getItem(BANNER_STORAGE_KEY) === "1");
+	}, []);
+
+	const handleDismiss = useCallback(() => {
+		localStorage.setItem(BANNER_STORAGE_KEY, "1");
+		setDismissed(true);
+	}, []);
+
+	if (dismissed) return null;
+
+	return (
+		<div className="flex items-center justify-between gap-3 rounded-lg border border-(--line) bg-[rgba(79,184,178,0.08)] px-4 py-2.5">
+			<p className="text-sm text-(--sea-ink)">
+				Locations are currently being added manually. Please check back later
+				for an expanded listing!
+			</p>
+			<button
+				type="button"
+				onClick={handleDismiss}
+				className="shrink-0 cursor-pointer rounded-md p-1 text-(--sea-ink-soft) hover:text-(--sea-ink) hover:bg-(--surface)"
+				aria-label="Dismiss"
+			>
+				<svg
+					className="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					strokeWidth={2}
+					aria-hidden="true"
+				>
+					<title>Close</title>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+			</button>
+		</div>
+	);
+}
+
 function BeveragesList({
 	search,
 }: {
@@ -162,6 +210,8 @@ function BeveragesList({
 				</h1>
 				<LocationSearch compact />
 			</div>
+
+			<BeverageBanner />
 
 			{/* Filters */}
 			<div className="flex flex-wrap items-center gap-3">
