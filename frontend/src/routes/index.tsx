@@ -144,7 +144,7 @@ function HomePage() {
         area. Never miss out on what&apos;s going on nearby.
       </p>
       <div className="mt-8 flex justify-center">
-        <LocationSearch />
+        <LocationSearch navigateTo="/events" />
       </div>
       {isSignedIn && (
         <div className="mt-6 flex gap-4">
