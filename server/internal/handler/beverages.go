@@ -101,11 +101,17 @@ func (h *BeverageHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	bevType := r.URL.Query().Get("type")
 
+	var search pgtype.Text
+	if s := r.URL.Query().Get("search"); s != "" {
+		search = pgtype.Text{String: s, Valid: true}
+	}
+
 	rows, err := h.queries.ListBeveragesByLocation(r.Context(), store.ListBeveragesByLocationParams{
 		Lng:          lng,
 		Lat:          lat,
 		RadiusMeters: radiusMeters,
 		BevType:      bevType,
+		Search:       search,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to query beverages"}`, http.StatusInternalServerError)

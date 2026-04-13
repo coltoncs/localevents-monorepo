@@ -142,6 +142,7 @@ export interface BeverageFilters {
 	lng: number;
 	radius?: number;
 	type?: 'brewery' | 'bar';
+	search?: string;
 }
 
 export interface CreateBeverageInput {

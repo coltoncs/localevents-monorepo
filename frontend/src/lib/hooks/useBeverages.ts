@@ -20,6 +20,7 @@ export function beverageListOptions(filters: BeverageFilters) {
 	});
 	if (filters.radius) params.set("radius", String(filters.radius));
 	if (filters.type) params.set("type", filters.type);
+	if (filters.search) params.set("search", filters.search);
 
 	return queryOptions({
 		queryKey: queryKeys.beverages.list(filters),

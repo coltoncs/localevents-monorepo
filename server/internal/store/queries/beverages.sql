@@ -10,6 +10,10 @@ WHERE ST_DWithin(
     @radius_meters::float
 )
 AND (NULLIF(@bev_type::text, '') IS NULL OR type = @bev_type)
+AND (sqlc.narg('search')::text IS NULL
+     OR name ILIKE '%' || sqlc.narg('search')::text || '%'
+     OR description ILIKE '%' || sqlc.narg('search')::text || '%'
+     OR city ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography

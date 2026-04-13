@@ -13,6 +13,7 @@ interface BeveragesSearch {
 	lng?: number;
 	radius?: number;
 	type?: "brewery" | "bar";
+	search?: string;
 }
 
 export const Route = createFileRoute("/beverages/")({
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/beverages/")({
 		type: ["brewery", "bar"].includes(search.type as string)
 			? (search.type as "brewery" | "bar")
 			: undefined,
+		search: (search.search as string) || undefined,
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: async ({ context, deps }) => {
@@ -50,6 +52,7 @@ export const Route = createFileRoute("/beverages/")({
 					lng: deps.lng,
 					radius: deps.radius,
 					type: deps.type,
+					search: deps.search,
 				}),
 			);
 		}
@@ -180,10 +183,26 @@ function BeveragesList({
 		lng: search.lng,
 		radius,
 		type: search.type,
+		search: search.search,
 	};
 
 	const { data, isLoading } = useBeverages(filters);
 	const beverages = data?.beverages ?? [];
+
+	const [searchInput, setSearchInput] = useState(search.search ?? "");
+
+	useEffect(() => {
+		setSearchInput(search.search ?? "");
+	}, [search.search]);
+
+	function submitSearch(value: string) {
+		const trimmed = value.trim();
+		navigate({
+			to: "/beverages",
+			search: (prev) => ({ ...prev, search: trimmed || undefined }),
+			replace: true,
+		});
+	}
 
 	function setType(type: "brewery" | "bar" | undefined) {
 		navigate({
@@ -215,6 +234,36 @@ function BeveragesList({
 
 			{/* Filters */}
 			<div className="flex flex-wrap items-center gap-3">
+				{/* Search */}
+				<form
+					onSubmit={(e) => {
+						e.preventDefault();
+						submitSearch(searchInput);
+					}}
+					className="flex gap-2"
+				>
+					<input
+						type="text"
+						value={searchInput}
+						onChange={(e) => setSearchInput(e.target.value)}
+						placeholder="Search breweries & bars..."
+						className="w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm text-(--sea-ink) sm:w-56"
+					/>
+					{search.search && (
+						<button
+							type="button"
+							onClick={() => {
+								setSearchInput("");
+								submitSearch("");
+							}}
+							className="cursor-pointer rounded-md border border-(--line) px-2 py-1.5 text-sm text-(--sea-ink-soft) hover:bg-(--surface)"
+							aria-label="Clear search"
+						>
+							&times;
+						</button>
+					)}
+				</form>
+
 				{/* Type toggle */}
 				<div className="flex rounded-lg border border-(--line) p-0.5">
 					<button
@@ -266,6 +315,11 @@ function BeveragesList({
 				</select>
 
 				{/* Active filter summary */}
+				{search.search && (
+					<span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-sm font-medium text-(--lagoon-deep)">
+						"{search.search}"
+					</span>
+				)}
 				{locationName && (
 					<span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-sm font-medium text-(--lagoon-deep)">
 						{locationName}

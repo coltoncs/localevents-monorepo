@@ -129,6 +129,10 @@ WHERE ST_DWithin(
     $3::float
 )
 AND (NULLIF($4::text, '') IS NULL OR type = $4)
+AND ($5::text IS NULL
+     OR name ILIKE '%' || $5::text || '%'
+     OR description ILIKE '%' || $5::text || '%'
+     OR city ILIKE '%' || $5::text || '%')
 ORDER BY ST_Distance(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
     ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
@@ -140,6 +144,7 @@ type ListBeveragesByLocationParams struct {
 	Lat          float64
 	RadiusMeters float64
 	BevType      string
+	Search       pgtype.Text
 }
 
 func (q *Queries) ListBeveragesByLocation(ctx context.Context, arg ListBeveragesByLocationParams) ([]Beverage, error) {
@@ -148,6 +153,7 @@ func (q *Queries) ListBeveragesByLocation(ctx context.Context, arg ListBeverages
 		arg.Lat,
 		arg.RadiusMeters,
 		arg.BevType,
+		arg.Search,
 	)
 	if err != nil {
 		return nil, err
