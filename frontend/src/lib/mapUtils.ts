@@ -2,6 +2,7 @@ export const LIGHT_STYLE = 'mapbox://styles/mapbox/streets-v12'
 export const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11'
 
 export function getResolvedTheme(): 'light' | 'dark' {
+  if (typeof document === 'undefined') return 'light'
   const el = document.documentElement
   if (el.getAttribute('data-theme') === 'dark') return 'dark'
   if (el.getAttribute('data-theme') === 'light') return 'light'
