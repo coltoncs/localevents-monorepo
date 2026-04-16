@@ -15,7 +15,7 @@ import {
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import type { Beverage, CreateBeverageInput } from "#/lib/types";
 
-export const Route = createFileRoute("/beverages/$beverageId")({
+export const Route = createFileRoute("/drinks/$beverageId")({
 	ssr: false,
 	loader: async ({ context, params }) => {
 		const beverage = await context.queryClient.ensureQueryData(
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/beverages/$beverageId")({
 				{ property: "og:description", content: description },
 			],
 			links: [
-				{ rel: "canonical", href: `https://919events.com/beverages/${bev.ID}` },
+				{ rel: "canonical", href: `https://919events.com/drinks/${bev.ID}` },
 			],
 		};
 	},
@@ -302,7 +302,7 @@ function BeverageDetailPage() {
 			<div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:px-8">
 				<p className="text-lg text-(--sea-ink-soft)">Beverage not found.</p>
 				<Link
-					to="/beverages"
+					to="/drinks"
 					className="mt-4 inline-block text-(--lagoon-deep) hover:text-(--lagoon)"
 				>
 					&larr; Back to Breweries & Bars
@@ -324,7 +324,7 @@ function BeverageDetailPage() {
 	return (
 		<div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 			<Link
-				to="/beverages"
+				to="/drinks"
 				className="text-sm text-(--lagoon-deep) hover:text-(--lagoon)"
 			>
 				&larr; Back to Breweries & Bars

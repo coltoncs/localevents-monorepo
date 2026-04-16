@@ -21,10 +21,10 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
-import { Route as BeveragesIndexRouteImport } from './routes/beverages/index'
+import { Route as DrinksIndexRouteImport } from './routes/drinks/index'
 import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
 import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
-import { Route as BeveragesBeverageIdRouteImport } from './routes/beverages/$beverageId'
+import { Route as DrinksBeverageIdRouteImport } from './routes/drinks/$beverageId'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
 
@@ -88,9 +88,9 @@ const EventsIndexRoute = EventsIndexRouteImport.update({
   path: '/events/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BeveragesIndexRoute = BeveragesIndexRouteImport.update({
-  id: '/beverages/',
-  path: '/beverages/',
+const DrinksIndexRoute = DrinksIndexRouteImport.update({
+  id: '/drinks/',
+  path: '/drinks/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VenuesVenueIdRoute = VenuesVenueIdRouteImport.update({
@@ -103,9 +103,9 @@ const EventsEventIdRoute = EventsEventIdRouteImport.update({
   path: '/events/$eventId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BeveragesBeverageIdRoute = BeveragesBeverageIdRouteImport.update({
-  id: '/beverages/$beverageId',
-  path: '/beverages/$beverageId',
+const DrinksBeverageIdRoute = DrinksBeverageIdRouteImport.update({
+  id: '/drinks/$beverageId',
+  path: '/drinks/$beverageId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsEventIdIndexRoute = EventsEventIdIndexRouteImport.update({
@@ -131,10 +131,10 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
-  '/beverages/$beverageId': typeof BeveragesBeverageIdRoute
+  '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/venues/$venueId': typeof VenuesVenueIdRoute
-  '/beverages/': typeof BeveragesIndexRoute
+  '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
@@ -151,9 +151,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
-  '/beverages/$beverageId': typeof BeveragesBeverageIdRoute
+  '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
-  '/beverages': typeof BeveragesIndexRoute
+  '/drinks': typeof DrinksIndexRoute
   '/events': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId': typeof EventsEventIdIndexRoute
@@ -171,10 +171,10 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
-  '/beverages/$beverageId': typeof BeveragesBeverageIdRoute
+  '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/venues/$venueId': typeof VenuesVenueIdRoute
-  '/beverages/': typeof BeveragesIndexRoute
+  '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
@@ -193,10 +193,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/submit'
     | '/terms'
-    | '/beverages/$beverageId'
+    | '/drinks/$beverageId'
     | '/events/$eventId'
     | '/venues/$venueId'
-    | '/beverages/'
+    | '/drinks/'
     | '/events/'
     | '/events/$eventId/edit'
     | '/events/$eventId/'
@@ -213,9 +213,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/submit'
     | '/terms'
-    | '/beverages/$beverageId'
+    | '/drinks/$beverageId'
     | '/venues/$venueId'
-    | '/beverages'
+    | '/drinks'
     | '/events'
     | '/events/$eventId/edit'
     | '/events/$eventId'
@@ -232,10 +232,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/submit'
     | '/terms'
-    | '/beverages/$beverageId'
+    | '/drinks/$beverageId'
     | '/events/$eventId'
     | '/venues/$venueId'
-    | '/beverages/'
+    | '/drinks/'
     | '/events/'
     | '/events/$eventId/edit'
     | '/events/$eventId/'
@@ -253,10 +253,10 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SubmitRoute: typeof SubmitRoute
   TermsRoute: typeof TermsRoute
-  BeveragesBeverageIdRoute: typeof BeveragesBeverageIdRoute
+  DrinksBeverageIdRoute: typeof DrinksBeverageIdRoute
   EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
-  BeveragesIndexRoute: typeof BeveragesIndexRoute
+  DrinksIndexRoute: typeof DrinksIndexRoute
   EventsIndexRoute: typeof EventsIndexRoute
 }
 
@@ -346,11 +346,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/beverages/': {
-      id: '/beverages/'
-      path: '/beverages'
-      fullPath: '/beverages/'
-      preLoaderRoute: typeof BeveragesIndexRouteImport
+    '/drinks/': {
+      id: '/drinks/'
+      path: '/drinks'
+      fullPath: '/drinks/'
+      preLoaderRoute: typeof DrinksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/venues/$venueId': {
@@ -367,11 +367,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsEventIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/beverages/$beverageId': {
-      id: '/beverages/$beverageId'
-      path: '/beverages/$beverageId'
-      fullPath: '/beverages/$beverageId'
-      preLoaderRoute: typeof BeveragesBeverageIdRouteImport
+    '/drinks/$beverageId': {
+      id: '/drinks/$beverageId'
+      path: '/drinks/$beverageId'
+      fullPath: '/drinks/$beverageId'
+      preLoaderRoute: typeof DrinksBeverageIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events/$eventId/': {
@@ -417,10 +417,10 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SubmitRoute: SubmitRoute,
   TermsRoute: TermsRoute,
-  BeveragesBeverageIdRoute: BeveragesBeverageIdRoute,
+  DrinksBeverageIdRoute: DrinksBeverageIdRoute,
   EventsEventIdRoute: EventsEventIdRouteWithChildren,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
-  BeveragesIndexRoute: BeveragesIndexRoute,
+  DrinksIndexRoute: DrinksIndexRoute,
   EventsIndexRoute: EventsIndexRoute,
 }
 export const routeTree = rootRouteImport

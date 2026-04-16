@@ -226,7 +226,7 @@ export function BeverageMap({
           <strong>${bev.Name}</strong>
           <p class="text-xs opacity-70">${typeLabel}</p>
           ${bev.Address ? `<p>${bev.Address}</p>` : ""}
-          <a href="/beverages/${bev.ID}">View Details</a>
+          <a href="/drinks/${bev.ID}">View Details</a>
         </div>`,
 			);
 

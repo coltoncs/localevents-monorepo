@@ -132,7 +132,7 @@ export function BeverageManager() {
 				header: "Name",
 				cell: ({ row }) => (
 					<Link
-						to="/beverages/$beverageId"
+						to="/drinks/$beverageId"
 						params={{ beverageId: row.original.ID }}
 						className="font-medium text-(--lagoon-deep) hover:text-(--lagoon)"
 					>

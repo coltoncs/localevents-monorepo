@@ -47,7 +47,7 @@ export function BeverageCard({ beverage }: { beverage: Beverage }) {
 			className="overflow-hidden rounded-xl border border-(--line) bg-(--surface-strong) shadow-sm transition-shadow hover:shadow-md"
 		>
 			<Link
-				to="/beverages/$beverageId"
+				to="/drinks/$beverageId"
 				params={{ beverageId: beverage.ID }}
 				className="block no-underline"
 			>

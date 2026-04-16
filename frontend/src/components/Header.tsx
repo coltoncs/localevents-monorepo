@@ -21,7 +21,7 @@ export default function Header() {
 				Events
 			</Link>
 			<Link
-				to="/beverages"
+				to="/drinks"
 				className="nav-link"
 				activeProps={{ className: "nav-link is-active" }}
 				onClick={() => setMenuOpen(false)}

@@ -17,7 +17,7 @@ interface BeveragesSearch {
 	search?: string;
 }
 
-export const Route = createFileRoute("/beverages/")({
+export const Route = createFileRoute("/drinks/")({
 	head: () => ({
 		meta: [
 			{ title: "Breweries & Bars | 919Events" },
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/beverages/")({
 					"Discover local breweries and bars near you on an interactive map.",
 			},
 		],
-		links: [{ rel: "canonical", href: "https://919events.com/beverages" }],
+		links: [{ rel: "canonical", href: "https://919events.com/drinks" }],
 	}),
 	validateSearch: (search: Record<string, unknown>): BeveragesSearch => ({
 		lat: search.lat ? Number(search.lat) : undefined,
@@ -73,7 +73,7 @@ function BeveragesPage() {
 		const saved = getSavedLocation();
 		if (saved) {
 			navigate({
-				to: "/beverages",
+				to: "/drinks",
 				search: { lat: saved.lat, lng: saved.lng },
 				replace: true,
 			});
@@ -82,7 +82,7 @@ function BeveragesPage() {
 
 		if (isSignedIn && user?.DefaultLatitude && user?.DefaultLongitude) {
 			navigate({
-				to: "/beverages",
+				to: "/drinks",
 				search: {
 					lat: user.DefaultLatitude,
 					lng: user.DefaultLongitude,
@@ -201,7 +201,7 @@ function BeveragesList({
 	function submitSearch(value: string) {
 		const trimmed = value.trim();
 		navigate({
-			to: "/beverages",
+			to: "/drinks",
 			search: (prev) => ({ ...prev, search: trimmed || undefined }),
 			replace: true,
 		});
@@ -209,7 +209,7 @@ function BeveragesList({
 
 	function setType(type: "brewery" | "bar" | undefined) {
 		navigate({
-			to: "/beverages",
+			to: "/drinks",
 			search: (prev) => ({ ...prev, type }),
 			replace: true,
 		});
@@ -217,7 +217,7 @@ function BeveragesList({
 
 	function setRadius(r: number) {
 		navigate({
-			to: "/beverages",
+			to: "/drinks",
 			search: (prev) => ({ ...prev, radius: r }),
 			replace: true,
 		});
