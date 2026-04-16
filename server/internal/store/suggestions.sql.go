@@ -18,7 +18,7 @@ UPDATE edit_suggestions SET
     reviewed_by = $2,
     review_notes = $3
 WHERE id = $1
-RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason
 `
 
 type ApproveEditSuggestionParams struct {
@@ -41,14 +41,16 @@ func (q *Queries) ApproveEditSuggestion(ctx context.Context, arg ApproveEditSugg
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ReviewedAt,
+		&i.Action,
+		&i.Reason,
 	)
 	return i, err
 }
 
 const createEditSuggestion = `-- name: CreateEditSuggestion :one
-INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes)
-VALUES ($1, $2, $3, $4)
-RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes, action, reason)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason
 `
 
 type CreateEditSuggestionParams struct {
@@ -56,6 +58,8 @@ type CreateEditSuggestionParams struct {
 	TargetID        pgtype.UUID
 	SubmittedBy     pgtype.UUID
 	ProposedChanges []byte
+	Action          string
+	Reason          pgtype.Text
 }
 
 func (q *Queries) CreateEditSuggestion(ctx context.Context, arg CreateEditSuggestionParams) (EditSuggestion, error) {
@@ -64,6 +68,8 @@ func (q *Queries) CreateEditSuggestion(ctx context.Context, arg CreateEditSugges
 		arg.TargetID,
 		arg.SubmittedBy,
 		arg.ProposedChanges,
+		arg.Action,
+		arg.Reason,
 	)
 	var i EditSuggestion
 	err := row.Scan(
@@ -77,12 +83,14 @@ func (q *Queries) CreateEditSuggestion(ctx context.Context, arg CreateEditSugges
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ReviewedAt,
+		&i.Action,
+		&i.Reason,
 	)
 	return i, err
 }
 
 const getEditSuggestion = `-- name: GetEditSuggestion :one
-SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions WHERE id = $1
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason FROM edit_suggestions WHERE id = $1
 `
 
 func (q *Queries) GetEditSuggestion(ctx context.Context, id pgtype.UUID) (EditSuggestion, error) {
@@ -99,12 +107,14 @@ func (q *Queries) GetEditSuggestion(ctx context.Context, id pgtype.UUID) (EditSu
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ReviewedAt,
+		&i.Action,
+		&i.Reason,
 	)
 	return i, err
 }
 
 const listPendingEditSuggestions = `-- name: ListPendingEditSuggestions :many
-SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason FROM edit_suggestions
 WHERE status = 'pending'
 ORDER BY created_at ASC
 `
@@ -129,6 +139,8 @@ func (q *Queries) ListPendingEditSuggestions(ctx context.Context) ([]EditSuggest
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.ReviewedAt,
+			&i.Action,
+			&i.Reason,
 		); err != nil {
 			return nil, err
 		}
@@ -141,7 +153,7 @@ func (q *Queries) ListPendingEditSuggestions(ctx context.Context) ([]EditSuggest
 }
 
 const listPendingEditSuggestionsForAuthor = `-- name: ListPendingEditSuggestionsForAuthor :many
-SELECT es.id, es.target_type, es.target_id, es.submitted_by, es.proposed_changes, es.status, es.review_notes, es.reviewed_by, es.created_at, es.reviewed_at FROM edit_suggestions es
+SELECT es.id, es.target_type, es.target_id, es.submitted_by, es.proposed_changes, es.status, es.review_notes, es.reviewed_by, es.created_at, es.reviewed_at, es.action, es.reason FROM edit_suggestions es
 JOIN events e ON es.target_type = 'event' AND es.target_id = e.id
 JOIN users u ON e.submitted_by = u.id
 WHERE u.clerk_id = $1 AND es.status = 'pending'
@@ -168,6 +180,8 @@ func (q *Queries) ListPendingEditSuggestionsForAuthor(ctx context.Context, clerk
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.ReviewedAt,
+			&i.Action,
+			&i.Reason,
 		); err != nil {
 			return nil, err
 		}
@@ -180,7 +194,7 @@ func (q *Queries) ListPendingEditSuggestionsForAuthor(ctx context.Context, clerk
 }
 
 const listPendingEditSuggestionsForTarget = `-- name: ListPendingEditSuggestionsForTarget :many
-SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at FROM edit_suggestions
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason FROM edit_suggestions
 WHERE target_type = $1 AND target_id = $2 AND status = 'pending'
 ORDER BY created_at ASC
 `
@@ -210,6 +224,8 @@ func (q *Queries) ListPendingEditSuggestionsForTarget(ctx context.Context, arg L
 			&i.ReviewedBy,
 			&i.CreatedAt,
 			&i.ReviewedAt,
+			&i.Action,
+			&i.Reason,
 		); err != nil {
 			return nil, err
 		}
@@ -228,7 +244,7 @@ UPDATE edit_suggestions SET
     reviewed_by = $2,
     review_notes = $3
 WHERE id = $1
-RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at
+RETURNING id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason
 `
 
 type RejectEditSuggestionParams struct {
@@ -251,6 +267,8 @@ func (q *Queries) RejectEditSuggestion(ctx context.Context, arg RejectEditSugges
 		&i.ReviewedBy,
 		&i.CreatedAt,
 		&i.ReviewedAt,
+		&i.Action,
+		&i.Reason,
 	)
 	return i, err
 }

@@ -69,6 +69,8 @@ type EditSuggestion struct {
 	ReviewedBy      pgtype.Text
 	CreatedAt       pgtype.Timestamptz
 	ReviewedAt      pgtype.Timestamptz
+	Action          string
+	Reason          pgtype.Text
 }
 
 type Event struct {

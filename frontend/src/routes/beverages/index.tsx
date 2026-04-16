@@ -5,6 +5,7 @@ import { BeverageCard } from "#/components/BeverageCard";
 import { BeverageMap } from "#/components/BeverageMap";
 import { getSavedLocation, LocationSearch } from "#/components/LocationSearch";
 import { Spinner } from "#/components/Spinner";
+import { SuggestBeverageCreateModal } from "#/components/SuggestBeverageCreateModal";
 import { beverageListOptions, useBeverages } from "#/lib/hooks/useBeverages";
 import { useUser } from "#/lib/hooks/useUser";
 
@@ -167,7 +168,9 @@ function BeveragesList({
 	search: BeveragesSearch & { lat: number; lng: number };
 }) {
 	const navigate = useNavigate();
+	const { isSignedIn } = useAuth();
 	const [locationName, setLocationName] = useState<string | null>(null);
+	const [showCreateSuggestion, setShowCreateSuggestion] = useState(false);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-read location name when coords change
 	useEffect(() => {
@@ -227,10 +230,27 @@ function BeveragesList({
 				<h1 className="text-2xl font-bold text-(--sea-ink)">
 					Breweries & Bars
 				</h1>
-				<LocationSearch compact />
+				<div className="flex items-center gap-3">
+					{isSignedIn && (
+						<button
+							type="button"
+							onClick={() => setShowCreateSuggestion(true)}
+							className="cursor-pointer whitespace-nowrap rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
+						>
+							+ Suggest a spot
+						</button>
+					)}
+					<LocationSearch compact />
+				</div>
 			</div>
 
 			<BeverageBanner />
+
+			{showCreateSuggestion && (
+				<SuggestBeverageCreateModal
+					onClose={() => setShowCreateSuggestion(false)}
+				/>
+			)}
 
 			{/* Filters */}
 			<div className="flex flex-wrap items-center gap-3">

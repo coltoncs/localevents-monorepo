@@ -1,6 +1,6 @@
 -- name: CreateEditSuggestion :one
-INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes)
-VALUES ($1, $2, $3, $4)
+INSERT INTO edit_suggestions (target_type, target_id, submitted_by, proposed_changes, action, reason)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetEditSuggestion :one

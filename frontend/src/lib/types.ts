@@ -116,7 +116,7 @@ export interface UpdateVenueInput {
 export interface Beverage {
 	ID: string;
 	Name: string;
-	Type: 'brewery' | 'bar';
+	Type: "brewery" | "bar";
 	Address: string;
 	City: string;
 	State: string;
@@ -141,13 +141,13 @@ export interface BeverageFilters {
 	lat: number;
 	lng: number;
 	radius?: number;
-	type?: 'brewery' | 'bar';
+	type?: "brewery" | "bar";
 	search?: string;
 }
 
 export interface CreateBeverageInput {
 	name: string;
-	type: 'brewery' | 'bar';
+	type: "brewery" | "bar";
 	address?: string;
 	city?: string;
 	state?: string;
@@ -214,8 +214,8 @@ export interface NotificationPreferences {
 	phone_number?: string;
 	has_subscription: boolean;
 	preferred_categories: string[];
-	digest_format: 'daily' | 'bulk';
-	email_style: 'detailed' | 'compact';
+	digest_format: "daily" | "bulk";
+	email_style: "detailed" | "compact";
 }
 
 export interface UpdateNotificationInput {
@@ -223,15 +223,19 @@ export interface UpdateNotificationInput {
 	sms_enabled: boolean;
 	phone_number?: string;
 	preferred_categories: string[];
-	digest_format: 'daily' | 'bulk';
-	email_style: 'detailed' | 'compact';
+	digest_format: "daily" | "bulk";
+	email_style: "detailed" | "compact";
 }
+
+export type SuggestionAction = "edit" | "create" | "delete";
 
 export interface EditSuggestion {
 	ID: string;
-	TargetType: "event" | "venue";
-	TargetID: string;
+	TargetType: "event" | "venue" | "beverage";
+	TargetID?: string;
 	SubmittedBy: string;
+	Action: SuggestionAction;
+	Reason?: string;
 	ProposedChanges: Record<string, unknown>;
 	Status: "pending" | "approved" | "rejected";
 	ReviewNotes?: string;
@@ -242,8 +246,10 @@ export interface EditSuggestion {
 }
 
 export interface CreateEditSuggestionInput {
-	target_type: "event" | "venue";
-	target_id: string;
+	target_type: "event" | "venue" | "beverage";
+	target_id?: string;
+	action?: SuggestionAction;
+	reason?: string;
 	proposed_changes: Record<string, unknown>;
 }
 

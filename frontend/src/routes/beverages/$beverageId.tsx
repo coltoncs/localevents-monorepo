@@ -2,7 +2,9 @@ import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { BeverageMap } from "#/components/BeverageMap";
+import { ImageUpload } from "#/components/ImageUpload";
 import { Spinner } from "#/components/Spinner";
+import { SuggestBeverageDeleteModal } from "#/components/SuggestBeverageDeleteModal";
 import { SuggestBeverageEditModal } from "#/components/SuggestBeverageEditModal";
 import {
 	beverageDetailOptions,
@@ -11,7 +13,6 @@ import {
 	useUpdateBeverage,
 } from "#/lib/hooks/useBeverages";
 import { useUserRole } from "#/lib/hooks/useUserRole";
-import { ImageUpload } from "#/components/ImageUpload";
 import type { Beverage, CreateBeverageInput } from "#/lib/types";
 
 export const Route = createFileRoute("/beverages/$beverageId")({
@@ -219,11 +220,7 @@ function BeverageEditForm({
 					/>
 				</label>
 				<div className="sm:col-span-2">
-					<ImageUpload
-						value={imageUrl}
-						onChange={setImageUrl}
-						label="Image"
-					/>
+					<ImageUpload value={imageUrl} onChange={setImageUrl} label="Image" />
 				</div>
 				<label className={editLabelClass}>
 					Tags (comma-separated)
@@ -290,6 +287,7 @@ function BeverageDetailPage() {
 	const [editing, setEditing] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [showSuggestEdit, setShowSuggestEdit] = useState(false);
+	const [showSuggestDelete, setShowSuggestDelete] = useState(false);
 
 	const handleDelete = async () => {
 		if (!bev) return;
@@ -522,6 +520,20 @@ function BeverageDetailPage() {
 							</p>
 						</div>
 					)}
+
+					{!isAdmin && (
+						<div className="flex justify-center border-t border-(--line) pt-6">
+							<button
+								type="button"
+								onClick={() =>
+									isSignedIn ? setShowSuggestDelete(true) : openSignIn()
+								}
+								className="cursor-pointer text-sm font-medium text-(--sea-ink-soft) hover:text-red-600 hover:underline"
+							>
+								Report as closed
+							</button>
+						</div>
+					)}
 				</>
 			)}
 
@@ -529,6 +541,13 @@ function BeverageDetailPage() {
 				<SuggestBeverageEditModal
 					beverage={bev}
 					onClose={() => setShowSuggestEdit(false)}
+				/>
+			)}
+
+			{showSuggestDelete && bev && (
+				<SuggestBeverageDeleteModal
+					beverage={bev}
+					onClose={() => setShowSuggestDelete(false)}
 				/>
 			)}
 		</div>

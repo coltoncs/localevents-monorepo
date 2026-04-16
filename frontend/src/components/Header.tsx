@@ -13,14 +13,6 @@ export default function Header() {
 	const navLinks = (
 		<>
 			<Link
-				to="/"
-				className="nav-link"
-				activeProps={{ className: "nav-link is-active" }}
-				onClick={() => setMenuOpen(false)}
-			>
-				Home
-			</Link>
-			<Link
 				to="/events"
 				className="nav-link"
 				activeProps={{ className: "nav-link is-active" }}
@@ -28,7 +20,6 @@ export default function Header() {
 			>
 				Events
 			</Link>
-			{/* TODO: unhide once beverage listings are populated
 			<Link
 				to="/beverages"
 				className="nav-link"
@@ -37,7 +28,6 @@ export default function Header() {
 			>
 				Drinks
 			</Link>
-			*/}
 			{isSignedIn && canCreateEvent && (
 				<Link
 					to="/submit"
