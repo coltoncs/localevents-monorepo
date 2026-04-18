@@ -2,13 +2,17 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"math"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
@@ -286,4 +290,136 @@ func (h *BeverageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+const checkInMaxDistanceMeters = 150.0
+
+type checkInRequest struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusMeters = 6371000.0
+	rad := math.Pi / 180.0
+	dLat := (lat2 - lat1) * rad
+	dLon := (lon2 - lon1) * rad
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*rad)*math.Cos(lat2*rad)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusMeters * c
+}
+
+func (h *BeverageHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid beverage id"}`, http.StatusBadRequest)
+		return
+	}
+
+	var req checkInRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	bev, err := h.queries.GetBeverage(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		http.Error(w, `{"error":"beverage not found"}`, http.StatusNotFound)
+		return
+	}
+
+	if haversineMeters(req.Latitude, req.Longitude, bev.Latitude, bev.Longitude) > checkInMaxDistanceMeters {
+		http.Error(w, `{"error":"too far from venue to check in"}`, http.StatusForbidden)
+		return
+	}
+
+	row, err := h.queries.CheckInBeverage(r.Context(), store.CheckInBeverageParams{
+		UserID:        user.ID,
+		BeverageID:    pgtype.UUID{Bytes: id, Valid: true},
+		UserLatitude:  req.Latitude,
+		UserLongitude: req.Longitude,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, `{"error":"already checked in today"}`, http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, `{"error":"failed to check in"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(row)
+}
+
+func (h *BeverageHandler) CheckInCounts(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid beverage id"}`, http.StatusBadRequest)
+		return
+	}
+
+	counts, err := h.queries.GetBeverageCheckInCounts(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		http.Error(w, `{"error":"failed to get check-in counts"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Total  int64 `json:"total"`
+		Unique int64 `json:"unique"`
+	}{Total: counts.TotalCount, Unique: counts.UniqueCount})
+}
+
+func (h *BeverageHandler) MyCheckInStatus(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid beverage id"}`, http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	checkedIn, err := h.queries.HasUserCheckedInToday(r.Context(), store.HasUserCheckedInTodayParams{
+		UserID:     user.ID,
+		BeverageID: pgtype.UUID{Bytes: id, Valid: true},
+	})
+	if err != nil {
+		http.Error(w, `{"error":"failed to check status"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		CheckedInToday bool `json:"checkedInToday"`
+	}{CheckedInToday: checkedIn})
 }

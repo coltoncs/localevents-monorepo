@@ -44,6 +44,16 @@ type Beverage struct {
 	UpdatedAt   pgtype.Timestamptz
 }
 
+type BeverageCheckin struct {
+	ID            pgtype.UUID
+	UserID        pgtype.UUID
+	BeverageID    pgtype.UUID
+	CheckinDate   pgtype.Date
+	UserLatitude  float64
+	UserLongitude float64
+	CreatedAt     pgtype.Timestamptz
+}
+
 type CronLog struct {
 	ID            pgtype.UUID
 	JobName       string

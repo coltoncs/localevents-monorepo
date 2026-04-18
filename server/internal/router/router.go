@@ -55,6 +55,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/venues/{id}", venueHandler.Get)
 			r.Get("/beverages", beverageHandler.List)
 			r.Get("/beverages/{id}", beverageHandler.Get)
+			r.Get("/beverages/{id}/checkin-counts", beverageHandler.CheckInCounts)
 		})
 
 		// Authenticated routes (any signed-in user)
@@ -76,6 +77,8 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/images", imageHandler.List)
 			r.Delete("/images/{id}", imageHandler.Delete)
 			r.Post("/suggestions", suggestionHandler.Create)
+			r.Post("/beverages/{id}/checkins", beverageHandler.CheckIn)
+			r.Get("/beverages/{id}/my-checkin-status", beverageHandler.MyCheckInStatus)
 		})
 
 		// Author/Admin routes

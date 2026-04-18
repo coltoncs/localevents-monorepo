@@ -36,6 +36,13 @@ export const queryKeys = {
 		all: ["saveCounts"] as const,
 		detail: (eventId: string) => ["saveCounts", eventId] as const,
 	},
+	beverageCheckIns: {
+		all: ["beverageCheckIns"] as const,
+		counts: (beverageId: string) =>
+			["beverageCheckIns", "counts", beverageId] as const,
+		myStatus: (beverageId: string) =>
+			["beverageCheckIns", "myStatus", beverageId] as const,
+	},
 	applications: {
 		all: ["applications"] as const,
 		pending: ["applications", "pending"] as const,

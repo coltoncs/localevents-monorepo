@@ -2,6 +2,7 @@ import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { BeverageMap } from "#/components/BeverageMap";
+import { CheckInButton } from "#/components/CheckInButton";
 import { ImageUpload } from "#/components/ImageUpload";
 import { Spinner } from "#/components/Spinner";
 import { SuggestBeverageDeleteModal } from "#/components/SuggestBeverageDeleteModal";
@@ -12,6 +13,7 @@ import {
 	useDeleteBeverage,
 	useUpdateBeverage,
 } from "#/lib/hooks/useBeverages";
+import { useBeverageCheckInCounts } from "#/lib/hooks/useBeverageCheckIns";
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import type { Beverage, CreateBeverageInput } from "#/lib/types";
 
@@ -276,6 +278,17 @@ function BeverageEditForm({
 	);
 }
 
+function CheckInCountsLabel({ beverageId }: { beverageId: string }) {
+	const { data } = useBeverageCheckInCounts(beverageId);
+	if (!data || data.unique === 0) return null;
+	return (
+		<p className="text-sm text-(--sea-ink-soft)">
+			{data.unique} visitor{data.unique === 1 ? "" : "s"} · {data.total}{" "}
+			check-in{data.total === 1 ? "" : "s"}
+		</p>
+	);
+}
+
 function BeverageDetailPage() {
 	const { beverageId } = Route.useParams();
 	const { data: bev, isLoading } = useBeverage(beverageId);
@@ -336,22 +349,26 @@ function BeverageDetailPage() {
 				<>
 					{/* Header */}
 					<div className="flex items-start justify-between">
-						<div className="flex flex-wrap items-start gap-3">
-							<h1 className="text-2xl font-bold text-(--sea-ink)">
-								{bev.Name}
-							</h1>
-							<span
-								className={`rounded-full px-3 py-1 text-sm font-medium ${typeColor}`}
-							>
-								{typeLabel}
-							</span>
-							{bev.PriceLevel && (
-								<span className="rounded-full border border-(--line) px-3 py-1 text-sm font-medium text-(--sea-ink-soft)">
-									{"$".repeat(bev.PriceLevel)}
+						<div className="flex flex-col gap-2">
+							<div className="flex flex-wrap items-start gap-3">
+								<h1 className="text-2xl font-bold text-(--sea-ink)">
+									{bev.Name}
+								</h1>
+								<span
+									className={`rounded-full px-3 py-1 text-sm font-medium ${typeColor}`}
+								>
+									{typeLabel}
 								</span>
-							)}
+								{bev.PriceLevel && (
+									<span className="rounded-full border border-(--line) px-3 py-1 text-sm font-medium text-(--sea-ink-soft)">
+										{"$".repeat(bev.PriceLevel)}
+									</span>
+								)}
+							</div>
+							<CheckInCountsLabel beverageId={bev.ID} />
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
+							<CheckInButton beverageId={bev.ID} />
 							{!isAdmin && (
 								<button
 									type="button"

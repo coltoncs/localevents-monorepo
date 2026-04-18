@@ -2,7 +2,9 @@ import { useGSAP } from "@gsap/react";
 import { Link } from "@tanstack/react-router";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Users } from "lucide-react";
 import { useRef } from "react";
+import { useBeverageCheckInCounts } from "#/lib/hooks/useBeverageCheckIns";
 import type { Beverage } from "#/lib/types";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -14,6 +16,7 @@ function priceLabel(level?: number) {
 
 export function BeverageCard({ beverage }: { beverage: Beverage }) {
 	const cardRef = useRef<HTMLDivElement>(null);
+	const { data: checkInCounts } = useBeverageCheckInCounts(beverage.ID);
 
 	useGSAP(
 		() => {
@@ -92,8 +95,16 @@ export function BeverageCard({ beverage }: { beverage: Beverage }) {
 								{tag}
 							</span>
 						))}
+						{checkInCounts && checkInCounts.unique > 0 ? (
+							<span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-(--sea-ink-soft)">
+								<Users size={12} />
+								{checkInCounts.unique}
+							</span>
+						) : null}
 						{beverage.PriceLevel && (
-							<span className="ml-auto text-sm font-medium text-(--sea-ink-soft)">
+							<span
+								className={`${checkInCounts && checkInCounts.unique > 0 ? "" : "ml-auto"} text-sm font-medium text-(--sea-ink-soft)`}
+							>
 								{priceLabel(beverage.PriceLevel)}
 							</span>
 						)}
