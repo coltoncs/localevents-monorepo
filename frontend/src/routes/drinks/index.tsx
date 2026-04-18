@@ -38,7 +38,10 @@ export const Route = createFileRoute("/drinks/")({
 	validateSearch: (search: Record<string, unknown>): BeveragesSearch => ({
 		lat: search.lat ? Number(search.lat) : undefined,
 		lng: search.lng ? Number(search.lng) : undefined,
-		radius: search.radius ? Number(search.radius) : undefined,
+		radius:
+			search.radius !== undefined && search.radius !== ""
+				? Number(search.radius)
+				: undefined,
 		type: ["brewery", "bar"].includes(search.type as string)
 			? (search.type as "brewery" | "bar")
 			: undefined,
@@ -180,11 +183,12 @@ function BeveragesList({
 
 	const center = { lat: search.lat, lng: search.lng };
 	const radius = search.radius ?? 10;
+	const showAll = radius === 0;
 
 	const filters = {
 		lat: search.lat,
 		lng: search.lng,
-		radius,
+		radius: showAll ? 25000 : radius,
 		type: search.type,
 		search: search.search,
 	};
@@ -332,6 +336,7 @@ function BeveragesList({
 					<option value={25}>25 mi</option>
 					<option value={50}>50 mi</option>
 					<option value={100}>100 mi</option>
+					<option value={0}>All locations</option>
 				</select>
 
 				{/* Active filter summary */}
@@ -354,7 +359,7 @@ function BeveragesList({
 			<BeverageMap
 				beverages={beverages}
 				center={center}
-				radiusMiles={radius}
+				radiusMiles={showAll ? 0 : radius}
 				className="h-[450px] w-full rounded-lg sm:h-[500px]"
 			/>
 

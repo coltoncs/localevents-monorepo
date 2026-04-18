@@ -42,10 +42,18 @@ export function BeverageMap({
 
 	const updateRadiusCircle = useCallback(
 		(map: mapboxgl.Map, lng: number, lat: number, miles: number) => {
-			const geojson = createGeoJSONCircle(lng, lat, miles);
 			const source = map.getSource(RADIUS_SOURCE) as
 				| mapboxgl.GeoJSONSource
 				| undefined;
+
+			if (miles <= 0) {
+				if (map.getLayer(RADIUS_LINE_LAYER)) map.removeLayer(RADIUS_LINE_LAYER);
+				if (map.getLayer(RADIUS_FILL_LAYER)) map.removeLayer(RADIUS_FILL_LAYER);
+				if (source) map.removeSource(RADIUS_SOURCE);
+				return;
+			}
+
+			const geojson = createGeoJSONCircle(lng, lat, miles);
 
 			if (source) {
 				source.setData(geojson);
