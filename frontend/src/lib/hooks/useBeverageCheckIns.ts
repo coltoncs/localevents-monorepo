@@ -11,9 +11,7 @@ export function useBeverageCheckInCounts(beverageId: string) {
 	return useQuery({
 		queryKey: queryKeys.beverageCheckIns.counts(beverageId),
 		queryFn: () =>
-			apiClient<CheckInCounts>(
-				`/api/beverages/${beverageId}/checkin-counts`,
-			),
+			apiClient<CheckInCounts>(`/api/beverages/${beverageId}/checkin-counts`),
 	});
 }
 

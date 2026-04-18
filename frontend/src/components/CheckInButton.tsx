@@ -85,9 +85,7 @@ export function CheckInButton({ beverageId }: { beverageId: string }) {
 					<span className="text-xs opacity-70">({counts.unique})</span>
 				) : null}
 			</button>
-			{error ? (
-				<span className="text-xs text-red-600">{error}</span>
-			) : null}
+			{error ? <span className="text-xs text-red-600">{error}</span> : null}
 		</div>
 	);
 }

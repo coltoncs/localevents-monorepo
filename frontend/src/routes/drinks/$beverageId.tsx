@@ -7,13 +7,13 @@ import { ImageUpload } from "#/components/ImageUpload";
 import { Spinner } from "#/components/Spinner";
 import { SuggestBeverageDeleteModal } from "#/components/SuggestBeverageDeleteModal";
 import { SuggestBeverageEditModal } from "#/components/SuggestBeverageEditModal";
+import { useBeverageCheckInCounts } from "#/lib/hooks/useBeverageCheckIns";
 import {
 	beverageDetailOptions,
 	useBeverage,
 	useDeleteBeverage,
 	useUpdateBeverage,
 } from "#/lib/hooks/useBeverages";
-import { useBeverageCheckInCounts } from "#/lib/hooks/useBeverageCheckIns";
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import type { Beverage, CreateBeverageInput } from "#/lib/types";
 
