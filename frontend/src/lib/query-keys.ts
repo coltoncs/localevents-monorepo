@@ -42,6 +42,7 @@ export const queryKeys = {
 			["beverageCheckIns", "counts", beverageId] as const,
 		myStatus: (beverageId: string) =>
 			["beverageCheckIns", "myStatus", beverageId] as const,
+		mine: ["beverageCheckIns", "mine"] as const,
 	},
 	applications: {
 		all: ["applications"] as const,

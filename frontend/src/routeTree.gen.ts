@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as MyEventsRouteImport } from './routes/my-events'
 import { Route as DonateRouteImport } from './routes/donate'
@@ -46,6 +47,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SavedRoute = SavedRouteImport.update({
   id: '/saved',
   path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
   '/privacy': typeof PrivacyRoute
+  '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
   '/submit': typeof SubmitRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/donate'
     | '/my-events'
     | '/privacy'
+    | '/profile'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/donate'
     | '/my-events'
     | '/privacy'
+    | '/profile'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/donate'
     | '/my-events'
     | '/privacy'
+    | '/profile'
     | '/saved'
     | '/settings'
     | '/submit'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   DonateRoute: typeof DonateRoute
   MyEventsRoute: typeof MyEventsRoute
   PrivacyRoute: typeof PrivacyRoute
+  ProfileRoute: typeof ProfileRoute
   SavedRoute: typeof SavedRoute
   SettingsRoute: typeof SettingsRoute
   SubmitRoute: typeof SubmitRoute
@@ -288,6 +301,13 @@ declare module '@tanstack/react-router' {
       path: '/saved'
       fullPath: '/saved'
       preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   DonateRoute: DonateRoute,
   MyEventsRoute: MyEventsRoute,
   PrivacyRoute: PrivacyRoute,
+  ProfileRoute: ProfileRoute,
   SavedRoute: SavedRoute,
   SettingsRoute: SettingsRoute,
   SubmitRoute: SubmitRoute,

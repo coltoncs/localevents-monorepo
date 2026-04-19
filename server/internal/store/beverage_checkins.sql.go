@@ -65,6 +65,42 @@ func (q *Queries) GetBeverageCheckInCounts(ctx context.Context, beverageID pgtyp
 	return i, err
 }
 
+const getUserCheckInStats = `-- name: GetUserCheckInStats :one
+SELECT
+    COUNT(*)::bigint AS total_checkins,
+    COUNT(DISTINCT beverage_id)::bigint AS unique_venues,
+    COUNT(DISTINCT CASE WHEN b.type = 'brewery' THEN c.beverage_id END)::bigint AS unique_breweries,
+    COUNT(DISTINCT CASE WHEN b.type = 'bar' THEN c.beverage_id END)::bigint AS unique_bars,
+    MIN(c.checkin_date)::date AS first_checkin_date,
+    MAX(c.checkin_date)::date AS last_checkin_date
+FROM beverage_checkins c
+JOIN beverages b ON b.id = c.beverage_id
+WHERE c.user_id = $1
+`
+
+type GetUserCheckInStatsRow struct {
+	TotalCheckins    int64
+	UniqueVenues     int64
+	UniqueBreweries  int64
+	UniqueBars       int64
+	FirstCheckinDate pgtype.Date
+	LastCheckinDate  pgtype.Date
+}
+
+func (q *Queries) GetUserCheckInStats(ctx context.Context, userID pgtype.UUID) (GetUserCheckInStatsRow, error) {
+	row := q.db.QueryRow(ctx, getUserCheckInStats, userID)
+	var i GetUserCheckInStatsRow
+	err := row.Scan(
+		&i.TotalCheckins,
+		&i.UniqueVenues,
+		&i.UniqueBreweries,
+		&i.UniqueBars,
+		&i.FirstCheckinDate,
+		&i.LastCheckinDate,
+	)
+	return i, err
+}
+
 const hasUserCheckedInToday = `-- name: HasUserCheckedInToday :one
 SELECT EXISTS(
     SELECT 1 FROM beverage_checkins
@@ -82,4 +118,60 @@ func (q *Queries) HasUserCheckedInToday(ctx context.Context, arg HasUserCheckedI
 	var checked_in bool
 	err := row.Scan(&checked_in)
 	return checked_in, err
+}
+
+const listUserCheckIns = `-- name: ListUserCheckIns :many
+SELECT
+    c.id,
+    c.beverage_id,
+    c.checkin_date,
+    c.created_at,
+    b.name AS beverage_name,
+    b.type AS beverage_type,
+    b.city AS beverage_city,
+    b.image_url AS beverage_image_url
+FROM beverage_checkins c
+JOIN beverages b ON b.id = c.beverage_id
+WHERE c.user_id = $1
+ORDER BY c.checkin_date DESC, c.created_at DESC
+`
+
+type ListUserCheckInsRow struct {
+	ID               pgtype.UUID
+	BeverageID       pgtype.UUID
+	CheckinDate      pgtype.Date
+	CreatedAt        pgtype.Timestamptz
+	BeverageName     string
+	BeverageType     string
+	BeverageCity     pgtype.Text
+	BeverageImageUrl pgtype.Text
+}
+
+func (q *Queries) ListUserCheckIns(ctx context.Context, userID pgtype.UUID) ([]ListUserCheckInsRow, error) {
+	rows, err := q.db.Query(ctx, listUserCheckIns, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserCheckInsRow
+	for rows.Next() {
+		var i ListUserCheckInsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BeverageID,
+			&i.CheckinDate,
+			&i.CreatedAt,
+			&i.BeverageName,
+			&i.BeverageType,
+			&i.BeverageCity,
+			&i.BeverageImageUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

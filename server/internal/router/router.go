@@ -65,6 +65,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Put("/me", userHandler.UpdateMe)
 			r.Get("/me/events", userHandler.ListMyEvents)
 			r.Get("/me/saved", userHandler.ListSaved)
+			r.Get("/me/beverage-checkins", userHandler.ListMyCheckIns)
 			r.Post("/me/saved/{eventId}", userHandler.SaveEvent)
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)

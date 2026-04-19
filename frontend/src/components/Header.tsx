@@ -69,24 +69,14 @@ export default function Header() {
 				</Link>
 			)}
 			{isSignedIn && (
-				<>
-					<Link
-						to="/saved"
-						className="nav-link"
-						activeProps={{ className: "nav-link is-active" }}
-						onClick={() => setMenuOpen(false)}
-					>
-						Saved
-					</Link>
-					<Link
-						to="/settings"
-						className="nav-link"
-						activeProps={{ className: "nav-link is-active" }}
-						onClick={() => setMenuOpen(false)}
-					>
-						Settings
-					</Link>
-				</>
+				<Link
+					to="/profile"
+					className="nav-link"
+					activeProps={{ className: "nav-link is-active" }}
+					onClick={() => setMenuOpen(false)}
+				>
+					Profile
+				</Link>
 			)}
 		</>
 	);

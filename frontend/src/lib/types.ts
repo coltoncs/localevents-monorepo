@@ -227,6 +227,31 @@ export interface UpdateNotificationInput {
 	email_style: "detailed" | "compact";
 }
 
+export interface MyCheckIn {
+	id: string;
+	beverage_id: string;
+	beverage_name: string;
+	beverage_type: "brewery" | "bar";
+	beverage_city?: string;
+	beverage_image_url?: string;
+	checkin_date: string;
+	created_at: string;
+}
+
+export interface MyCheckInStats {
+	total_checkins: number;
+	unique_venues: number;
+	unique_breweries: number;
+	unique_bars: number;
+	first_checkin_date?: string;
+	last_checkin_date?: string;
+}
+
+export interface MyCheckInsResponse {
+	stats: MyCheckInStats;
+	checkins: MyCheckIn[];
+}
+
 export type SuggestionAction = "edit" | "create" | "delete";
 
 export interface EditSuggestion {

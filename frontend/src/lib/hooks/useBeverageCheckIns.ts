@@ -1,10 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "#/lib/api";
 import { queryKeys } from "#/lib/query-keys";
+import type { MyCheckInsResponse } from "#/lib/types";
 
 export interface CheckInCounts {
 	total: number;
 	unique: number;
+}
+
+export function useMyCheckIns() {
+	return useQuery({
+		queryKey: queryKeys.beverageCheckIns.mine,
+		queryFn: () => apiClient<MyCheckInsResponse>("/api/me/beverage-checkins"),
+	});
 }
 
 export function useBeverageCheckInCounts(beverageId: string) {
@@ -40,6 +48,9 @@ export function useCheckIn(beverageId: string) {
 			});
 			qc.invalidateQueries({
 				queryKey: queryKeys.beverageCheckIns.myStatus(beverageId),
+			});
+			qc.invalidateQueries({
+				queryKey: queryKeys.beverageCheckIns.mine,
 			});
 		},
 	});

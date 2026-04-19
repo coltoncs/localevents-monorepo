@@ -161,6 +161,99 @@ func (h *UserHandler) ListSaved(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(events)
 }
 
+type checkInItem struct {
+	ID            string  `json:"id"`
+	BeverageID    string  `json:"beverage_id"`
+	BeverageName  string  `json:"beverage_name"`
+	BeverageType  string  `json:"beverage_type"`
+	BeverageCity  *string `json:"beverage_city,omitempty"`
+	BeverageImage *string `json:"beverage_image_url,omitempty"`
+	CheckinDate   string  `json:"checkin_date"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+type checkInStats struct {
+	TotalCheckins    int64   `json:"total_checkins"`
+	UniqueVenues     int64   `json:"unique_venues"`
+	UniqueBreweries  int64   `json:"unique_breweries"`
+	UniqueBars       int64   `json:"unique_bars"`
+	FirstCheckinDate *string `json:"first_checkin_date,omitempty"`
+	LastCheckinDate  *string `json:"last_checkin_date,omitempty"`
+}
+
+type myCheckInsResponse struct {
+	Stats     checkInStats  `json:"stats"`
+	CheckIns  []checkInItem `json:"checkins"`
+}
+
+func (h *UserHandler) ListMyCheckIns(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	rows, err := h.queries.ListUserCheckIns(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to list check-ins"}`, http.StatusInternalServerError)
+		return
+	}
+
+	stats, err := h.queries.GetUserCheckInStats(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to get check-in stats"}`, http.StatusInternalServerError)
+		return
+	}
+
+	items := make([]checkInItem, 0, len(rows))
+	for _, row := range rows {
+		item := checkInItem{
+			ID:           uuid.UUID(row.ID.Bytes).String(),
+			BeverageID:   uuid.UUID(row.BeverageID.Bytes).String(),
+			BeverageName: row.BeverageName,
+			BeverageType: row.BeverageType,
+			CheckinDate:  row.CheckinDate.Time.Format("2006-01-02"),
+			CreatedAt:    row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		}
+		if row.BeverageCity.Valid {
+			city := row.BeverageCity.String
+			item.BeverageCity = &city
+		}
+		if row.BeverageImageUrl.Valid {
+			img := row.BeverageImageUrl.String
+			item.BeverageImage = &img
+		}
+		items = append(items, item)
+	}
+
+	resp := myCheckInsResponse{
+		Stats: checkInStats{
+			TotalCheckins:   stats.TotalCheckins,
+			UniqueVenues:    stats.UniqueVenues,
+			UniqueBreweries: stats.UniqueBreweries,
+			UniqueBars:      stats.UniqueBars,
+		},
+		CheckIns: items,
+	}
+	if stats.FirstCheckinDate.Valid {
+		s := stats.FirstCheckinDate.Time.Format("2006-01-02")
+		resp.Stats.FirstCheckinDate = &s
+	}
+	if stats.LastCheckinDate.Valid {
+		s := stats.LastCheckinDate.Time.Format("2006-01-02")
+		resp.Stats.LastCheckinDate = &s
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (h *UserHandler) SaveEvent(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {
