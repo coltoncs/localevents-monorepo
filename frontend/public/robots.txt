@@ -5,4 +5,4 @@ Disallow: /settings
 Disallow: /my-events
 Disallow: /saved
 
-Sitemap: https://919events.com/api/sitemap.xml
+Sitemap: https://919events.com/sitemap.xml
