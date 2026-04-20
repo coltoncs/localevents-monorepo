@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -9,74 +9,82 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
-  --sea-ink: #1e2050;
-  --sea-ink-soft: #535784;
-  --lagoon: #7b8ee8;
-  --lagoon-deep: #5566c8;
-  --palm: #5e3d7a;
-  --sand: #ebe7f5;
-  --foam: #f5f2fc;
-  --surface: rgba(255, 255, 255, 0.74);
-  --surface-strong: rgba(255, 255, 255, 0.9);
-  --line: rgba(30, 32, 80, 0.14);
-  --inset-glint: rgba(255, 255, 255, 0.82);
-  --kicker: rgba(94, 61, 122, 0.9);
-  --bg-base: #ebe8f4;
-  --header-bg: rgba(252, 250, 255, 0.84);
-  --chip-bg: rgba(255, 255, 255, 0.8);
-  --chip-line: rgba(80, 60, 130, 0.18);
-  --link-bg-hover: rgba(255, 255, 255, 0.9);
-  --hero-a: rgba(123, 142, 232, 0.36);
-  --hero-b: rgba(94, 61, 122, 0.2);
+  /* Neon-on-noir — LIGHT mode: paper-white surfaces, ink-black text, electric accents */
+  --sea-ink: #07070c;
+  --sea-ink-soft: #4a4a58;
+  --lagoon: #00b4ff;         /* electric cyan accent */
+  --lagoon-deep: #0066ff;    /* deeper electric blue for links/CTA */
+  --palm: #e000d4;           /* neon magenta secondary accent */
+  --lime: #8fff00;           /* acid lime tertiary (use sparingly) */
+  --sand: #f2f2f5;
+  --foam: #ffffff;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-strong: #ffffff;
+  --line: rgba(7, 7, 12, 0.14);
+  --inset-glint: rgba(255, 255, 255, 0.9);
+  --kicker: #0066ff;
+  --bg-base: #f2f2f5;
+  --header-bg: rgba(255, 255, 255, 0.78);
+  --chip-bg: #ffffff;
+  --chip-line: rgba(7, 7, 12, 0.18);
+  --link-bg-hover: rgba(0, 180, 255, 0.08);
+  --hero-a: rgba(0, 180, 255, 0.28);
+  --hero-b: rgba(224, 0, 212, 0.18);
+  --neon-glow: 0 0 0 1px rgba(0, 180, 255, 0.4), 0 0 22px rgba(0, 180, 255, 0.28);
 }
 
 :root[data-theme="dark"] {
-  --sea-ink: #dcdaf8;
-  --sea-ink-soft: #a8a8d4;
-  --lagoon: #8a8ce0;
-  --lagoon-deep: #ababf2;
-  --palm: #aa84d0;
-  --sand: #130f28;
-  --foam: #14122a;
-  --surface: rgba(18, 14, 40, 0.8);
-  --surface-strong: rgba(15, 12, 34, 0.92);
-  --line: rgba(170, 165, 248, 0.18);
-  --inset-glint: rgba(220, 218, 255, 0.14);
-  --kicker: #c4bcf8;
-  --bg-base: #0e0c22;
-  --header-bg: rgba(14, 12, 34, 0.8);
-  --chip-bg: rgba(18, 16, 42, 0.9);
-  --chip-line: rgba(170, 165, 248, 0.24);
-  --link-bg-hover: rgba(26, 22, 58, 0.8);
-  --hero-a: rgba(138, 140, 224, 0.18);
-  --hero-b: rgba(170, 132, 208, 0.12);
+  --sea-ink: #f5f5fa;
+  --sea-ink-soft: #9a9ab0;
+  --lagoon: #00f0ff;          /* glowing cyan */
+  --lagoon-deep: #5eeaff;
+  --palm: #ff3df2;            /* glowing magenta */
+  --lime: #c6ff3a;
+  --sand: #0a0a12;
+  --foam: #050508;
+  --surface: rgba(12, 12, 20, 0.82);
+  --surface-strong: #0c0c14;
+  --line: rgba(0, 240, 255, 0.18);
+  --inset-glint: rgba(0, 240, 255, 0.12);
+  --kicker: #00f0ff;
+  --bg-base: #050508;
+  --header-bg: rgba(5, 5, 8, 0.76);
+  --chip-bg: rgba(10, 10, 20, 0.88);
+  --chip-line: rgba(0, 240, 255, 0.24);
+  --link-bg-hover: rgba(0, 240, 255, 0.1);
+  --hero-a: rgba(0, 240, 255, 0.18);
+  --hero-b: rgba(255, 61, 242, 0.14);
+  --neon-glow: 0 0 0 1px rgba(0, 240, 255, 0.55), 0 0 28px rgba(0, 240, 255, 0.35);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --sea-ink: #dcdaf8;
-    --sea-ink-soft: #a8a8d4;
-    --lagoon: #8a8ce0;
-    --lagoon-deep: #ababf2;
-    --palm: #aa84d0;
-    --sand: #130f28;
-    --foam: #14122a;
-    --surface: rgba(18, 14, 40, 0.8);
-    --surface-strong: rgba(15, 12, 34, 0.92);
-    --line: rgba(170, 165, 248, 0.18);
-    --inset-glint: rgba(220, 218, 255, 0.14);
-    --kicker: #c4bcf8;
-    --bg-base: #0e0c22;
-    --header-bg: rgba(14, 12, 34, 0.8);
-    --chip-bg: rgba(18, 16, 42, 0.9);
-    --chip-line: rgba(170, 165, 248, 0.24);
-    --link-bg-hover: rgba(26, 22, 58, 0.8);
-    --hero-a: rgba(138, 140, 224, 0.18);
-    --hero-b: rgba(170, 132, 208, 0.12);
+    --sea-ink: #f5f5fa;
+    --sea-ink-soft: #9a9ab0;
+    --lagoon: #00f0ff;
+    --lagoon-deep: #5eeaff;
+    --palm: #ff3df2;
+    --lime: #c6ff3a;
+    --sand: #0a0a12;
+    --foam: #050508;
+    --surface: rgba(12, 12, 20, 0.82);
+    --surface-strong: #0c0c14;
+    --line: rgba(0, 240, 255, 0.18);
+    --inset-glint: rgba(0, 240, 255, 0.12);
+    --kicker: #00f0ff;
+    --bg-base: #050508;
+    --header-bg: rgba(5, 5, 8, 0.76);
+    --chip-bg: rgba(10, 10, 20, 0.88);
+    --chip-line: rgba(0, 240, 255, 0.24);
+    --link-bg-hover: rgba(0, 240, 255, 0.1);
+    --hero-a: rgba(0, 240, 255, 0.18);
+    --hero-b: rgba(255, 61, 242, 0.14);
+    --neon-glow: 0 0 0 1px rgba(0, 240, 255, 0.55), 0 0 28px rgba(0, 240, 255, 0.35);
   }
 }
 
@@ -94,12 +102,13 @@ body {
   margin: 0;
   color: var(--sea-ink);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss02", "cv11";
   background-color: var(--bg-base);
   background:
     radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
     radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
-    radial-gradient(720px 380px at 50% 115%, rgba(123, 142, 232, 0.1), transparent 68%),
-    linear-gradient(180deg, color-mix(in oklab, var(--sand) 68%, white) 0%, var(--foam) 44%, var(--bg-base) 100%);
+    radial-gradient(720px 380px at 50% 115%, rgba(0, 180, 255, 0.12), transparent 68%),
+    linear-gradient(180deg, var(--foam) 0%, var(--sand) 60%, var(--bg-base) 100%);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -111,44 +120,54 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.28;
+  opacity: 0.3;
   background:
-    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.8), transparent 34%),
-    radial-gradient(circle at 78% 26%, rgba(123, 142, 232, 0.2), transparent 42%),
-    radial-gradient(circle at 42% 82%, rgba(94, 61, 122, 0.14), transparent 36%);
+    radial-gradient(circle at 20% 15%, var(--hero-a), transparent 36%),
+    radial-gradient(circle at 82% 28%, var(--hero-b), transparent 38%),
+    radial-gradient(circle at 42% 88%, rgba(143, 255, 0, 0.08), transparent 40%);
 }
 
+/* Grid overlay — crisper and sharper, "futuristic" vibe */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.14;
+  opacity: 0.22;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: radial-gradient(circle at 50% 30%, black, transparent 78%);
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 30%, black, transparent 80%);
 }
 
 :where(a) {
   color: var(--lagoon-deep);
-  text-decoration-color: rgba(85, 102, 200, 0.4);
+  text-decoration-color: color-mix(in oklab, var(--lagoon-deep) 45%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  font-weight: 500;
 }
 
 :where(a):hover {
-  color: #4452b8;
+  color: var(--lagoon);
+  text-shadow: 0 0 12px color-mix(in oklab, var(--lagoon) 55%, transparent);
+}
+
+::selection {
+  background: var(--lagoon);
+  color: var(--foam);
 }
 
 code {
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
   border: 1px solid var(--line);
-  background: color-mix(in oklab, var(--surface-strong) 82%, white 18%);
-  border-radius: 7px;
+  background: color-mix(in oklab, var(--surface-strong) 82%, var(--lagoon) 6%);
+  border-radius: 4px;
   padding: 2px 7px;
+  color: var(--lagoon-deep);
 }
 
 pre code {
@@ -166,7 +185,10 @@ pre code {
 }
 
 .display-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
 }
 
 .island-shell {
@@ -174,36 +196,43 @@ pre code {
   background: linear-gradient(165deg, var(--surface-strong), var(--surface));
   box-shadow:
     0 1px 0 var(--inset-glint) inset,
-    0 22px 44px rgba(40, 30, 100, 0.1),
-    0 6px 18px rgba(30, 20, 80, 0.08);
-  backdrop-filter: blur(4px);
+    0 22px 44px rgba(0, 0, 0, 0.28),
+    0 6px 18px rgba(0, 180, 255, 0.06);
+  backdrop-filter: blur(6px);
 }
 
 .feature-card {
-  background: linear-gradient(165deg, color-mix(in oklab, var(--surface-strong) 93%, white 7%), var(--surface));
+  background: linear-gradient(165deg, var(--surface-strong), var(--surface));
+  border: 1px solid var(--line);
   box-shadow:
     0 1px 0 var(--inset-glint) inset,
-    0 18px 34px rgba(40, 30, 100, 0.1),
-    0 4px 14px rgba(30, 20, 80, 0.06);
+    0 18px 34px rgba(0, 0, 0, 0.22);
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 220ms ease;
 }
 
 .feature-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in oklab, var(--lagoon-deep) 35%, var(--line));
+  border-color: var(--lagoon);
+  box-shadow:
+    0 1px 0 var(--inset-glint) inset,
+    0 18px 34px rgba(0, 0, 0, 0.22),
+    0 0 0 1px var(--lagoon),
+    0 0 32px rgba(0, 240, 255, 0.28);
 }
 
 button,
 .island-shell,
 a {
   transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease,
-    transform 180ms ease;
+    transform 180ms ease, box-shadow 200ms ease;
 }
 
 .island-kicker {
-  letter-spacing: 0.16em;
+  font-family: var(--font-mono);
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  font-weight: 700;
-  font-size: 0.69rem;
+  font-weight: 500;
+  font-size: 0.66rem;
   color: var(--kicker);
 }
 
@@ -213,6 +242,8 @@ a {
   align-items: center;
   text-decoration: none;
   color: var(--sea-ink-soft);
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 .nav-link::after {
@@ -224,7 +255,8 @@ a {
   height: 2px;
   transform: scaleX(0);
   transform-origin: left;
-  background: linear-gradient(90deg, var(--lagoon), #a090e8);
+  background: linear-gradient(90deg, var(--lagoon), var(--palm));
+  box-shadow: 0 0 10px color-mix(in oklab, var(--lagoon) 60%, transparent);
   transition: transform 170ms ease;
 }
 
@@ -249,6 +281,32 @@ a {
   background: color-mix(in oklab, var(--header-bg) 84%, transparent 16%);
 }
 
+/* Neon primary button utility — opt-in via `.btn-neon` class */
+.btn-neon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  color: var(--foam);
+  background: linear-gradient(135deg, var(--lagoon), var(--lagoon-deep));
+  border: 1px solid color-mix(in oklab, var(--lagoon) 70%, white);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 0 0 1px rgba(0, 180, 255, 0.25),
+    0 10px 30px rgba(0, 180, 255, 0.35);
+}
+
+.btn-neon:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 0 0 1px rgba(0, 240, 255, 0.55),
+    0 14px 40px rgba(0, 240, 255, 0.55);
+}
+
 /* Mapbox popup theme overrides */
 .themed-popup .mapboxgl-popup-content {
   background: var(--surface-strong);
@@ -256,7 +314,7 @@ a {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .themed-popup .mapboxgl-popup-tip {
@@ -305,7 +363,7 @@ a {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   color: var(--sea-ink);
 }
 
@@ -326,24 +384,25 @@ a {
 }
 
 .event-datepicker .react-datepicker__day:hover {
-  background: var(--surface);
+  background: var(--link-bg-hover);
 }
 
 .event-datepicker .react-datepicker__day--selected,
 .event-datepicker .react-datepicker__day--range-start,
 .event-datepicker .react-datepicker__day--range-end {
   background: var(--lagoon-deep) !important;
-  color: white !important;
+  color: var(--foam) !important;
+  box-shadow: 0 0 12px color-mix(in oklab, var(--lagoon) 55%, transparent);
 }
 
 .event-datepicker .react-datepicker__day--in-range,
 .event-datepicker .react-datepicker__day--in-selecting-range {
-  background: rgba(123, 142, 232, 0.2);
+  background: color-mix(in oklab, var(--lagoon) 18%, transparent);
   color: var(--sea-ink);
 }
 
 .event-datepicker .react-datepicker__day--keyboard-selected {
-  background: rgba(123, 142, 232, 0.14);
+  background: color-mix(in oklab, var(--lagoon) 14%, transparent);
   color: var(--sea-ink);
 }
 
@@ -395,12 +454,12 @@ a {
 }
 
 .event-datepicker .react-datepicker__time-container .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
-  background: var(--surface);
+  background: var(--link-bg-hover);
 }
 
 .event-datepicker .react-datepicker__time-container .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
   background: var(--lagoon-deep) !important;
-  color: white !important;
+  color: var(--foam) !important;
 }
 
 .event-datepicker .react-datepicker__time-container .react-datepicker__time-list-item--disabled {
@@ -439,9 +498,9 @@ a {
   --tw-prose-bullets: var(--sea-ink-soft);
   --tw-prose-hr: var(--line);
   --tw-prose-quotes: var(--sea-ink);
-  --tw-prose-quote-borders: var(--line);
+  --tw-prose-quote-borders: var(--lagoon);
   --tw-prose-captions: var(--sea-ink-soft);
-  --tw-prose-code: var(--sea-ink);
+  --tw-prose-code: var(--lagoon-deep);
   --tw-prose-pre-code: var(--sea-ink-soft);
   --tw-prose-pre-bg: var(--surface-strong);
   --tw-prose-th-borders: var(--line);
