@@ -25,6 +25,7 @@ interface EventMapProps {
   className?: string;
   onMapReady?: (map: mapboxgl.Map) => void;
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+  selectedEventId?: string | null;
 }
 
 export function EventMap({
@@ -35,13 +36,16 @@ export function EventMap({
   className = "h-[500px] w-full rounded-lg",
   onMapReady,
   onMapClick,
+  selectedEventId,
 }: EventMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const themeRef = useRef<"light" | "dark">(getResolvedTheme());
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  const selectedEventIdRef = useRef<string | null | undefined>(selectedEventId);
+  selectedEventIdRef.current = selectedEventId;
 
   const getMarkerColor = useCallback(getMarkerColorUtil, []);
   const getCircleColors = useCallback(getCircleColorsUtil, []);
@@ -163,7 +167,7 @@ export function EventMap({
           updateCircleColors(map, newTheme);
 
           const color = getMarkerColor(newTheme);
-          markersRef.current.forEach((m) => {
+          for (const [id, m] of Array.from(markersRef.current.entries())) {
             const lngLat = m.getLngLat();
             const popup = m.getPopup();
             m.remove();
@@ -171,8 +175,8 @@ export function EventMap({
               .setLngLat(lngLat)
               .setPopup(popup)
               .addTo(map);
-            markersRef.current[markersRef.current.indexOf(m)] = newMarker;
-          });
+            markersRef.current.set(id, newMarker);
+          }
         });
       }
     });
@@ -226,7 +230,7 @@ export function EventMap({
     if (!mapRef.current) return;
 
     markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
+    markersRef.current.clear();
 
     const theme = themeRef.current;
     const color = getMarkerColor(theme);
@@ -259,7 +263,7 @@ export function EventMap({
         });
       });
 
-      markersRef.current.push(marker);
+      markersRef.current.set(event.ID, marker);
     });
 
     // Fit map to show all markers + the center point
@@ -271,7 +275,28 @@ export function EventMap({
       );
       mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
     }
+
+    // If a selection was active before the rebuild, reopen its popup on the new marker
+    const selId = selectedEventIdRef.current;
+    if (selId) {
+      const m = markersRef.current.get(selId);
+      const popup = m?.getPopup();
+      if (m && popup && !popup.isOpen()) m.togglePopup();
+    }
   }, [events, getMarkerColor, center.lat, center.lng]);
+
+  // Respond to external selection: close any open popup and open the matching marker's popup
+  useEffect(() => {
+    markersRef.current.forEach((m) => {
+      const popup = m.getPopup();
+      if (popup?.isOpen()) popup.remove();
+    });
+
+    if (!selectedEventId) return;
+    const marker = markersRef.current.get(selectedEventId);
+    const popup = marker?.getPopup();
+    if (marker && popup && !popup.isOpen()) marker.togglePopup();
+  }, [selectedEventId]);
 
   return <div ref={containerRef} className={className} />;
 }

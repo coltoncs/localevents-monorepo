@@ -7,7 +7,7 @@ import { EventFilters } from '#/components/EventFilters'
 import { EventCard } from '#/components/EventCard'
 import { EventTable } from '#/components/EventTable'
 import { EventMap } from '#/components/EventMap'
-import { FullscreenMap } from '#/components/FullscreenMap'
+import { FullscreenMap, FullscreenMapSkeleton } from '#/components/FullscreenMap'
 import { LocationSearch, getSavedLocation } from '#/components/LocationSearch'
 import { Pagination } from '#/components/Pagination'
 import { ViewToggle } from '#/components/ViewToggle'
@@ -23,6 +23,7 @@ interface EventsSearch {
   search?: string
   view?: 'map' | 'list'
   page?: number
+  fullscreen?: 1
 }
 
 export const Route = createFileRoute('/events/')({
@@ -47,8 +48,18 @@ export const Route = createFileRoute('/events/')({
     search: (search.search as string) || undefined,
     view: (search.view as 'map' | 'list') || undefined,
     page: search.page ? Number(search.page) : undefined,
+    fullscreen: search.fullscreen ? 1 : undefined,
   }),
-  loaderDeps: ({ search }) => search,
+  loaderDeps: ({ search }) => ({
+    lat: search.lat,
+    lng: search.lng,
+    radius: search.radius,
+    date: search.date,
+    endDate: search.endDate,
+    category: search.category,
+    search: search.search,
+    page: search.page,
+  }),
   loader: async ({ context, deps }) => {
     if (deps.lat && deps.lng) {
       await context.queryClient.prefetchQuery(
@@ -64,6 +75,11 @@ export const Route = createFileRoute('/events/')({
         }),
       )
     }
+  },
+  pendingComponent: function EventsPending() {
+    const search = Route.useSearch()
+    if (search.fullscreen) return <FullscreenMapSkeleton />
+    return <Spinner className="py-24" />
   },
   component: EventsPage,
 })
@@ -131,7 +147,13 @@ function EventsList({
 }) {
   const navigate = useNavigate()
   const [locationName, setLocationName] = useState<string | null>(null)
-  const [fullscreen, setFullscreen] = useState(false)
+  const fullscreen = !!search.fullscreen
+  const setFullscreen = (val: boolean) => {
+    navigate({
+      to: '/events',
+      search: (prev) => ({ ...prev, fullscreen: val ? 1 : undefined }),
+    })
+  }
   const [mapDisplayMode, setMapDisplayMode] = useState<'cards' | 'list'>('cards')
 
   useEffect(() => {
