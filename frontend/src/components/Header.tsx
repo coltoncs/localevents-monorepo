@@ -89,7 +89,7 @@ export default function Header() {
 					className="shrink-0 text-base font-bold tracking-tight text-(--sea-ink) no-underline"
 				>
 					<span className="inline-flex items-center gap-1.5">
-						<span className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,#56c6be,#7ed3bf)]" />
+						<span className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] shadow-[0_0_10px_var(--lagoon)]" />
 						919Events
 					</span>
 				</Link>
