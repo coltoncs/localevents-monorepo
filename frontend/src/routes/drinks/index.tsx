@@ -3,6 +3,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { BeverageCard } from "#/components/BeverageCard";
 import { BeverageMap } from "#/components/BeverageMap";
+import {
+	FullscreenBeverageMap,
+	FullscreenBeverageMapSkeleton,
+} from "#/components/FullscreenBeverageMap";
 import { getSavedLocation, LocationSearch } from "#/components/LocationSearch";
 import { Spinner } from "#/components/Spinner";
 import { SuggestBeverageCreateModal } from "#/components/SuggestBeverageCreateModal";
@@ -15,6 +19,7 @@ interface BeveragesSearch {
 	radius?: number;
 	type?: "brewery" | "bar";
 	search?: string;
+	fullscreen?: 1;
 }
 
 export const Route = createFileRoute("/drinks/")({
@@ -46,8 +51,15 @@ export const Route = createFileRoute("/drinks/")({
 			? (search.type as "brewery" | "bar")
 			: undefined,
 		search: (search.search as string) || undefined,
+		fullscreen: search.fullscreen ? 1 : undefined,
 	}),
-	loaderDeps: ({ search }) => search,
+	loaderDeps: ({ search }) => ({
+		lat: search.lat,
+		lng: search.lng,
+		radius: search.radius,
+		type: search.type,
+		search: search.search,
+	}),
 	loader: async ({ context, deps }) => {
 		if (deps.lat && deps.lng) {
 			await context.queryClient.prefetchQuery(
@@ -60,6 +72,11 @@ export const Route = createFileRoute("/drinks/")({
 				}),
 			);
 		}
+	},
+	pendingComponent: function DrinksPending() {
+		const search = Route.useSearch();
+		if (search.fullscreen) return <FullscreenBeverageMapSkeleton />;
+		return <Spinner className="py-24" />;
 	},
 	component: BeveragesPage,
 });
@@ -356,12 +373,45 @@ function BeveragesList({
 			</div>
 
 			{/* Map */}
-			<BeverageMap
-				beverages={beverages}
-				center={center}
-				radiusMiles={showAll ? 0 : radius}
-				className="h-[450px] w-full rounded-lg sm:h-[500px]"
-			/>
+			<div className="relative">
+				<BeverageMap
+					beverages={beverages}
+					center={center}
+					radiusMiles={showAll ? 0 : radius}
+					className="h-[450px] w-full rounded-lg sm:h-[500px]"
+				/>
+				<button
+					type="button"
+					onClick={() =>
+						navigate({
+							to: "/drinks",
+							search: (prev) => ({ ...prev, fullscreen: 1 }),
+						})
+					}
+					className="absolute top-3 left-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) text-(--sea-ink) shadow-lg backdrop-blur-lg hover:bg-(--surface)"
+					aria-label="Fullscreen map"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M10 2h4v4M6 14H2v-4M14 2l-5 5M2 14l5-5" />
+					</svg>
+				</button>
+			</div>
+
+			{search.fullscreen && (
+				<FullscreenBeverageMap
+					lat={search.lat}
+					lng={search.lng}
+					radius={search.radius}
+					type={search.type}
+					search={search.search}
+					onClose={() =>
+						navigate({
+							to: "/drinks",
+							search: (prev) => ({ ...prev, fullscreen: undefined }),
+						})
+					}
+				/>
+			)}
 
 			{/* Cards */}
 			{isLoading ? (
