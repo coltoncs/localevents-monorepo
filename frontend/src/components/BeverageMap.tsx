@@ -23,6 +23,9 @@ interface BeverageMapProps {
 	radiusMiles?: number;
 	zoom?: number;
 	className?: string;
+	onMapReady?: (map: mapboxgl.Map) => void;
+	onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+	selectedBeverageId?: string | null;
 }
 
 export function BeverageMap({
@@ -31,11 +34,18 @@ export function BeverageMap({
 	radiusMiles = 10,
 	zoom = 11,
 	className = "h-[500px] w-full rounded-lg",
+	onMapReady,
+	onMapClick,
+	selectedBeverageId,
 }: BeverageMapProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<mapboxgl.Map | null>(null);
-	const markersRef = useRef<mapboxgl.Marker[]>([]);
+	const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
 	const themeRef = useRef<"light" | "dark">(getResolvedTheme());
+	const onMapClickRef = useRef(onMapClick);
+	onMapClickRef.current = onMapClick;
+	const selectedBeverageIdRef = useRef<string | null | undefined>(selectedBeverageId);
+	selectedBeverageIdRef.current = selectedBeverageId;
 
 	const getMarkerColor = useCallback(getMarkerColorUtil, []);
 	const getCircleColors = useCallback(getCircleColorsUtil, []);
@@ -130,9 +140,16 @@ export function BeverageMap({
 			"bottom-right",
 		);
 
+		mapRef.current.on("click", (e) => {
+			onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+		});
+
 		mapRef.current.on("load", () => {
 			const map = mapRef.current;
-			if (map) updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
+			if (map) {
+				updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
+				onMapReady?.(map);
+			}
 		});
 
 		return () => {
@@ -157,7 +174,7 @@ export function BeverageMap({
 					updateCircleColors(map, newTheme);
 
 					const color = getMarkerColor(newTheme);
-					markersRef.current.forEach((m) => {
+					for (const [id, m] of Array.from(markersRef.current.entries())) {
 						const lngLat = m.getLngLat();
 						const popup = m.getPopup();
 						m.remove();
@@ -165,8 +182,8 @@ export function BeverageMap({
 							.setLngLat(lngLat)
 							.setPopup(popup)
 							.addTo(map);
-						markersRef.current[markersRef.current.indexOf(m)] = newMarker;
-					});
+						markersRef.current.set(id, newMarker);
+					}
 				});
 			}
 		});
@@ -218,8 +235,8 @@ export function BeverageMap({
 	useEffect(() => {
 		if (!mapRef.current) return;
 
-		for (const m of markersRef.current) m.remove();
-		markersRef.current = [];
+		markersRef.current.forEach((m) => m.remove());
+		markersRef.current.clear();
 
 		const theme = themeRef.current;
 		const color = getMarkerColor(theme);
@@ -241,7 +258,7 @@ export function BeverageMap({
 			const marker = new mapboxgl.Marker({ color })
 				.setLngLat([bev.Longitude, bev.Latitude])
 				.setPopup(popup)
-				.addTo(mapRef.current);
+				.addTo(mapRef.current!);
 
 			const el = marker.getElement();
 			el.style.cursor = "pointer";
@@ -253,7 +270,7 @@ export function BeverageMap({
 				});
 			});
 
-			markersRef.current.push(marker);
+			markersRef.current.set(bev.ID, marker);
 		});
 
 		if (beverages.length > 0 && mapRef.current) {
@@ -262,7 +279,27 @@ export function BeverageMap({
 			for (const bev of beverages) bounds.extend([bev.Longitude, bev.Latitude]);
 			mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
 		}
+
+		const selId = selectedBeverageIdRef.current;
+		if (selId) {
+			const m = markersRef.current.get(selId);
+			const popup = m?.getPopup();
+			if (m && popup && !popup.isOpen()) m.togglePopup();
+		}
 	}, [beverages, getMarkerColor, center.lat, center.lng]);
+
+	// Respond to external selection: open the matching marker's popup
+	useEffect(() => {
+		markersRef.current.forEach((m) => {
+			const popup = m.getPopup();
+			if (popup?.isOpen()) popup.remove();
+		});
+
+		if (!selectedBeverageId) return;
+		const marker = markersRef.current.get(selectedBeverageId);
+		const popup = marker?.getPopup();
+		if (marker && popup && !popup.isOpen()) marker.togglePopup();
+	}, [selectedBeverageId]);
 
 	return <div ref={containerRef} className={className} />;
 }
