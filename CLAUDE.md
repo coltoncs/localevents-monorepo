@@ -79,7 +79,7 @@ Three roles stored in Clerk PublicMetadata: `user`, `author`, `admin`.
 
 - Event scraping (default: every 6 hours)
 - Weekly digest emails/SMS (default: Friday 9 AM ET)
-- Cleanup of old events and orphaned images (daily 3 AM)
+- Cleanup of old events and orphaned images (default: Friday 8 AM ET, one hour before the digest so emails never reference images the next cleanup would have deleted)
 
 ## Database
 

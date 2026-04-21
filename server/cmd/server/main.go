@@ -52,8 +52,10 @@ func main() {
 
 	c := cron.New()
 
-	// Cleanup: delete past events, orphaned images, and stale deletion records daily at 3 AM
-	c.AddFunc("0 3 * * *", func() {
+	// Cleanup: delete past events, orphaned images, and stale deletion records.
+	// Scheduled just before the weekly digest so digest emails never reference
+	// images that get deleted later in the week.
+	c.AddFunc(cfg.CleanupCronSchedule, func() {
 		start := time.Now()
 		ctx := context.Background()
 		var eventsDeleted int64
