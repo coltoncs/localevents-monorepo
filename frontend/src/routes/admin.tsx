@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AdminApplicationsTab } from "#/components/admin/AdminApplicationsTab";
 import { AdminBeveragesTab } from "#/components/admin/AdminBeveragesTab";
 import { AdminDashboardTab } from "#/components/admin/AdminDashboardTab";
+import { AdminFoodsTab } from "#/components/admin/AdminFoodsTab";
 import { AdminOpsTab } from "#/components/admin/AdminOpsTab";
 import { AdminSuggestionsTab } from "#/components/admin/AdminSuggestionsTab";
 import { type AdminTab, AdminTabNav } from "#/components/admin/AdminTabNav";
@@ -13,6 +14,7 @@ const VALID_TABS: AdminTab[] = [
 	"applications",
 	"suggestions",
 	"beverages",
+	"foods",
 	"ops",
 ];
 
@@ -58,6 +60,7 @@ function AdminContent() {
 			{active === "applications" && <AdminApplicationsTab />}
 			{active === "suggestions" && <AdminSuggestionsTab />}
 			{active === "beverages" && <AdminBeveragesTab />}
+			{active === "foods" && <AdminFoodsTab />}
 			{active === "ops" && <AdminOpsTab />}
 		</div>
 	);

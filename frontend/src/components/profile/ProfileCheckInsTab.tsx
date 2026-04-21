@@ -1,8 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Beer, MapPin, Wine } from "lucide-react";
+import { Beer, MapPin, UtensilsCrossed, Wine } from "lucide-react";
+import { formatCuisineLabel } from "#/components/FoodCard";
 import { Spinner } from "#/components/Spinner";
 import { useMyCheckIns } from "#/lib/hooks/useBeverageCheckIns";
-import type { MyCheckIn } from "#/lib/types";
+import { useMyFoodCheckIns } from "#/lib/hooks/useFoodCheckIns";
+import type { MyCheckIn, MyFoodCheckIn } from "#/lib/types";
+
+type CombinedItem =
+	| { kind: "drink"; sortKey: string; item: MyCheckIn }
+	| { kind: "food"; sortKey: string; item: MyFoodCheckIn };
 
 function formatDate(iso: string) {
 	const d = new Date(`${iso}T00:00:00`);
@@ -13,7 +19,7 @@ function formatDate(iso: string) {
 	});
 }
 
-function CheckInRow({ item }: { item: MyCheckIn }) {
+function DrinkRow({ item }: { item: MyCheckIn }) {
 	const Icon = item.beverage_type === "brewery" ? Beer : Wine;
 	return (
 		<Link
@@ -48,25 +54,68 @@ function CheckInRow({ item }: { item: MyCheckIn }) {
 	);
 }
 
+function FoodRow({ item }: { item: MyFoodCheckIn }) {
+	return (
+		<Link
+			to="/food/$foodId"
+			params={{ foodId: item.food_id }}
+			className="flex items-center gap-3 rounded-lg border border-(--line) bg-(--surface-strong) px-3 py-2.5 no-underline hover:bg-(--surface)"
+		>
+			{item.food_image_url ? (
+				<img
+					src={item.food_image_url}
+					alt=""
+					className="h-12 w-12 shrink-0 rounded-md object-cover"
+				/>
+			) : (
+				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[rgba(245,158,11,0.14)] text-orange-700">
+					<UtensilsCrossed size={22} />
+				</div>
+			)}
+			<div className="min-w-0 flex-1">
+				<p className="truncate text-sm font-medium text-(--sea-ink)">
+					{item.food_name}
+				</p>
+				<p className="truncate text-xs text-(--sea-ink-soft)">
+					{formatCuisineLabel(item.food_cuisine)}
+					{item.food_city ? ` · ${item.food_city}` : ""}
+				</p>
+			</div>
+			<p className="shrink-0 text-xs text-(--sea-ink-soft)">
+				{formatDate(item.checkin_date)}
+			</p>
+		</Link>
+	);
+}
+
 export function ProfileCheckInsTab() {
-	const { data, isLoading } = useMyCheckIns();
+	const drinksQuery = useMyCheckIns();
+	const foodsQuery = useMyFoodCheckIns();
 
-	if (isLoading) return <Spinner className="py-12" />;
-	if (!data) return null;
+	if (drinksQuery.isLoading || foodsQuery.isLoading) {
+		return <Spinner className="py-12" />;
+	}
 
-	const { stats, checkins } = data;
+	const drinkStats = drinksQuery.data?.stats;
+	const foodStats = foodsQuery.data?.stats;
+	const drinkCheckins = drinksQuery.data?.checkins ?? [];
+	const foodCheckins = foodsQuery.data?.checkins ?? [];
 
-	if (checkins.length === 0) {
+	const totalCheckins =
+		(drinkStats?.total_checkins ?? 0) + (foodStats?.total_checkins ?? 0);
+
+	if (totalCheckins === 0) {
 		return (
 			<div className="rounded-lg border border-dashed border-(--line) p-10 text-center">
 				<MapPin className="mx-auto mb-2 text-(--sea-ink-soft)" size={28} />
 				<p className="text-sm text-(--sea-ink-soft)">
-					No check-ins yet. Visit a brewery or bar from the{" "}
+					No check-ins yet. Visit a spot from the{" "}
 					<Link
-						to="/drinks"
+						to="/places"
+						search={{ tab: "food" }}
 						className="font-medium text-(--lagoon-deep) no-underline hover:text-(--lagoon)"
 					>
-						Drinks
+						Places
 					</Link>{" "}
 					page and check in while you&apos;re there.
 				</p>
@@ -74,13 +123,36 @@ export function ProfileCheckInsTab() {
 		);
 	}
 
+	const combined: CombinedItem[] = [
+		...drinkCheckins.map<CombinedItem>((item) => ({
+			kind: "drink",
+			sortKey: item.created_at,
+			item,
+		})),
+		...foodCheckins.map<CombinedItem>((item) => ({
+			kind: "food",
+			sortKey: item.created_at,
+			item,
+		})),
+	].sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
+
 	return (
 		<div className="space-y-6">
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				<StatCard label="Total check-ins" value={stats.total_checkins} />
-				<StatCard label="Unique venues" value={stats.unique_venues} />
-				<StatCard label="Breweries" value={stats.unique_breweries} />
-				<StatCard label="Bars" value={stats.unique_bars} />
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+				<StatCard label="Total check-ins" value={totalCheckins} />
+				<StatCard
+					label="Unique venues"
+					value={
+						(drinkStats?.unique_venues ?? 0) +
+						(foodStats?.unique_restaurants ?? 0)
+					}
+				/>
+				<StatCard label="Breweries" value={drinkStats?.unique_breweries ?? 0} />
+				<StatCard label="Bars" value={drinkStats?.unique_bars ?? 0} />
+				<StatCard
+					label="Restaurants"
+					value={foodStats?.unique_restaurants ?? 0}
+				/>
 			</div>
 
 			<div>
@@ -88,9 +160,13 @@ export function ProfileCheckInsTab() {
 					Recent check-ins
 				</h2>
 				<div className="space-y-2">
-					{checkins.map((item) => (
-						<CheckInRow key={item.id} item={item} />
-					))}
+					{combined.map((entry) =>
+						entry.kind === "drink" ? (
+							<DrinkRow key={`d-${entry.item.id}`} item={entry.item} />
+						) : (
+							<FoodRow key={`f-${entry.item.id}`} item={entry.item} />
+						),
+					)}
 				</div>
 			</div>
 		</div>

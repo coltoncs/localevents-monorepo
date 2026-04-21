@@ -21,12 +21,13 @@ export default function Header() {
 				Events
 			</Link>
 			<Link
-				to="/drinks"
+				to="/places"
+				search={{ tab: "food" }}
 				className="nav-link"
 				activeProps={{ className: "nav-link is-active" }}
 				onClick={() => setMenuOpen(false)}
 			>
-				Drinks
+				Places
 			</Link>
 			{isSignedIn && canCreateEvent && (
 				<Link

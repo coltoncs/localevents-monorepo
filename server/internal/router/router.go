@@ -36,6 +36,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	suggestionHandler := handler.NewSuggestionHandler(queries)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 	beverageHandler := handler.NewBeverageHandler(queries)
+	foodHandler := handler.NewFoodHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)
 
 	r.Route("/api", func(r chi.Router) {
@@ -56,6 +57,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/beverages", beverageHandler.List)
 			r.Get("/beverages/{id}", beverageHandler.Get)
 			r.Get("/beverages/{id}/checkin-counts", beverageHandler.CheckInCounts)
+			r.Get("/foods", foodHandler.List)
+			r.Get("/foods/{id}", foodHandler.Get)
+			r.Get("/foods/{id}/checkin-counts", foodHandler.CheckInCounts)
 		})
 
 		// Authenticated routes (any signed-in user)
@@ -66,6 +70,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/me/events", userHandler.ListMyEvents)
 			r.Get("/me/saved", userHandler.ListSaved)
 			r.Get("/me/beverage-checkins", userHandler.ListMyCheckIns)
+			r.Get("/me/food-checkins", userHandler.ListMyFoodCheckIns)
 			r.Post("/me/saved/{eventId}", userHandler.SaveEvent)
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)
@@ -80,6 +85,8 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Post("/suggestions", suggestionHandler.Create)
 			r.Post("/beverages/{id}/checkins", beverageHandler.CheckIn)
 			r.Get("/beverages/{id}/my-checkin-status", beverageHandler.MyCheckInStatus)
+			r.Post("/foods/{id}/checkins", foodHandler.CheckIn)
+			r.Get("/foods/{id}/my-checkin-status", foodHandler.MyCheckInStatus)
 		})
 
 		// Author/Admin routes
@@ -104,6 +111,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Post("/beverages", beverageHandler.Create)
 			r.Put("/beverages/{id}", beverageHandler.Update)
 			r.Delete("/beverages/{id}", beverageHandler.Delete)
+			r.Post("/foods", foodHandler.Create)
+			r.Put("/foods/{id}", foodHandler.Update)
+			r.Delete("/foods/{id}", foodHandler.Delete)
 			r.Get("/admin/applications", appHandler.ListPending)
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)

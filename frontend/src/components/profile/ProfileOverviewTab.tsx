@@ -92,7 +92,8 @@ export function ProfileOverviewTab() {
 						<EmptyPanel>
 							No check-ins yet.{" "}
 							<Link
-								to="/drinks"
+								to="/places"
+								search={{ tab: "food" }}
 								className="font-medium text-(--lagoon-deep) no-underline"
 							>
 								Find a spot
