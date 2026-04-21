@@ -1,18 +1,17 @@
+import type { SearchBoxRetrieveResponse } from "@mapbox/search-js-core";
 import mapboxgl from "mapbox-gl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// @ts-expect-error -- mapbox-gl-geocoder has no TS types for default import
-import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import {
 	createGeoJSONCircle,
 	DARK_STYLE,
+	DEFAULT_MAP_CENTER,
 	getCircleColors,
 	getMarkerColor,
 	getResolvedTheme,
 	LIGHT_STYLE,
 } from "#/lib/mapUtils";
-import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN as string;
 
@@ -20,19 +19,39 @@ const RADIUS_SOURCE = "radius-circle";
 const RADIUS_FILL_LAYER = "radius-fill";
 const RADIUS_LINE_LAYER = "radius-line";
 
+export interface PoiSelection {
+	lat: number;
+	lng: number;
+	name?: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zip?: string;
+	phone?: string;
+	website?: string;
+}
+
 interface LocationPickerMapProps {
 	lat: number;
 	lng: number;
 	onCoordinateChange: (lat: number, lng: number) => void;
+	onPoiSelect?: (poi: PoiSelection) => void;
 	radiusMiles?: number;
 	className?: string;
 	interactive?: boolean;
 }
 
+// `@mapbox/search-js-react` transitively imports `@mapbox/search-js-web`, which
+// registers a custom element at module load and touches `document`. That blows
+// up under Cloudflare Workers SSR, so load it lazily on the client only.
+// biome-ignore lint/suspicious/noExplicitAny: third-party JSX type friction
+type SearchBoxComp = React.ComponentType<any>;
+
 export function LocationPickerMap({
 	lat,
 	lng,
 	onCoordinateChange,
+	onPoiSelect,
 	radiusMiles,
 	className = "h-[300px] w-full rounded-lg",
 	interactive = true,
@@ -43,8 +62,26 @@ export function LocationPickerMap({
 	const themeRef = useRef<"light" | "dark">(getResolvedTheme());
 	const onChangeRef = useRef(onCoordinateChange);
 	onChangeRef.current = onCoordinateChange;
-	// Track whether the map is currently being updated by props to avoid feedback loops
-	const updatingFromPropsRef = useRef(false);
+	const onPoiSelectRef = useRef(onPoiSelect);
+	onPoiSelectRef.current = onPoiSelect;
+	const hasCoords = lat !== 0 || lng !== 0;
+	const viewCenter = hasCoords ? { lat, lng } : DEFAULT_MAP_CENTER;
+	const proximityRef = useRef(viewCenter);
+	proximityRef.current = viewCenter;
+	const [SearchBoxComponent, setSearchBoxComponent] =
+		useState<SearchBoxComp | null>(null);
+
+	useEffect(() => {
+		if (!interactive) return;
+		let cancelled = false;
+		import("@mapbox/search-js-react").then((mod) => {
+			if (!cancelled)
+				setSearchBoxComponent(() => mod.SearchBox as SearchBoxComp);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [interactive]);
 
 	// Initialize map — intentionally empty deps to run once on mount
 	// biome-ignore lint/correctness/useExhaustiveDependencies: map init runs once
@@ -57,12 +94,11 @@ export function LocationPickerMap({
 		const map = new mapboxgl.Map({
 			container: containerRef.current,
 			style: theme === "dark" ? DARK_STYLE : LIGHT_STYLE,
-			center: [lng, lat],
+			center: [viewCenter.lng, viewCenter.lat],
 			zoom: 12,
 		});
 		mapRef.current = map;
 
-		// Add draggable marker
 		const marker = new mapboxgl.Marker({
 			color: getMarkerColor(theme),
 			draggable: interactive,
@@ -81,25 +117,8 @@ export function LocationPickerMap({
 				marker.setLngLat(e.lngLat);
 				onChangeRef.current(e.lngLat.lat, e.lngLat.lng);
 			});
-
-			// Add geocoder
-			const geocoder = new MapboxGeocoder({
-				accessToken: mapboxgl.accessToken,
-				mapboxgl,
-				marker: false,
-				placeholder: "Search location...",
-				types: "address,poi,place,locality,neighborhood",
-			});
-			map.addControl(geocoder, "top-left");
-
-			geocoder.on("result", (e: { result: { center: [number, number] } }) => {
-				const [gLng, gLat] = e.result.center;
-				marker.setLngLat([gLng, gLat]);
-				onChangeRef.current(gLat, gLng);
-			});
 		}
 
-		// Add radius circle if needed
 		if (radiusMiles) {
 			map.on("load", () => {
 				addRadiusCircle(map, lng, lat, radiusMiles, theme);
@@ -120,27 +139,20 @@ export function LocationPickerMap({
 		if (!map || !marker) return;
 
 		const currentPos = marker.getLngLat();
-		// Only update if coordinates actually changed (avoid loops from our own updates)
 		if (
 			Math.abs(currentPos.lat - lat) < 0.0001 &&
 			Math.abs(currentPos.lng - lng) < 0.0001
 		)
 			return;
 
-		updatingFromPropsRef.current = true;
 		marker.setLngLat([lng, lat]);
 		map.flyTo({ center: [lng, lat], duration: 500 });
 
 		if (radiusMiles) {
 			updateRadiusData(map, lng, lat, radiusMiles);
 		}
-
-		requestAnimationFrame(() => {
-			updatingFromPropsRef.current = false;
-		});
 	}, [lat, lng, radiusMiles]);
 
-	// Theme changes
 	useEffect(() => {
 		const map = mapRef.current;
 		if (!map) return;
@@ -152,7 +164,6 @@ export function LocationPickerMap({
 				map.setStyle(newTheme === "dark" ? DARK_STYLE : LIGHT_STYLE);
 
 				map.once("style.load", () => {
-					// Re-add marker with new color
 					const marker = markerRef.current;
 					if (marker) {
 						const lngLat = marker.getLngLat();
@@ -173,7 +184,6 @@ export function LocationPickerMap({
 						}
 					}
 
-					// Re-add radius circle if needed
 					if (radiusMiles) {
 						addRadiusCircle(map, lng, lat, radiusMiles, newTheme);
 					}
@@ -202,7 +212,53 @@ export function LocationPickerMap({
 		};
 	}, [interactive, radiusMiles, lat, lng]);
 
-	return <div ref={containerRef} className={className} />;
+	function handleRetrieve(res: SearchBoxRetrieveResponse) {
+		const feature = res?.features?.[0];
+		if (!feature) return;
+		const [featLng, featLat] = feature.geometry.coordinates;
+		const props = feature.properties;
+		const ctx = props.context ?? {};
+		const metadata = (props.metadata ?? {}) as Record<string, unknown>;
+
+		const poi: PoiSelection = {
+			lat: featLat,
+			lng: featLng,
+			name: props.feature_type === "poi" ? props.name : undefined,
+			address: props.address || undefined,
+			city: ctx.place?.name,
+			state: ctx.region?.region_code,
+			zip: ctx.postcode?.name,
+			phone: typeof metadata.phone === "string" ? metadata.phone : undefined,
+			website:
+				typeof metadata.website === "string" ? metadata.website : undefined,
+		};
+
+		onPoiSelectRef.current?.(poi);
+		onChangeRef.current(featLat, featLng);
+	}
+
+	return (
+		<div className={`relative overflow-hidden ${className}`}>
+			<div ref={containerRef} className="h-full w-full" />
+			{interactive && SearchBoxComponent && (
+				<div className="absolute left-2 top-2 z-10 w-[calc(100%-5rem)] max-w-sm">
+					<SearchBoxComponent
+						accessToken={mapboxgl.accessToken}
+						placeholder="Search places, addresses, or POIs..."
+						options={{
+							country: "US",
+							types: "poi,address,place,postcode,locality,neighborhood",
+							proximity: {
+								lng: proximityRef.current.lng,
+								lat: proximityRef.current.lat,
+							},
+						}}
+						onRetrieve={handleRetrieve}
+					/>
+				</div>
+			)}
+		</div>
+	);
 }
 
 function addRadiusCircle(

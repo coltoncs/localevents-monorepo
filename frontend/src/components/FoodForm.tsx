@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { LocationPickerMap } from "#/components/LocationPickerMap";
+import {
+	LocationPickerMap,
+	type PoiSelection,
+} from "#/components/LocationPickerMap";
 import { getSavedLocation } from "#/components/LocationSearch";
 import { CUISINES } from "#/lib/cuisines";
 import type { CreateFoodInput, Food } from "#/lib/types";
@@ -224,6 +227,20 @@ export function FoodForm({
 								...prev,
 								latitude: newLat,
 								longitude: newLng,
+							}));
+						}}
+						onPoiSelect={(poi: PoiSelection) => {
+							setForm((prev) => ({
+								...prev,
+								name: poi.name ?? prev.name,
+								address: poi.address ?? prev.address,
+								city: poi.city ?? prev.city,
+								state: poi.state ?? prev.state,
+								zip: poi.zip ?? prev.zip,
+								phone: poi.phone ?? prev.phone,
+								website: poi.website ?? prev.website,
+								latitude: poi.lat,
+								longitude: poi.lng,
 							}));
 						}}
 						className="mt-1 h-[300px] w-full rounded-md"

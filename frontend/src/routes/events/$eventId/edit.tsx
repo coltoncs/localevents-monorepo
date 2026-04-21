@@ -5,7 +5,10 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { CategoryPicker } from "#/components/EventForm";
 import { ImageUpload } from "#/components/ImageUpload";
-import { LocationPickerMap } from "#/components/LocationPickerMap";
+import {
+	LocationPickerMap,
+	type PoiSelection,
+} from "#/components/LocationPickerMap";
 import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
 import { Spinner } from "#/components/Spinner";
 import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
@@ -306,6 +309,17 @@ function EditEventContent() {
 										onCoordinateChange={(newLat, newLng) => {
 											form.setFieldValue("latitude", newLat);
 											form.setFieldValue("longitude", newLng);
+										}}
+										onPoiSelect={(poi: PoiSelection) => {
+											if (poi.name)
+												form.setFieldValue("venue_name", poi.name);
+											if (poi.address)
+												form.setFieldValue("address", poi.address);
+											if (poi.city) form.setFieldValue("city", poi.city);
+											if (poi.state) form.setFieldValue("state", poi.state);
+											if (poi.zip) form.setFieldValue("zip", poi.zip);
+											form.setFieldValue("latitude", poi.lat);
+											form.setFieldValue("longitude", poi.lng);
 										}}
 									/>
 								)}

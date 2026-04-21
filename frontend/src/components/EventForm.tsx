@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { ImageUpload } from "#/components/ImageUpload";
-import { LocationPickerMap } from "#/components/LocationPickerMap";
+import {
+	LocationPickerMap,
+	type PoiSelection,
+} from "#/components/LocationPickerMap";
 import { getSavedLocation } from "#/components/LocationSearch";
 import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
 import { VenueCombobox } from "#/components/VenueCombobox";
@@ -564,6 +567,15 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 								onCoordinateChange={(newLat, newLng) => {
 									form.setFieldValue("latitude", newLat);
 									form.setFieldValue("longitude", newLng);
+								}}
+								onPoiSelect={(poi: PoiSelection) => {
+									if (poi.name) form.setFieldValue("venue_name", poi.name);
+									if (poi.address) form.setFieldValue("address", poi.address);
+									if (poi.city) form.setFieldValue("city", poi.city);
+									if (poi.state) form.setFieldValue("state", poi.state);
+									if (poi.zip) form.setFieldValue("zip", poi.zip);
+									form.setFieldValue("latitude", poi.lat);
+									form.setFieldValue("longitude", poi.lng);
 								}}
 							/>
 						)}

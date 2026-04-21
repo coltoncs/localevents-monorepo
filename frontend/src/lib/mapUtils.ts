@@ -1,6 +1,9 @@
 export const LIGHT_STYLE = 'mapbox://styles/mapbox/streets-v12'
 export const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11'
 
+// Raleigh, NC — default map center when a form has no coords yet.
+export const DEFAULT_MAP_CENTER = { lat: 35.7796, lng: -78.6382 }
+
 export function getResolvedTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
   const el = document.documentElement
