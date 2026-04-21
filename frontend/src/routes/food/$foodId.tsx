@@ -1,80 +1,76 @@
 import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { BeverageMap } from "#/components/BeverageMap";
-import { CheckInButton } from "#/components/CheckInButton";
+import { formatCuisineLabel } from "#/components/FoodCard";
+import { FoodCheckInButton } from "#/components/FoodCheckInButton";
+import { FoodMap } from "#/components/FoodMap";
 import { ImageUpload } from "#/components/ImageUpload";
 import { Spinner } from "#/components/Spinner";
-import { SuggestBeverageDeleteModal } from "#/components/SuggestBeverageDeleteModal";
-import { SuggestBeverageEditModal } from "#/components/SuggestBeverageEditModal";
-import { useBeverageCheckInCounts } from "#/lib/hooks/useBeverageCheckIns";
+import { SuggestFoodDeleteModal } from "#/components/SuggestFoodDeleteModal";
+import { SuggestFoodEditModal } from "#/components/SuggestFoodEditModal";
+import { CUISINES } from "#/lib/cuisines";
+import { useFoodCheckInCounts } from "#/lib/hooks/useFoodCheckIns";
 import {
-	beverageDetailOptions,
-	useBeverage,
-	useDeleteBeverage,
-	useUpdateBeverage,
-} from "#/lib/hooks/useBeverages";
+	foodDetailOptions,
+	useDeleteFood,
+	useFood,
+	useUpdateFood,
+} from "#/lib/hooks/useFoods";
 import { useUserRole } from "#/lib/hooks/useUserRole";
-import type { Beverage, CreateBeverageInput } from "#/lib/types";
+import type { CreateFoodInput, Cuisine, Food } from "#/lib/types";
 
-export const Route = createFileRoute("/drinks/$beverageId")({
+export const Route = createFileRoute("/food/$foodId")({
 	ssr: false,
 	loader: async ({ context, params }) => {
-		const beverage = await context.queryClient.ensureQueryData(
-			beverageDetailOptions(params.beverageId),
+		const food = await context.queryClient.ensureQueryData(
+			foodDetailOptions(params.foodId),
 		);
-		return beverage;
+		return food;
 	},
 	head: ({ loaderData }) => {
-		const bev = loaderData as Beverage | undefined;
-		if (!bev) return {};
-		const typeLabel = bev.Type === "brewery" ? "Brewery" : "Bar";
-		const parts = [bev.Address, bev.City, bev.State].filter(Boolean);
+		const food = loaderData as Food | undefined;
+		if (!food) return {};
+		const cuisineLabel = formatCuisineLabel(food.Cuisine);
+		const parts = [food.Address, food.City, food.State].filter(Boolean);
 		const description = parts.length
-			? `${bev.Name} — ${typeLabel} in ${parts.join(", ")}`
-			: `${bev.Name} — ${typeLabel}`;
+			? `${food.Name} — ${cuisineLabel} in ${parts.join(", ")}`
+			: `${food.Name} — ${cuisineLabel}`;
 		return {
 			meta: [
-				{ title: `${bev.Name} | 919Events` },
+				{ title: `${food.Name} | 919Events` },
 				{ name: "description", content: description },
-				{ property: "og:title", content: bev.Name },
+				{ property: "og:title", content: food.Name },
 				{ property: "og:description", content: description },
 			],
 			links: [
-				{ rel: "canonical", href: `https://919events.com/drinks/${bev.ID}` },
+				{ rel: "canonical", href: `https://919events.com/food/${food.ID}` },
 			],
 		};
 	},
-	component: BeverageDetailPage,
+	component: FoodDetailPage,
 });
 
 const editInputClass =
 	"mt-1 block w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]";
 const editLabelClass = "block text-sm font-medium text-[var(--sea-ink-soft)]";
 
-function BeverageEditForm({
-	beverage,
-	onClose,
-}: {
-	beverage: Beverage;
-	onClose: () => void;
-}) {
-	const updateBeverage = useUpdateBeverage();
-	const [name, setName] = useState(beverage.Name);
-	const [type, setType] = useState<"brewery" | "bar">(beverage.Type);
-	const [address, setAddress] = useState(beverage.Address || "");
-	const [city, setCity] = useState(beverage.City || "");
-	const [state, setState] = useState(beverage.State || "");
-	const [zip, setZip] = useState(beverage.Zip || "");
-	const [phone, setPhone] = useState(beverage.Phone ?? "");
-	const [website, setWebsite] = useState(beverage.Website ?? "");
-	const [hours, setHours] = useState(beverage.Hours || "");
-	const [description, setDescription] = useState(beverage.Description || "");
-	const [review, setReview] = useState(beverage.Review || "");
-	const [imageUrl, setImageUrl] = useState(beverage.ImageUrl || "");
-	const [tagsInput, setTagsInput] = useState((beverage.Tags ?? []).join(", "));
+function FoodEditForm({ food, onClose }: { food: Food; onClose: () => void }) {
+	const updateFood = useUpdateFood();
+	const [name, setName] = useState(food.Name);
+	const [cuisine, setCuisine] = useState<Cuisine>(food.Cuisine);
+	const [address, setAddress] = useState(food.Address || "");
+	const [city, setCity] = useState(food.City || "");
+	const [state, setState] = useState(food.State || "");
+	const [zip, setZip] = useState(food.Zip || "");
+	const [phone, setPhone] = useState(food.Phone ?? "");
+	const [website, setWebsite] = useState(food.Website ?? "");
+	const [hours, setHours] = useState(food.Hours || "");
+	const [description, setDescription] = useState(food.Description || "");
+	const [review, setReview] = useState(food.Review || "");
+	const [imageUrl, setImageUrl] = useState(food.ImageUrl || "");
+	const [tagsInput, setTagsInput] = useState((food.Tags ?? []).join(", "));
 	const [priceLevel, setPriceLevel] = useState<number | undefined>(
-		beverage.PriceLevel ?? undefined,
+		food.PriceLevel ?? undefined,
 	);
 
 	async function handleSubmit(e: React.FormEvent) {
@@ -83,15 +79,15 @@ function BeverageEditForm({
 			.split(",")
 			.map((t) => t.trim())
 			.filter(Boolean);
-		const data: CreateBeverageInput = {
+		const data: CreateFoodInput = {
 			name,
-			type,
+			cuisine,
 			address: address || undefined,
 			city: city || undefined,
 			state: state || undefined,
 			zip: zip || undefined,
-			latitude: beverage.Latitude,
-			longitude: beverage.Longitude,
+			latitude: food.Latitude,
+			longitude: food.Longitude,
 			phone: phone || undefined,
 			website: website || undefined,
 			hours: hours || undefined,
@@ -101,7 +97,7 @@ function BeverageEditForm({
 			tags: tags.length > 0 ? tags : undefined,
 			price_level: priceLevel,
 		};
-		await updateBeverage.mutateAsync({ id: beverage.ID, data });
+		await updateFood.mutateAsync({ id: food.ID, data });
 		onClose();
 	}
 
@@ -110,7 +106,9 @@ function BeverageEditForm({
 			onSubmit={handleSubmit}
 			className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-4"
 		>
-			<h2 className="text-lg font-semibold text-(--sea-ink)">Edit Beverage</h2>
+			<h2 className="text-lg font-semibold text-(--sea-ink)">
+				Edit Restaurant
+			</h2>
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<label className={`sm:col-span-2 ${editLabelClass}`}>
 					Name *
@@ -123,14 +121,17 @@ function BeverageEditForm({
 					/>
 				</label>
 				<label className={editLabelClass}>
-					Type *
+					Cuisine *
 					<select
-						value={type}
-						onChange={(e) => setType(e.target.value as "brewery" | "bar")}
+						value={cuisine}
+						onChange={(e) => setCuisine(e.target.value as Cuisine)}
 						className={editInputClass}
 					>
-						<option value="brewery">Brewery</option>
-						<option value="bar">Bar</option>
+						{CUISINES.map((c) => (
+							<option key={c.value} value={c.value}>
+								{c.label}
+							</option>
+						))}
 					</select>
 				</label>
 				<label className={editLabelClass}>
@@ -217,7 +218,7 @@ function BeverageEditForm({
 						type="text"
 						value={hours}
 						onChange={(e) => setHours(e.target.value)}
-						placeholder="e.g. Mon-Sat 12pm-10pm, Sun 12pm-8pm"
+						placeholder="e.g. Mon-Sat 11am-10pm, Sun 11am-8pm"
 						className={editInputClass}
 					/>
 				</label>
@@ -230,7 +231,7 @@ function BeverageEditForm({
 						type="text"
 						value={tagsInput}
 						onChange={(e) => setTagsInput(e.target.value)}
-						placeholder="pet-friendly, outdoor seating, food menu"
+						placeholder="vegan options, outdoor seating, family friendly"
 						className={editInputClass}
 					/>
 				</label>
@@ -253,9 +254,9 @@ function BeverageEditForm({
 					/>
 				</label>
 			</div>
-			{updateBeverage.isError && (
+			{updateFood.isError && (
 				<p className="text-sm text-red-600">
-					Failed to update beverage. Please try again.
+					Failed to update food. Please try again.
 				</p>
 			)}
 			<div className="flex justify-end gap-3">
@@ -268,18 +269,18 @@ function BeverageEditForm({
 				</button>
 				<button
 					type="submit"
-					disabled={updateBeverage.isPending}
+					disabled={updateFood.isPending}
 					className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
 				>
-					{updateBeverage.isPending ? "Saving..." : "Save"}
+					{updateFood.isPending ? "Saving..." : "Save"}
 				</button>
 			</div>
 		</form>
 	);
 }
 
-function CheckInCountsLabel({ beverageId }: { beverageId: string }) {
-	const { data } = useBeverageCheckInCounts(beverageId);
+function CheckInCountsLabel({ foodId }: { foodId: string }) {
+	const { data } = useFoodCheckInCounts(foodId);
 	if (!data || data.unique === 0) return null;
 	return (
 		<p className="text-sm text-(--sea-ink-soft)">
@@ -289,49 +290,44 @@ function CheckInCountsLabel({ beverageId }: { beverageId: string }) {
 	);
 }
 
-function BeverageDetailPage() {
-	const { beverageId } = Route.useParams();
-	const { data: bev, isLoading } = useBeverage(beverageId);
+function FoodDetailPage() {
+	const { foodId } = Route.useParams();
+	const { data: food, isLoading } = useFood(foodId);
 	const { isSignedIn } = useAuth();
 	const { openSignIn } = useClerk();
 	const { isAdmin } = useUserRole();
 	const router = useRouter();
-	const deleteBeverage = useDeleteBeverage();
+	const deleteFood = useDeleteFood();
 	const [editing, setEditing] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [showSuggestEdit, setShowSuggestEdit] = useState(false);
 	const [showSuggestDelete, setShowSuggestDelete] = useState(false);
 
 	const handleDelete = async () => {
-		if (!bev) return;
-		await deleteBeverage.mutateAsync(bev.ID);
+		if (!food) return;
+		await deleteFood.mutateAsync(food.ID);
 		router.history.back();
 	};
 
 	if (isLoading) return <Spinner className="py-24" />;
 
-	if (!bev) {
+	if (!food) {
 		return (
 			<div className="mx-auto max-w-7xl px-4 py-12 text-center sm:px-6 lg:px-8">
-				<p className="text-lg text-(--sea-ink-soft)">Beverage not found.</p>
+				<p className="text-lg text-(--sea-ink-soft)">Restaurant not found.</p>
 				<Link
 					to="/places"
-					search={{ tab: "drinks" }}
+					search={{ tab: "food" }}
 					className="mt-4 inline-block text-(--lagoon-deep) hover:text-(--lagoon)"
 				>
-					&larr; Back to Breweries & Bars
+					&larr; Back to Restaurants
 				</Link>
 			</div>
 		);
 	}
 
-	const typeLabel = bev.Type === "brewery" ? "Brewery" : "Bar";
-	const typeColor =
-		bev.Type === "brewery"
-			? "bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300"
-			: "bg-purple-200 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300";
-
-	const addressParts = [bev.Address, bev.City, bev.State, bev.Zip].filter(
+	const cuisineLabel = formatCuisineLabel(food.Cuisine);
+	const addressParts = [food.Address, food.City, food.State, food.Zip].filter(
 		Boolean,
 	);
 
@@ -339,38 +335,35 @@ function BeverageDetailPage() {
 		<div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 			<Link
 				to="/places"
-				search={{ tab: "drinks" }}
+				search={{ tab: "food" }}
 				className="text-sm text-(--lagoon-deep) hover:text-(--lagoon)"
 			>
-				&larr; Back to Breweries & Bars
+				&larr; Back to Restaurants
 			</Link>
 
-			{editing && bev ? (
-				<BeverageEditForm beverage={bev} onClose={() => setEditing(false)} />
+			{editing && food ? (
+				<FoodEditForm food={food} onClose={() => setEditing(false)} />
 			) : (
 				<>
-					{/* Header */}
 					<div className="flex items-start justify-between">
 						<div className="flex flex-col gap-2">
 							<div className="flex flex-wrap items-start gap-3">
 								<h1 className="text-2xl font-bold text-(--sea-ink)">
-									{bev.Name}
+									{food.Name}
 								</h1>
-								<span
-									className={`rounded-full px-3 py-1 text-sm font-medium ${typeColor}`}
-								>
-									{typeLabel}
+								<span className="rounded-full bg-orange-200 px-3 py-1 text-sm font-medium text-orange-900 dark:bg-orange-900/30 dark:text-orange-300">
+									{cuisineLabel}
 								</span>
-								{bev.PriceLevel && (
+								{food.PriceLevel && (
 									<span className="rounded-full border border-(--line) px-3 py-1 text-sm font-medium text-(--sea-ink-soft)">
-										{"$".repeat(bev.PriceLevel)}
+										{"$".repeat(food.PriceLevel)}
 									</span>
 								)}
 							</div>
-							<CheckInCountsLabel beverageId={bev.ID} />
+							<CheckInCountsLabel foodId={food.ID} />
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
-							<CheckInButton beverageId={bev.ID} />
+							<FoodCheckInButton foodId={food.ID} />
 							{!isAdmin && (
 								<button
 									type="button"
@@ -404,7 +397,7 @@ function BeverageDetailPage() {
 											<button
 												type="button"
 												onClick={handleDelete}
-												disabled={deleteBeverage.isPending}
+												disabled={deleteFood.isPending}
 												className="text-nowrap cursor-pointer rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
 											>
 												Confirm
@@ -423,16 +416,14 @@ function BeverageDetailPage() {
 						</div>
 					</div>
 
-					{/* Image */}
-					{bev.ImageUrl && (
+					{food.ImageUrl && (
 						<img
-							src={bev.ImageUrl}
-							alt={bev.Name}
+							src={food.ImageUrl}
+							alt={food.Name}
 							className="h-64 w-full rounded-lg object-cover sm:h-80"
 						/>
 					)}
 
-					{/* Info grid */}
 					<div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
 						<div className="space-y-4">
 							{addressParts.length > 0 && (
@@ -446,66 +437,64 @@ function BeverageDetailPage() {
 								</div>
 							)}
 
-							{bev.Phone && (
+							{food.Phone && (
 								<div>
 									<h2 className="text-sm font-semibold uppercase tracking-wide text-(--sea-ink-soft)">
 										Phone
 									</h2>
 									<a
-										href={`tel:${bev.Phone}`}
+										href={`tel:${food.Phone}`}
 										className="mt-1 block text-(--lagoon-deep) hover:text-(--lagoon)"
 									>
-										{bev.Phone}
+										{food.Phone}
 									</a>
 								</div>
 							)}
 
-							{bev.Website && (
+							{food.Website && (
 								<div>
 									<h2 className="text-sm font-semibold uppercase tracking-wide text-(--sea-ink-soft)">
 										Website
 									</h2>
 									<a
 										href={
-											bev.Website.startsWith("http")
-												? bev.Website
-												: `https://${bev.Website}`
+											food.Website.startsWith("http")
+												? food.Website
+												: `https://${food.Website}`
 										}
 										target="_blank"
 										rel="noopener noreferrer"
 										className="mt-1 block truncate text-(--lagoon-deep) hover:text-(--lagoon)"
 									>
-										{bev.Website}
+										{food.Website}
 									</a>
 								</div>
 							)}
 
-							{bev.Hours && (
+							{food.Hours && (
 								<div>
 									<h2 className="text-sm font-semibold uppercase tracking-wide text-(--sea-ink-soft)">
 										Hours
 									</h2>
 									<p className="mt-1 whitespace-pre-line text-(--sea-ink)">
-										{bev.Hours}
+										{food.Hours}
 									</p>
 								</div>
 							)}
 						</div>
 
-						{/* Map */}
-						<BeverageMap
-							beverages={[bev]}
-							center={{ lat: bev.Latitude, lng: bev.Longitude }}
+						<FoodMap
+							foods={[food]}
+							center={{ lat: food.Latitude, lng: food.Longitude }}
 							radiusMiles={1}
 							zoom={14}
 							className="h-[300px] w-full rounded-lg"
 						/>
 					</div>
 
-					{/* Tags */}
-					{bev.Tags && bev.Tags.length > 0 && (
+					{food.Tags && food.Tags.length > 0 && (
 						<div className="flex flex-wrap gap-2">
-							{bev.Tags.map((tag) => (
+							{food.Tags.map((tag) => (
 								<span
 									key={tag}
 									className="rounded-full bg-[rgba(123,142,232,0.14)] px-3 py-1 text-sm font-medium text-(--lagoon-deep)"
@@ -516,26 +505,24 @@ function BeverageDetailPage() {
 						</div>
 					)}
 
-					{/* Description */}
-					{bev.Description && (
+					{food.Description && (
 						<div>
 							<h2 className="text-sm font-semibold uppercase tracking-wide text-(--sea-ink-soft)">
 								About
 							</h2>
 							<p className="mt-2 leading-relaxed text-(--sea-ink)">
-								{bev.Description}
+								{food.Description}
 							</p>
 						</div>
 					)}
 
-					{/* Review */}
-					{bev.Review && (
+					{food.Review && (
 						<div className="rounded-lg border border-(--line) bg-(--surface) p-4">
 							<h2 className="text-sm font-semibold uppercase tracking-wide text-(--sea-ink-soft)">
 								Review
 							</h2>
 							<p className="mt-2 leading-relaxed text-(--sea-ink)">
-								{bev.Review}
+								{food.Review}
 							</p>
 						</div>
 					)}
@@ -556,16 +543,16 @@ function BeverageDetailPage() {
 				</>
 			)}
 
-			{showSuggestEdit && bev && (
-				<SuggestBeverageEditModal
-					beverage={bev}
+			{showSuggestEdit && food && (
+				<SuggestFoodEditModal
+					food={food}
 					onClose={() => setShowSuggestEdit(false)}
 				/>
 			)}
 
-			{showSuggestDelete && bev && (
-				<SuggestBeverageDeleteModal
-					beverage={bev}
+			{showSuggestDelete && food && (
+				<SuggestFoodDeleteModal
+					food={food}
 					onClose={() => setShowSuggestDelete(false)}
 				/>
 			)}

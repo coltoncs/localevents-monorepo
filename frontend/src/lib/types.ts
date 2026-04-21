@@ -164,6 +164,104 @@ export interface CreateBeverageInput {
 	price_level?: number;
 }
 
+export type Cuisine =
+	| "american"
+	| "italian"
+	| "mexican"
+	| "chinese"
+	| "japanese"
+	| "korean"
+	| "thai"
+	| "vietnamese"
+	| "indian"
+	| "mediterranean"
+	| "middle_eastern"
+	| "french"
+	| "bbq"
+	| "pizza"
+	| "seafood"
+	| "vegan"
+	| "cafe"
+	| "bakery"
+	| "dessert"
+	| "other";
+
+export interface Food {
+	ID: string;
+	Name: string;
+	Cuisine: Cuisine;
+	Address: string;
+	City: string;
+	State: string;
+	Zip: string;
+	Latitude: number;
+	Longitude: number;
+	Phone?: string;
+	Website?: string;
+	Hours?: string;
+	Description?: string;
+	Review?: string;
+	ImageUrl?: string;
+	Tags?: string[];
+	PriceLevel?: number;
+}
+
+export interface FoodListResponse {
+	foods: Food[];
+}
+
+export interface FoodFilters {
+	lat: number;
+	lng: number;
+	radius?: number;
+	cuisine?: Cuisine[];
+	minPrice?: number;
+	maxPrice?: number;
+	search?: string;
+}
+
+export interface CreateFoodInput {
+	name: string;
+	cuisine: Cuisine;
+	address?: string;
+	city?: string;
+	state?: string;
+	zip?: string;
+	latitude: number;
+	longitude: number;
+	phone?: string;
+	website?: string;
+	hours?: string;
+	description?: string;
+	review?: string;
+	image_url?: string;
+	tags?: string[];
+	price_level?: number;
+}
+
+export interface MyFoodCheckIn {
+	id: string;
+	food_id: string;
+	food_name: string;
+	food_cuisine: Cuisine;
+	food_city?: string;
+	food_image_url?: string;
+	checkin_date: string;
+	created_at: string;
+}
+
+export interface MyFoodCheckInStats {
+	total_checkins: number;
+	unique_restaurants: number;
+	first_checkin_date?: string;
+	last_checkin_date?: string;
+}
+
+export interface MyFoodCheckInsResponse {
+	stats: MyFoodCheckInStats;
+	checkins: MyFoodCheckIn[];
+}
+
 export interface UpdateUserInput {
 	default_latitude?: number;
 	default_longitude?: number;
@@ -256,7 +354,7 @@ export type SuggestionAction = "edit" | "create" | "delete";
 
 export interface EditSuggestion {
 	ID: string;
-	TargetType: "event" | "venue" | "beverage";
+	TargetType: "event" | "venue" | "beverage" | "food";
 	TargetID?: string;
 	SubmittedBy: string;
 	Action: SuggestionAction;
@@ -271,7 +369,7 @@ export interface EditSuggestion {
 }
 
 export interface CreateEditSuggestionInput {
-	target_type: "event" | "venue" | "beverage";
+	target_type: "event" | "venue" | "beverage" | "food";
 	target_id?: string;
 	action?: SuggestionAction;
 	reason?: string;

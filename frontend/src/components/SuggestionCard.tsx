@@ -11,6 +11,7 @@ const fieldLabels: Record<string, string> = {
 	venue_name: "Venue Name",
 	name: "Name",
 	type: "Type",
+	cuisine: "Cuisine",
 	address: "Address",
 	city: "City",
 	state: "State",
@@ -41,6 +42,7 @@ function formatValue(value: unknown): string {
 function targetTypeLabel(t: EditSuggestion["TargetType"]): string {
 	if (t === "event") return "Event";
 	if (t === "venue") return "Venue";
+	if (t === "food") return "Restaurant";
 	return "Bar/Brewery";
 }
 
