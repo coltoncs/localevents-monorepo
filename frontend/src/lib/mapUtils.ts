@@ -1,5 +1,15 @@
-export const LIGHT_STYLE = 'mapbox://styles/mapbox/streets-v12'
-export const DARK_STYLE = 'mapbox://styles/mapbox/dark-v11'
+// Standard style handles light/dark via `lightPreset` config instead of
+// swapping style URLs.
+export const STANDARD_STYLE = 'mapbox://styles/mapbox/standard'
+
+export type LightPreset = 'dawn' | 'day' | 'dusk' | 'night'
+
+export function getLightPreset(theme: 'light' | 'dark'): LightPreset {
+  return theme === 'dark' ? 'night' : 'day'
+}
+
+// Slot to place custom layers under labels/POI symbols in Standard style.
+export const STANDARD_SLOT_MIDDLE = 'middle'
 
 // Raleigh, NC — default map center when a form has no coords yet.
 export const DEFAULT_MAP_CENTER = { lat: 35.7796, lng: -78.6382 }

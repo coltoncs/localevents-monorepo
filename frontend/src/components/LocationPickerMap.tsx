@@ -5,12 +5,13 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import {
 	createGeoJSONCircle,
-	DARK_STYLE,
 	DEFAULT_MAP_CENTER,
 	getCircleColors,
+	getLightPreset,
 	getMarkerColor,
 	getResolvedTheme,
-	LIGHT_STYLE,
+	STANDARD_SLOT_MIDDLE,
+	STANDARD_STYLE,
 } from "#/lib/mapUtils";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -93,11 +94,15 @@ export function LocationPickerMap({
 
 		const map = new mapboxgl.Map({
 			container: containerRef.current,
-			style: theme === "dark" ? DARK_STYLE : LIGHT_STYLE,
+			style: STANDARD_STYLE,
 			center: [viewCenter.lng, viewCenter.lat],
 			zoom: 12,
 		});
 		mapRef.current = map;
+
+		map.on("style.load", () => {
+			map.setConfigProperty("basemap", "lightPreset", getLightPreset(theme));
+		});
 
 		const marker = new mapboxgl.Marker({
 			color: getMarkerColor(theme),
@@ -157,60 +162,53 @@ export function LocationPickerMap({
 		const map = mapRef.current;
 		if (!map) return;
 
-		const observer = new MutationObserver(() => {
-			const newTheme = getResolvedTheme();
-			if (newTheme !== themeRef.current) {
-				themeRef.current = newTheme;
-				map.setStyle(newTheme === "dark" ? DARK_STYLE : LIGHT_STYLE);
+		const applyTheme = (newTheme: "light" | "dark") => {
+			if (newTheme === themeRef.current) return;
+			themeRef.current = newTheme;
 
-				map.once("style.load", () => {
-					const marker = markerRef.current;
-					if (marker) {
-						const lngLat = marker.getLngLat();
-						marker.remove();
-						const newMarker = new mapboxgl.Marker({
-							color: getMarkerColor(newTheme),
-							draggable: interactive,
-						})
-							.setLngLat(lngLat)
-							.addTo(map);
-						markerRef.current = newMarker;
+			map.setConfigProperty(
+				"basemap",
+				"lightPreset",
+				getLightPreset(newTheme),
+			);
+			updateCircleColors(map, newTheme);
 
-						if (interactive) {
-							newMarker.on("dragend", () => {
-								const pos = newMarker.getLngLat();
-								onChangeRef.current(pos.lat, pos.lng);
-							});
-						}
-					}
+			const marker = markerRef.current;
+			if (marker) {
+				const lngLat = marker.getLngLat();
+				marker.remove();
+				const newMarker = new mapboxgl.Marker({
+					color: getMarkerColor(newTheme),
+					draggable: interactive,
+				})
+					.setLngLat(lngLat)
+					.addTo(map);
+				markerRef.current = newMarker;
 
-					if (radiusMiles) {
-						addRadiusCircle(map, lng, lat, radiusMiles, newTheme);
-					}
-				});
+				if (interactive) {
+					newMarker.on("dragend", () => {
+						const pos = newMarker.getLngLat();
+						onChangeRef.current(pos.lat, pos.lng);
+					});
+				}
 			}
-		});
+		};
 
+		const observer = new MutationObserver(() => applyTheme(getResolvedTheme()));
 		observer.observe(document.documentElement, {
 			attributes: true,
 			attributeFilter: ["data-theme", "class"],
 		});
 
 		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-		const handleMediaChange = () => {
-			const newTheme = getResolvedTheme();
-			if (newTheme !== themeRef.current) {
-				themeRef.current = newTheme;
-				map.setStyle(newTheme === "dark" ? DARK_STYLE : LIGHT_STYLE);
-			}
-		};
+		const handleMediaChange = () => applyTheme(getResolvedTheme());
 		mediaQuery.addEventListener("change", handleMediaChange);
 
 		return () => {
 			observer.disconnect();
 			mediaQuery.removeEventListener("change", handleMediaChange);
 		};
-	}, [interactive, radiusMiles, lat, lng]);
+	}, [interactive]);
 
 	function handleRetrieve(res: SearchBoxRetrieveResponse) {
 		const feature = res?.features?.[0];
@@ -278,33 +276,35 @@ function addRadiusCircle(
 
 	map.addSource(RADIUS_SOURCE, { type: "geojson", data: geojson });
 
-	const firstSymbolId = map
-		.getStyle()
-		.layers.find((l) => l.type === "symbol")?.id;
+	map.addLayer({
+		id: RADIUS_FILL_LAYER,
+		type: "fill",
+		slot: STANDARD_SLOT_MIDDLE,
+		source: RADIUS_SOURCE,
+		paint: { "fill-color": colors.fill },
+	});
 
-	map.addLayer(
-		{
-			id: RADIUS_FILL_LAYER,
-			type: "fill",
-			source: RADIUS_SOURCE,
-			paint: { "fill-color": colors.fill },
+	map.addLayer({
+		id: RADIUS_LINE_LAYER,
+		type: "line",
+		slot: STANDARD_SLOT_MIDDLE,
+		source: RADIUS_SOURCE,
+		paint: {
+			"line-color": colors.stroke,
+			"line-width": 2,
+			"line-dasharray": [4, 3],
 		},
-		firstSymbolId,
-	);
+	});
+}
 
-	map.addLayer(
-		{
-			id: RADIUS_LINE_LAYER,
-			type: "line",
-			source: RADIUS_SOURCE,
-			paint: {
-				"line-color": colors.stroke,
-				"line-width": 2,
-				"line-dasharray": [4, 3],
-			},
-		},
-		firstSymbolId,
-	);
+function updateCircleColors(map: mapboxgl.Map, theme: "light" | "dark") {
+	const colors = getCircleColors(theme);
+	if (map.getLayer(RADIUS_FILL_LAYER)) {
+		map.setPaintProperty(RADIUS_FILL_LAYER, "fill-color", colors.fill);
+	}
+	if (map.getLayer(RADIUS_LINE_LAYER)) {
+		map.setPaintProperty(RADIUS_LINE_LAYER, "line-color", colors.stroke);
+	}
 }
 
 function updateRadiusData(

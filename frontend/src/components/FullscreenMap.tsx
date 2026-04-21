@@ -101,8 +101,11 @@ export function FullscreenMap({
     setSelectedEventId(event.ID)
     mapInstanceRef.current?.flyTo({
       center: [event.Longitude, event.Latitude],
-      zoom: 15,
-      duration: 900,
+      zoom: 16.5,
+      pitch: 60,
+      bearing: -20,
+      duration: 1200,
+      essential: true,
     })
     if (sheetSnap === 'full') setSheetSnap('half')
   }
@@ -111,6 +114,8 @@ export function FullscreenMap({
     mapInstanceRef.current?.flyTo({
       center: [lng, lat],
       zoom: 11,
+      pitch: 0,
+      bearing: 0,
       duration: 900,
     })
   }

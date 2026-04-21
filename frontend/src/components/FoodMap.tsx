@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef } from "react";
 import { formatCuisineLabel } from "#/components/FoodCard";
 import {
 	createGeoJSONCircle,
-	DARK_STYLE,
 	getCircleColors as getCircleColorsUtil,
+	getLightPreset,
 	getResolvedTheme,
-	LIGHT_STYLE,
+	STANDARD_SLOT_MIDDLE,
+	STANDARD_STYLE,
 } from "#/lib/mapUtils";
 import type { Food } from "#/lib/types";
 
@@ -76,33 +77,25 @@ export function FoodMap({
 
 				const colors = getCircleColors(themeRef.current);
 
-				const firstSymbolId = map
-					.getStyle()
-					.layers.find((l) => l.type === "symbol")?.id;
+				map.addLayer({
+					id: RADIUS_FILL_LAYER,
+					type: "fill",
+					slot: STANDARD_SLOT_MIDDLE,
+					source: RADIUS_SOURCE,
+					paint: { "fill-color": colors.fill },
+				});
 
-				map.addLayer(
-					{
-						id: RADIUS_FILL_LAYER,
-						type: "fill",
-						source: RADIUS_SOURCE,
-						paint: { "fill-color": colors.fill },
+				map.addLayer({
+					id: RADIUS_LINE_LAYER,
+					type: "line",
+					slot: STANDARD_SLOT_MIDDLE,
+					source: RADIUS_SOURCE,
+					paint: {
+						"line-color": colors.stroke,
+						"line-width": 2,
+						"line-dasharray": [4, 3],
 					},
-					firstSymbolId,
-				);
-
-				map.addLayer(
-					{
-						id: RADIUS_LINE_LAYER,
-						type: "line",
-						source: RADIUS_SOURCE,
-						paint: {
-							"line-color": colors.stroke,
-							"line-width": 2,
-							"line-dasharray": [4, 3],
-						},
-					},
-					firstSymbolId,
-				);
+				});
 			}
 		},
 		[getCircleColors],
@@ -129,9 +122,18 @@ export function FoodMap({
 
 		mapRef.current = new mapboxgl.Map({
 			container: containerRef.current,
-			style: themeRef.current === "dark" ? DARK_STYLE : LIGHT_STYLE,
+			style: STANDARD_STYLE,
 			center: [center.lng, center.lat],
 			zoom,
+		});
+
+		const initialTheme = themeRef.current;
+		mapRef.current.on("style.load", () => {
+			mapRef.current?.setConfigProperty(
+				"basemap",
+				"lightPreset",
+				getLightPreset(initialTheme),
+			);
 		});
 
 		mapRef.current.addControl(
@@ -165,57 +167,45 @@ export function FoodMap({
 		const map = mapRef.current;
 		if (!map) return;
 
-		const observer = new MutationObserver(() => {
-			const newTheme = getResolvedTheme();
-			if (newTheme !== themeRef.current) {
-				themeRef.current = newTheme;
-				map.setStyle(newTheme === "dark" ? DARK_STYLE : LIGHT_STYLE);
+		const applyTheme = (newTheme: "light" | "dark") => {
+			if (newTheme === themeRef.current) return;
+			themeRef.current = newTheme;
 
-				map.once("style.load", () => {
-					updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
-					updateCircleColors(map, newTheme);
+			map.setConfigProperty(
+				"basemap",
+				"lightPreset",
+				getLightPreset(newTheme),
+			);
+			updateCircleColors(map, newTheme);
 
-					const color = getFoodMarkerColor(newTheme);
-					for (const [id, m] of Array.from(markersRef.current.entries())) {
-						const lngLat = m.getLngLat();
-						const popup = m.getPopup();
-						m.remove();
-						const newMarker = new mapboxgl.Marker({ color })
-							.setLngLat(lngLat)
-							.setPopup(popup)
-							.addTo(map);
-						markersRef.current.set(id, newMarker);
-					}
-				});
+			const color = getFoodMarkerColor(newTheme);
+			for (const [id, m] of Array.from(markersRef.current.entries())) {
+				const lngLat = m.getLngLat();
+				const popup = m.getPopup();
+				m.remove();
+				const newMarker = new mapboxgl.Marker({ color })
+					.setLngLat(lngLat)
+					.setPopup(popup)
+					.addTo(map);
+				markersRef.current.set(id, newMarker);
 			}
-		});
+		};
 
+		const observer = new MutationObserver(() => applyTheme(getResolvedTheme()));
 		observer.observe(document.documentElement, {
 			attributes: true,
 			attributeFilter: ["data-theme", "class"],
 		});
 
 		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-		const handleMediaChange = () => {
-			const newTheme = getResolvedTheme();
-			if (newTheme !== themeRef.current) {
-				themeRef.current = newTheme;
-				map.setStyle(newTheme === "dark" ? DARK_STYLE : LIGHT_STYLE);
-			}
-		};
+		const handleMediaChange = () => applyTheme(getResolvedTheme());
 		mediaQuery.addEventListener("change", handleMediaChange);
 
 		return () => {
 			observer.disconnect();
 			mediaQuery.removeEventListener("change", handleMediaChange);
 		};
-	}, [
-		center.lng,
-		center.lat,
-		radiusMiles,
-		updateRadiusCircle,
-		updateCircleColors,
-	]);
+	}, [updateCircleColors]);
 
 	useEffect(() => {
 		const map = mapRef.current;
