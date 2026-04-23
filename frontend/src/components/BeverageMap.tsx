@@ -25,6 +25,18 @@ const BEER_ICON = `<path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M9 12v6"/><path
 
 const MARTINI_ICON = `<path d="M8 22h8"/><path d="M12 11v11"/><path d="m19 3-7 8-7-8Z"/>`;
 
+const POPUP_OFFSET: { [k: string]: [number, number] } = {
+	center: [0, 0],
+	top: [0, 0],
+	"top-left": [0, 0],
+	"top-right": [0, 0],
+	bottom: [0, -40],
+	"bottom-left": [0, -40],
+	"bottom-right": [0, -40],
+	left: [15, -20],
+	right: [-15, -20],
+};
+
 function createBeverageMarkerElement(
 	type: "brewery" | "bar",
 	color: string,
@@ -248,7 +260,7 @@ export function BeverageMap({
 		beverages.forEach((bev) => {
 			const typeLabel = bev.Type === "brewery" ? "Brewery" : "Bar";
 			const popup = new mapboxgl.Popup({
-				offset: 25,
+				offset: POPUP_OFFSET,
 				className: "themed-popup",
 			}).setHTML(
 				`<div class="map-popup-content">
