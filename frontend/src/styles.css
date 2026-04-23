@@ -353,6 +353,15 @@ a {
   font-size: 13px;
 }
 
+.map-popup-content img {
+  display: block;
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
 /* react-datepicker theme overrides */
 .react-datepicker-popper {
   z-index: 30 !important;

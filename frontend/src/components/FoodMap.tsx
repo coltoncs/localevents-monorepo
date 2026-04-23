@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { formatCuisineLabel } from "#/components/FoodCard";
 import {
 	createGeoJSONCircle,
+	escapeHtml,
 	getCircleColors as getCircleColorsUtil,
 	getLightPreset,
 	getResolvedTheme,
@@ -237,10 +238,11 @@ export function FoodMap({
 				className: "themed-popup",
 			}).setHTML(
 				`<div class="map-popup-content">
-          <strong>${food.Name}</strong>
-          <p class="text-xs opacity-70">${cuisineLabel}</p>
-          ${food.Address ? `<p>${food.Address}</p>` : ""}
-          <a href="/food/${food.ID}">View Details</a>
+          <strong>${escapeHtml(food.Name)}</strong>
+          ${food.ImageUrl ? `<img src="${escapeHtml(food.ImageUrl)}" alt="${escapeHtml(food.Name)}" loading="lazy" decoding="async">` : ""}
+          <p class="text-xs opacity-70">${escapeHtml(cuisineLabel)}</p>
+          ${food.Address ? `<p>${escapeHtml(food.Address)}</p>` : ""}
+          <a href="/food/${encodeURIComponent(food.ID)}">View Details</a>
         </div>`,
 			);
 

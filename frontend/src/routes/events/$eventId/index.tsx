@@ -2,6 +2,7 @@ import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { EventMap } from "#/components/EventMap";
+import { NearbyPlaces } from "#/components/NearbyPlaces";
 import { SaveButton } from "#/components/SaveButton";
 import { Spinner } from "#/components/Spinner";
 import { SuggestEventEditModal } from "#/components/SuggestEventEditModal";
@@ -378,6 +379,8 @@ function EventDetailPage() {
 						zoom={14}
 						className="h-64 w-full rounded-lg"
 					/>
+
+					<NearbyPlaces lat={event.Latitude} lng={event.Longitude} />
 				</div>
 			</div>
 

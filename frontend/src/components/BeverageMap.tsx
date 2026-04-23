@@ -3,6 +3,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useCallback, useEffect, useRef } from "react";
 import {
 	createGeoJSONCircle,
+	escapeHtml,
 	getCircleColors as getCircleColorsUtil,
 	getLightPreset,
 	getMarkerColor as getMarkerColorUtil,
@@ -17,6 +18,27 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN as string;
 const RADIUS_SOURCE = "radius-circle";
 const RADIUS_FILL_LAYER = "radius-fill";
 const RADIUS_LINE_LAYER = "radius-line";
+
+const PIN_BODY = `<path d="M15 0C6.716 0 0 6.716 0 15c0 10 15 25 15 25s15-15 15-25C30 6.716 23.284 0 15 0Z" fill="currentColor"/>`;
+
+const BEER_ICON = `<path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M9 12v6"/><path d="M13 12v6"/><path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5C9.44 3.5 10 3 11 3s1.56.5 3 .5 2.72-.5 3.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z"/><path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>`;
+
+const MARTINI_ICON = `<path d="M8 22h8"/><path d="M12 11v11"/><path d="m19 3-7 8-7-8Z"/>`;
+
+function createBeverageMarkerElement(
+	type: "brewery" | "bar",
+	color: string,
+): HTMLDivElement {
+	const el = document.createElement("div");
+	el.style.color = color;
+	el.style.cursor = "pointer";
+	el.style.width = "30px";
+	el.style.height = "40px";
+	el.style.filter = "drop-shadow(0 2px 3px rgba(0,0,0,0.25))";
+	const icon = type === "brewery" ? BEER_ICON : MARTINI_ICON;
+	el.innerHTML = `<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg">${PIN_BODY}<svg x="5" y="5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></svg>`;
+	return el;
+}
 
 interface BeverageMapProps {
 	beverages: Beverage[];
@@ -177,15 +199,8 @@ export function BeverageMap({
 			updateCircleColors(map, newTheme);
 
 			const color = getMarkerColor(newTheme);
-			for (const [id, m] of Array.from(markersRef.current.entries())) {
-				const lngLat = m.getLngLat();
-				const popup = m.getPopup();
-				m.remove();
-				const newMarker = new mapboxgl.Marker({ color })
-					.setLngLat(lngLat)
-					.setPopup(popup)
-					.addTo(map);
-				markersRef.current.set(id, newMarker);
+			for (const m of markersRef.current.values()) {
+				m.getElement().style.color = color;
 			}
 		};
 
@@ -237,20 +252,23 @@ export function BeverageMap({
 				className: "themed-popup",
 			}).setHTML(
 				`<div class="map-popup-content">
-          <strong>${bev.Name}</strong>
+          <strong>${escapeHtml(bev.Name)}</strong>
+          ${bev.ImageUrl ? `<img src="${escapeHtml(bev.ImageUrl)}" alt="${escapeHtml(bev.Name)}" loading="lazy" decoding="async">` : ""}
           <p class="text-xs opacity-70">${typeLabel}</p>
-          ${bev.Address ? `<p>${bev.Address}</p>` : ""}
-          <a href="/drinks/${bev.ID}">View Details</a>
+          ${bev.Address ? `<p>${escapeHtml(bev.Address)}</p>` : ""}
+          <a href="/drinks/${encodeURIComponent(bev.ID)}">View Details</a>
         </div>`,
 			);
 
-			const marker = new mapboxgl.Marker({ color })
+			const el = createBeverageMarkerElement(
+				bev.Type === "brewery" ? "brewery" : "bar",
+				color,
+			);
+			const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" })
 				.setLngLat([bev.Longitude, bev.Latitude])
 				.setPopup(popup)
 				.addTo(mapRef.current!);
 
-			const el = marker.getElement();
-			el.style.cursor = "pointer";
 			el.addEventListener("click", () => {
 				mapRef.current?.flyTo({
 					center: [bev.Longitude, bev.Latitude],

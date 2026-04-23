@@ -34,6 +34,15 @@ export function getCircleColors(theme: 'light' | 'dark') {
     : { fill: 'rgba(79, 70, 229, 0.06)', stroke: 'rgba(79, 70, 229, 0.3)' }
 }
 
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function createGeoJSONCircle(
   lng: number,
   lat: number,

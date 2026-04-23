@@ -10,6 +10,7 @@ import {
   getMarkerColor as getMarkerColorUtil,
   getCircleColors as getCircleColorsUtil,
   createGeoJSONCircle,
+  escapeHtml,
 } from "#/lib/mapUtils";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -228,10 +229,11 @@ export function EventMap({
         className: "themed-popup",
       }).setHTML(
         `<div class="map-popup-content">
-          <strong>${event.Title}</strong>
+          <strong>${escapeHtml(event.Title)}</strong>
+          ${event.ImageUrl ? `<img src="${escapeHtml(event.ImageUrl)}" alt="${escapeHtml(event.Title)}" loading="lazy" decoding="async">` : ""}
           <p>${Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short" }).format(new Date(event.StartTime))}</p>
-          ${event.VenueName ? `<p>${event.VenueName}</p>` : ""}
-          <a href="/events/${event.ID}">View Details</a>
+          ${event.VenueName ? `<p>${escapeHtml(event.VenueName)}</p>` : ""}
+          <a href="/events/${encodeURIComponent(event.ID)}">View Details</a>
         </div>`,
       );
 
