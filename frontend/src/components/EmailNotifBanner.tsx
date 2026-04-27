@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useNotificationPreferences } from "#/lib/hooks/useNotifications";
 
@@ -9,12 +9,20 @@ export function EmailNotifBanner() {
 	const { isSignedIn } = useAuth();
 	const [dismissed, setDismissed] = useState(true);
 	const { data: prefs, isLoading } = useNotificationPreferences();
+	const pathname = useRouterState({ select: (s) => s.location.pathname });
 
 	useEffect(() => {
 		setDismissed(localStorage.getItem(STORAGE_KEY) === "1");
 	}, []);
 
-	if (!isSignedIn || dismissed || isLoading || !prefs || prefs.email_enabled) {
+	if (
+		!isSignedIn ||
+		dismissed ||
+		isLoading ||
+		!prefs ||
+		prefs.email_enabled ||
+		pathname === "/welcome"
+	) {
 		return null;
 	}
 

@@ -1,58 +1,60 @@
-import { useEffect, useState } from 'react'
-import { ClerkProvider } from '@clerk/clerk-react'
-import { dark } from '@clerk/themes'
+import { ClerkProvider } from "@clerk/clerk-react";
+import { dark } from "@clerk/themes";
+import { useEffect, useState } from "react";
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
-  throw new Error('Add your Clerk Publishable Key to the .env.local file')
+	throw new Error("Add your Clerk Publishable Key to the .env.local file");
 }
 
 function useIsDark() {
-  const [isDark, setIsDark] = useState(false)
+	const [isDark, setIsDark] = useState(false);
 
-  useEffect(() => {
-    function check() {
-      const el = document.documentElement
-      setIsDark(el.classList.contains('dark'))
-    }
+	useEffect(() => {
+		function check() {
+			const el = document.documentElement;
+			setIsDark(el.classList.contains("dark"));
+		}
 
-    check()
+		check();
 
-    const observer = new MutationObserver(check)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme'],
-    })
-    return () => observer.disconnect()
-  }, [])
+		const observer = new MutationObserver(check);
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["class", "data-theme"],
+		});
+		return () => observer.disconnect();
+	}, []);
 
-  return isDark
+	return isDark;
 }
 
 export default function AppClerkProvider({
-  children,
+	children,
 }: {
-  children: React.ReactNode
+	children: React.ReactNode;
 }) {
-  const isDark = useIsDark()
+	const isDark = useIsDark();
 
-  return (
-    <ClerkProvider
-      publishableKey={PUBLISHABLE_KEY}
-      afterSignOutUrl="/"
-      appearance={{
-        baseTheme: isDark ? dark : undefined,
-        variables: {
-          colorPrimary: 'var(--lagoon-deep)',
-          colorText: 'var(--sea-ink)',
-          colorTextSecondary: 'var(--sea-ink-soft)',
-          colorBackground: 'var(--foam)',
-          colorInputBackground: 'var(--surface-strong)',
-          colorInputText: 'var(--sea-ink)',
-        },
-      }}
-    >
-      {children}
-    </ClerkProvider>
-  )
+	return (
+		<ClerkProvider
+			publishableKey={PUBLISHABLE_KEY}
+			afterSignOutUrl="/"
+			signUpForceRedirectUrl="/welcome"
+			signInForceRedirectUrl="/"
+			appearance={{
+				baseTheme: isDark ? dark : undefined,
+				variables: {
+					colorPrimary: "var(--lagoon-deep)",
+					colorText: "var(--sea-ink)",
+					colorTextSecondary: "var(--sea-ink-soft)",
+					colorBackground: "var(--foam)",
+					colorInputBackground: "var(--surface-strong)",
+					colorInputText: "var(--sea-ink)",
+				},
+			}}
+		>
+			{children}
+		</ClerkProvider>
+	);
 }

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -32,6 +33,11 @@ import { Route as DrinksBeverageIdRouteImport } from './routes/drinks/$beverageI
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/food/$foodId': typeof FoodFoodIdRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/submit': typeof SubmitRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/food/$foodId': typeof FoodFoodIdRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/submit'
     | '/terms'
+    | '/welcome'
     | '/drinks/$beverageId'
     | '/events/$eventId'
     | '/food/$foodId'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/submit'
     | '/terms'
+    | '/welcome'
     | '/drinks/$beverageId'
     | '/food/$foodId'
     | '/venues/$venueId'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/submit'
     | '/terms'
+    | '/welcome'
     | '/drinks/$beverageId'
     | '/events/$eventId'
     | '/food/$foodId'
@@ -303,6 +315,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SubmitRoute: typeof SubmitRoute
   TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
   DrinksBeverageIdRoute: typeof DrinksBeverageIdRoute
   EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   FoodFoodIdRoute: typeof FoodFoodIdRoute
@@ -314,6 +327,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -499,6 +519,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SubmitRoute: SubmitRoute,
   TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
   DrinksBeverageIdRoute: DrinksBeverageIdRoute,
   EventsEventIdRoute: EventsEventIdRouteWithChildren,
   FoodFoodIdRoute: FoodFoodIdRoute,
