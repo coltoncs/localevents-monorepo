@@ -1,24 +1,21 @@
 import { useAuth } from "@clerk/clerk-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { BeverageCard } from "#/components/BeverageCard";
-import { BeverageMap } from "#/components/BeverageMap";
-import { FoodCard } from "#/components/FoodCard";
-import { FoodMap } from "#/components/FoodMap";
-import {
-	FullscreenBeverageMap,
-	FullscreenBeverageMapSkeleton,
-} from "#/components/FullscreenBeverageMap";
-import { FullscreenFoodMap } from "#/components/FullscreenFoodMap";
+import { FullscreenPlaceMap } from "#/components/FullscreenPlaceMap";
 import { getSavedLocation, LocationSearch } from "#/components/LocationSearch";
+import { PlaceCard } from "#/components/PlaceCard";
+import { PlaceMap } from "#/components/PlaceMap";
 import { Spinner } from "#/components/Spinner";
-import { SuggestBeverageCreateModal } from "#/components/SuggestBeverageCreateModal";
-import { SuggestFoodCreateModal } from "#/components/SuggestFoodCreateModal";
-import { CUISINES, isCuisine } from "#/lib/cuisines";
-import { beverageListOptions, useBeverages } from "#/lib/hooks/useBeverages";
-import { foodListOptions, useFoods } from "#/lib/hooks/useFoods";
+import { SuggestPlaceCreateModal } from "#/components/SuggestPlaceCreateModal";
+import {
+	CUISINES,
+	formatCuisineLabel,
+	isCuisine,
+	isKnownCuisine,
+} from "#/lib/cuisines";
+import { placeListOptions, usePlaces } from "#/lib/hooks/usePlaces";
 import { useUser } from "#/lib/hooks/useUser";
-import type { Cuisine } from "#/lib/types";
+import type { BarType, Cuisine } from "#/lib/types";
 
 type PlacesView = "food" | "drinks";
 
@@ -29,9 +26,7 @@ interface PlacesSearch {
 	radius?: number;
 	search?: string;
 	fullscreen?: 1;
-	// drinks-specific
-	type?: "brewery" | "bar";
-	// food-specific
+	type?: BarType;
 	cuisine?: Cuisine[];
 	minPrice?: number;
 	maxPrice?: number;
@@ -76,7 +71,7 @@ export const Route = createFileRoute("/places/")({
 			search: (search.search as string) || undefined,
 			fullscreen: search.fullscreen ? 1 : undefined,
 			type: ["brewery", "bar"].includes(search.type as string)
-				? (search.type as "brewery" | "bar")
+				? (search.type as BarType)
 				: undefined,
 			cuisine: parseCuisineParam(search.cuisine),
 			minPrice:
@@ -102,33 +97,23 @@ export const Route = createFileRoute("/places/")({
 	}),
 	loader: async ({ context, deps }) => {
 		if (!deps.lat || !deps.lng) return;
-		if (deps.tab === "food") {
-			await context.queryClient.prefetchQuery(
-				foodListOptions({
-					lat: deps.lat,
-					lng: deps.lng,
-					radius: deps.radius,
-					cuisine: deps.cuisine,
-					minPrice: deps.minPrice,
-					maxPrice: deps.maxPrice,
-					search: deps.search,
-				}),
-			);
-		} else {
-			await context.queryClient.prefetchQuery(
-				beverageListOptions({
-					lat: deps.lat,
-					lng: deps.lng,
-					radius: deps.radius,
-					type: deps.type,
-					search: deps.search,
-				}),
-			);
-		}
+		const isFood = deps.tab === "food";
+		await context.queryClient.prefetchQuery(
+			placeListOptions({
+				lat: deps.lat,
+				lng: deps.lng,
+				radius: deps.radius,
+				isFood,
+				isDrink: !isFood,
+				cuisine: isFood ? deps.cuisine : undefined,
+				barType: !isFood && deps.type ? [deps.type] : undefined,
+				minPrice: isFood ? deps.minPrice : undefined,
+				maxPrice: isFood ? deps.maxPrice : undefined,
+				search: deps.search,
+			}),
+		);
 	},
 	pendingComponent: function PlacesPending() {
-		const search = Route.useSearch();
-		if (search.fullscreen) return <FullscreenBeverageMapSkeleton />;
 		return <Spinner className="py-24" />;
 	},
 	component: PlacesPage,
@@ -205,7 +190,6 @@ function PlacesViewToggle({ tab }: { tab: PlacesView }) {
 			search: {
 				...search,
 				tab: v,
-				// clear view-specific filters when switching
 				type: undefined,
 				cuisine: undefined,
 				minPrice: undefined,
@@ -311,30 +295,22 @@ function PlacesList({
 	const showAll = radius === 0;
 	const effectiveRadius = showAll ? 25000 : radius;
 
-	const bevFilters = {
+	const isFoodTab = search.tab === "food";
+	const filters = {
 		lat: search.lat,
 		lng: search.lng,
 		radius: effectiveRadius,
-		type: search.type,
+		isFood: isFoodTab,
+		isDrink: !isFoodTab,
+		cuisine: isFoodTab ? search.cuisine : undefined,
+		barType: !isFoodTab && search.type ? [search.type] : undefined,
+		minPrice: isFoodTab ? search.minPrice : undefined,
+		maxPrice: isFoodTab ? search.maxPrice : undefined,
 		search: search.search,
 	};
-	const foodFilters = {
-		lat: search.lat,
-		lng: search.lng,
-		radius: effectiveRadius,
-		cuisine: search.cuisine,
-		minPrice: search.minPrice,
-		maxPrice: search.maxPrice,
-		search: search.search,
-	};
-
-	const bevQuery = useBeverages(bevFilters, search.tab === "drinks");
-	const foodQuery = useFoods(foodFilters, search.tab === "food");
-	const beverages = bevQuery.data?.beverages ?? [];
-	const foods = foodQuery.data?.foods ?? [];
-	const isLoading =
-		search.tab === "food" ? foodQuery.isLoading : bevQuery.isLoading;
-	const resultCount = search.tab === "food" ? foods.length : beverages.length;
+	const { data, isLoading } = usePlaces(filters);
+	const places = data?.places ?? [];
+	const resultCount = places.length;
 
 	const [searchInput, setSearchInput] = useState(search.search ?? "");
 
@@ -351,7 +327,7 @@ function PlacesList({
 		});
 	}
 
-	function setType(type: "brewery" | "bar" | undefined) {
+	function setType(type: BarType | undefined) {
 		navigate({
 			to: "/places",
 			search: { ...search, type },
@@ -414,13 +390,8 @@ function PlacesList({
 
 			<PlacesBanner />
 
-			{showCreateSuggestion && search.tab === "drinks" && (
-				<SuggestBeverageCreateModal
-					onClose={() => setShowCreateSuggestion(false)}
-				/>
-			)}
-			{showCreateSuggestion && search.tab === "food" && (
-				<SuggestFoodCreateModal
+			{showCreateSuggestion && (
+				<SuggestPlaceCreateModal
 					onClose={() => setShowCreateSuggestion(false)}
 				/>
 			)}
@@ -439,9 +410,7 @@ function PlacesList({
 						value={searchInput}
 						onChange={(e) => setSearchInput(e.target.value)}
 						placeholder={
-							search.tab === "food"
-								? "Search restaurants..."
-								: "Search breweries & bars..."
+							isFoodTab ? "Search restaurants..." : "Search breweries & bars..."
 						}
 						className="w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm text-(--sea-ink) sm:w-56"
 					/>
@@ -460,7 +429,7 @@ function PlacesList({
 					)}
 				</form>
 
-				{search.tab === "drinks" ? (
+				{!isFoodTab ? (
 					<div className="flex rounded-lg border border-(--line) p-0.5">
 						<button
 							type="button"
@@ -501,6 +470,13 @@ function PlacesList({
 						cuisine={search.cuisine}
 						minPrice={search.minPrice}
 						maxPrice={search.maxPrice}
+						customCuisines={Array.from(
+							new Set(
+								places
+									.map((p) => p.Cuisine)
+									.filter((c): c is string => !!c && !isKnownCuisine(c)),
+							),
+						)}
 						onToggleCuisine={toggleCuisine}
 						onSetPriceBound={setPriceBound}
 					/>
@@ -536,21 +512,12 @@ function PlacesList({
 
 			{/* Map */}
 			<div className="relative">
-				{search.tab === "food" ? (
-					<FoodMap
-						foods={foods}
-						center={center}
-						radiusMiles={showAll ? 0 : radius}
-						className="h-[450px] w-full rounded-lg sm:h-[500px]"
-					/>
-				) : (
-					<BeverageMap
-						beverages={beverages}
-						center={center}
-						radiusMiles={showAll ? 0 : radius}
-						className="h-[450px] w-full rounded-lg sm:h-[500px]"
-					/>
-				)}
+				<PlaceMap
+					places={places}
+					center={center}
+					radiusMiles={showAll ? 0 : radius}
+					className="h-[450px] w-full rounded-lg sm:h-[500px]"
+				/>
 				<button
 					type="button"
 					onClick={() =>
@@ -578,29 +545,16 @@ function PlacesList({
 				</button>
 			</div>
 
-			{search.fullscreen && search.tab === "food" && (
-				<FullscreenFoodMap
+			{search.fullscreen && (
+				<FullscreenPlaceMap
+					tab={search.tab}
 					lat={search.lat}
 					lng={search.lng}
 					radius={search.radius}
 					cuisine={search.cuisine}
+					barType={search.type ? [search.type] : undefined}
 					minPrice={search.minPrice}
 					maxPrice={search.maxPrice}
-					search={search.search}
-					onClose={() =>
-						navigate({
-							to: "/places",
-							search: { ...search, fullscreen: undefined },
-						})
-					}
-				/>
-			)}
-			{search.fullscreen && search.tab === "drinks" && (
-				<FullscreenBeverageMap
-					lat={search.lat}
-					lng={search.lng}
-					radius={search.radius}
-					type={search.type}
 					search={search.search}
 					onClose={() =>
 						navigate({
@@ -623,25 +577,40 @@ function PlacesList({
 				</div>
 			) : (
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{search.tab === "food"
-						? foods.map((f) => <FoodCard key={f.ID} food={f} />)
-						: beverages.map((b) => <BeverageCard key={b.ID} beverage={b} />)}
+					{places.map((p) => (
+						<PlaceCard key={p.ID} place={p} />
+					))}
 				</div>
 			)}
 		</div>
 	);
 }
 
+function fuzzyMatch(query: string, target: string): boolean {
+	const q = query.toLowerCase().replace(/[^a-z0-9]/g, "");
+	const t = target.toLowerCase().replace(/[^a-z0-9]/g, "");
+	if (!q) return true;
+	if (t.includes(q)) return true;
+	let i = 0;
+	for (const ch of t) {
+		if (ch === q[i]) i++;
+		if (i === q.length) return true;
+	}
+	return false;
+}
+
 function FoodFiltersRow({
 	cuisine,
 	minPrice,
 	maxPrice,
+	customCuisines,
 	onToggleCuisine,
 	onSetPriceBound,
 }: {
 	cuisine?: Cuisine[];
 	minPrice?: number;
 	maxPrice?: number;
+	customCuisines: Cuisine[];
 	onToggleCuisine: (c: Cuisine) => void;
 	onSetPriceBound: (
 		field: "minPrice" | "maxPrice",
@@ -649,7 +618,22 @@ function FoodFiltersRow({
 	) => void;
 }) {
 	const [open, setOpen] = useState(false);
+	const [cuisineQuery, setCuisineQuery] = useState("");
 	const activeCount = cuisine?.length ?? 0;
+
+	const activeCustom = (cuisine ?? [])
+		.filter((c) => !isKnownCuisine(c))
+		.map((c) => ({ value: c, label: formatCuisineLabel(c) }));
+	const customMatches = cuisineQuery
+		? customCuisines
+				.map((c) => ({ value: c, label: formatCuisineLabel(c) }))
+				.filter(
+					(c) =>
+						fuzzyMatch(cuisineQuery, c.label) ||
+						fuzzyMatch(cuisineQuery, c.value),
+				)
+				.slice(0, 12)
+		: [];
 
 	return (
 		<div className="relative">
@@ -669,7 +653,7 @@ function FoodFiltersRow({
 							Cuisine
 						</div>
 						<div className="flex flex-wrap gap-1.5">
-							{CUISINES.map((c) => {
+							{[...CUISINES, ...activeCustom].map((c) => {
 								const active = cuisine?.includes(c.value) ?? false;
 								return (
 									<button
@@ -687,6 +671,38 @@ function FoodFiltersRow({
 								);
 							})}
 						</div>
+						<input
+							type="text"
+							value={cuisineQuery}
+							onChange={(e) => setCuisineQuery(e.target.value)}
+							placeholder="Search for another cuisine…"
+							className="mt-2 w-full rounded-md border border-(--line) bg-(--surface) px-2 py-1 text-xs text-(--sea-ink) placeholder:text-(--sea-ink-soft)"
+						/>
+						{cuisineQuery && (
+							<div className="mt-1.5 flex flex-wrap gap-1.5">
+								{customMatches.length === 0 ? (
+									<p className="text-xs text-(--sea-ink-soft)">No matches.</p>
+								) : (
+									customMatches.map((c) => {
+										const active = cuisine?.includes(c.value) ?? false;
+										return (
+											<button
+												key={c.value}
+												type="button"
+												onClick={() => onToggleCuisine(c.value)}
+												className={`cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+													active
+														? "bg-(--lagoon) text-white"
+														: "border border-(--line) bg-(--surface) text-(--sea-ink-soft) hover:text-(--sea-ink)"
+												}`}
+											>
+												{c.label}
+											</button>
+										);
+									})
+								)}
+							</div>
+						)}
 					</div>
 					<div>
 						<div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-(--sea-ink-soft)">

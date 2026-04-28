@@ -37,16 +37,9 @@ var allowedVenueFields = map[string]bool{
 	"hours": true, "description": true,
 }
 
-var allowedBeverageFields = map[string]bool{
-	"name": true, "type": true,
-	"address": true, "city": true, "state": true, "zip": true,
-	"latitude": true, "longitude": true,
-	"phone": true, "website": true, "hours": true, "description": true,
-	"review": true, "image_url": true, "tags": true, "price_level": true,
-}
-
-var allowedFoodFields = map[string]bool{
-	"name": true, "cuisine": true,
+var allowedPlaceFields = map[string]bool{
+	"name": true, "is_food": true, "is_drink": true,
+	"cuisine": true, "bar_type": true,
 	"address": true, "city": true, "state": true, "zip": true,
 	"latitude": true, "longitude": true,
 	"phone": true, "website": true, "hours": true, "description": true,
@@ -127,8 +120,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.TargetType != "event" && req.TargetType != "venue" && req.TargetType != "beverage" && req.TargetType != "food" {
-		http.Error(w, `{"error":"target_type must be event, venue, beverage, or food"}`, http.StatusBadRequest)
+	if req.TargetType != "event" && req.TargetType != "venue" && req.TargetType != "place" {
+		http.Error(w, `{"error":"target_type must be event, venue, or place"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -140,8 +133,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"action must be edit, create, or delete"}`, http.StatusBadRequest)
 		return
 	}
-	if (action == "create" || action == "delete") && req.TargetType != "beverage" && req.TargetType != "food" {
-		http.Error(w, `{"error":"create and delete actions are only supported for beverages and foods"}`, http.StatusBadRequest)
+	if (action == "create" || action == "delete") && req.TargetType != "place" {
+		http.Error(w, `{"error":"create and delete actions are only supported for places"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -164,10 +157,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		allowed := allowedEventFields
 		if req.TargetType == "venue" {
 			allowed = allowedVenueFields
-		} else if req.TargetType == "beverage" {
-			allowed = allowedBeverageFields
-		} else if req.TargetType == "food" {
-			allowed = allowedFoodFields
+		} else if req.TargetType == "place" {
+			allowed = allowedPlaceFields
 		}
 		for key := range req.ProposedChanges {
 			if !allowed[key] {
@@ -186,14 +177,9 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `{"error":"venue not found"}`, http.StatusNotFound)
 				return
 			}
-		case "beverage":
-			if _, err := h.queries.GetBeverage(r.Context(), pgTargetID); err != nil {
-				http.Error(w, `{"error":"beverage not found"}`, http.StatusNotFound)
-				return
-			}
-		case "food":
-			if _, err := h.queries.GetFood(r.Context(), pgTargetID); err != nil {
-				http.Error(w, `{"error":"food not found"}`, http.StatusNotFound)
+		case "place":
+			if _, err := h.queries.GetPlace(r.Context(), pgTargetID); err != nil {
+				http.Error(w, `{"error":"place not found"}`, http.StatusNotFound)
 				return
 			}
 		}
@@ -203,12 +189,8 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"proposed_changes must not be empty"}`, http.StatusBadRequest)
 			return
 		}
-		allowed := allowedBeverageFields
-		if req.TargetType == "food" {
-			allowed = allowedFoodFields
-		}
 		for key := range req.ProposedChanges {
-			if !allowed[key] {
+			if !allowedPlaceFields[key] {
 				http.Error(w, `{"error":"unrecognized field: `+key+`"}`, http.StatusBadRequest)
 				return
 			}
@@ -218,16 +200,23 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
 			return
 		}
-		if req.TargetType == "beverage" {
-			bevType, _ := req.ProposedChanges["type"].(string)
-			if bevType != "bar" && bevType != "brewery" {
-				http.Error(w, `{"error":"type must be bar or brewery"}`, http.StatusBadRequest)
+		isFood, _ := req.ProposedChanges["is_food"].(bool)
+		isDrink, _ := req.ProposedChanges["is_drink"].(bool)
+		if !isFood && !isDrink {
+			http.Error(w, `{"error":"place must be tagged as food, drink, or both"}`, http.StatusBadRequest)
+			return
+		}
+		if isFood {
+			cuisine, _ := req.ProposedChanges["cuisine"].(string)
+			if !validateCuisine(cuisine) {
+				http.Error(w, `{"error":"cuisine is required for food places"}`, http.StatusBadRequest)
 				return
 			}
-		} else if req.TargetType == "food" {
-			cuisine, _ := req.ProposedChanges["cuisine"].(string)
-			if !allowedCuisines[cuisine] {
-				http.Error(w, `{"error":"invalid cuisine"}`, http.StatusBadRequest)
+		}
+		if isDrink {
+			barType, _ := req.ProposedChanges["bar_type"].(string)
+			if !validateBarType(barType) {
+				http.Error(w, `{"error":"bar_type must be brewery or bar for drink places"}`, http.StatusBadRequest)
 				return
 			}
 		}
@@ -245,15 +234,9 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"reason is required for delete suggestions"}`, http.StatusBadRequest)
 			return
 		}
-		switch req.TargetType {
-		case "beverage":
-			if _, err := h.queries.GetBeverage(r.Context(), pgTargetID); err != nil {
-				http.Error(w, `{"error":"beverage not found"}`, http.StatusNotFound)
-				return
-			}
-		case "food":
-			if _, err := h.queries.GetFood(r.Context(), pgTargetID); err != nil {
-				http.Error(w, `{"error":"food not found"}`, http.StatusNotFound)
+		if req.TargetType == "place" {
+			if _, err := h.queries.GetPlace(r.Context(), pgTargetID); err != nil {
+				http.Error(w, `{"error":"place not found"}`, http.StatusNotFound)
 				return
 			}
 		}
@@ -398,47 +381,28 @@ func (h *SuggestionHandler) Approve(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
 				return
 			}
-		case "beverage":
-			if err := h.applyBeverageChanges(r, suggestion.TargetID, changes); err != nil {
-				http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
-				return
-			}
-		case "food":
-			if err := h.applyFoodChanges(r, suggestion.TargetID, changes); err != nil {
+		case "place":
+			if err := h.applyPlaceChanges(r, suggestion.TargetID, changes); err != nil {
 				http.Error(w, `{"error":"failed to apply changes: `+err.Error()+`"}`, http.StatusInternalServerError)
 				return
 			}
 		}
 	case "create":
-		switch suggestion.TargetType {
-		case "beverage":
-			if err := h.applyBeverageCreate(r, changes); err != nil {
-				http.Error(w, `{"error":"failed to create beverage: `+err.Error()+`"}`, http.StatusInternalServerError)
-				return
-			}
-		case "food":
-			if err := h.applyFoodCreate(r, changes); err != nil {
-				http.Error(w, `{"error":"failed to create food: `+err.Error()+`"}`, http.StatusInternalServerError)
-				return
-			}
-		default:
-			http.Error(w, `{"error":"only beverage and food creates are supported"}`, http.StatusBadRequest)
+		if suggestion.TargetType != "place" {
+			http.Error(w, `{"error":"only place creates are supported"}`, http.StatusBadRequest)
+			return
+		}
+		if err := h.applyPlaceCreate(r, changes); err != nil {
+			http.Error(w, `{"error":"failed to create place: `+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 	case "delete":
-		switch suggestion.TargetType {
-		case "beverage":
-			if err := h.queries.DeleteBeverage(r.Context(), suggestion.TargetID); err != nil {
-				http.Error(w, `{"error":"failed to delete beverage: `+err.Error()+`"}`, http.StatusInternalServerError)
-				return
-			}
-		case "food":
-			if err := h.queries.DeleteFood(r.Context(), suggestion.TargetID); err != nil {
-				http.Error(w, `{"error":"failed to delete food: `+err.Error()+`"}`, http.StatusInternalServerError)
-				return
-			}
-		default:
-			http.Error(w, `{"error":"only beverage and food deletes are supported"}`, http.StatusBadRequest)
+		if suggestion.TargetType != "place" {
+			http.Error(w, `{"error":"only place deletes are supported"}`, http.StatusBadRequest)
+			return
+		}
+		if err := h.queries.DeletePlace(r.Context(), suggestion.TargetID); err != nil {
+			http.Error(w, `{"error":"failed to delete place: `+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -543,15 +507,10 @@ func (h *SuggestionHandler) resolveTargetName(r *http.Request, targetType string
 		if err == nil {
 			return venue.Name
 		}
-	case "beverage":
-		bev, err := h.queries.GetBeverage(r.Context(), targetID)
+	case "place":
+		place, err := h.queries.GetPlace(r.Context(), targetID)
 		if err == nil {
-			return bev.Name
-		}
-	case "food":
-		food, err := h.queries.GetFood(r.Context(), targetID)
-		if err == nil {
-			return food.Name
+			return place.Name
 		}
 	}
 	return ""
@@ -709,30 +668,33 @@ func (h *SuggestionHandler) applyVenueChanges(r *http.Request, targetID pgtype.U
 	return err
 }
 
-func (h *SuggestionHandler) applyBeverageChanges(r *http.Request, targetID pgtype.UUID, changes map[string]interface{}) error {
-	bev, err := h.queries.GetBeverage(r.Context(), targetID)
+func (h *SuggestionHandler) applyPlaceChanges(r *http.Request, targetID pgtype.UUID, changes map[string]interface{}) error {
+	place, err := h.queries.GetPlace(r.Context(), targetID)
 	if err != nil {
 		return err
 	}
 
-	params := store.UpdateBeverageParams{
+	params := store.UpdatePlaceParams{
 		ID:          targetID,
-		Name:        bev.Name,
-		Type:        bev.Type,
-		Address:     bev.Address,
-		City:        bev.City,
-		State:       bev.State,
-		Zip:         bev.Zip,
-		Latitude:    bev.Latitude,
-		Longitude:   bev.Longitude,
-		Phone:       bev.Phone,
-		Website:     bev.Website,
-		Hours:       bev.Hours,
-		Description: bev.Description,
-		Review:      bev.Review,
-		ImageUrl:    bev.ImageUrl,
-		Tags:        bev.Tags,
-		PriceLevel:  bev.PriceLevel,
+		Name:        place.Name,
+		IsFood:      place.IsFood,
+		IsDrink:     place.IsDrink,
+		Cuisine:     place.Cuisine,
+		BarType:     place.BarType,
+		Address:     place.Address,
+		City:        place.City,
+		State:       place.State,
+		Zip:         place.Zip,
+		Latitude:    place.Latitude,
+		Longitude:   place.Longitude,
+		Phone:       place.Phone,
+		Website:     place.Website,
+		Hours:       place.Hours,
+		Description: place.Description,
+		Review:      place.Review,
+		ImageUrl:    place.ImageUrl,
+		Tags:        place.Tags,
+		PriceLevel:  place.PriceLevel,
 	}
 
 	for key, val := range changes {
@@ -740,140 +702,21 @@ func (h *SuggestionHandler) applyBeverageChanges(r *http.Request, targetID pgtyp
 		switch key {
 		case "name":
 			params.Name = str
-		case "type":
-			if str == "bar" || str == "brewery" {
-				params.Type = str
+		case "is_food":
+			if b, ok := val.(bool); ok {
+				params.IsFood = b
 			}
-		case "address":
-			params.Address = pgtype.Text{String: str, Valid: str != ""}
-		case "city":
-			params.City = pgtype.Text{String: str, Valid: str != ""}
-		case "state":
-			params.State = pgtype.Text{String: str, Valid: str != ""}
-		case "zip":
-			params.Zip = pgtype.Text{String: str, Valid: str != ""}
-		case "latitude":
-			if f, ok := val.(float64); ok {
-				params.Latitude = f
+		case "is_drink":
+			if b, ok := val.(bool); ok {
+				params.IsDrink = b
 			}
-		case "longitude":
-			if f, ok := val.(float64); ok {
-				params.Longitude = f
-			}
-		case "phone":
-			params.Phone = pgtype.Text{String: str, Valid: str != ""}
-		case "website":
-			params.Website = pgtype.Text{String: str, Valid: str != ""}
-		case "hours":
-			params.Hours = pgtype.Text{String: str, Valid: str != ""}
-		case "description":
-			params.Description = pgtype.Text{String: str, Valid: str != ""}
-		case "review":
-			params.Review = pgtype.Text{String: str, Valid: str != ""}
-		case "image_url":
-			params.ImageUrl = pgtype.Text{String: str, Valid: str != ""}
-		case "tags":
-			if arr, ok := val.([]interface{}); ok {
-				tags := make([]string, 0, len(arr))
-				for _, v := range arr {
-					if s, ok := v.(string); ok {
-						tags = append(tags, s)
-					}
-				}
-				params.Tags = tags
-			}
-		case "price_level":
-			if f, ok := val.(float64); ok {
-				params.PriceLevel = pgtype.Int4{Int32: int32(f), Valid: true}
-			} else if val == nil {
-				params.PriceLevel = pgtype.Int4{}
-			}
-		}
-	}
-
-	_, err = h.queries.UpdateBeverage(r.Context(), params)
-	return err
-}
-
-func (h *SuggestionHandler) applyBeverageCreate(r *http.Request, changes map[string]interface{}) error {
-	getStr := func(k string) pgtype.Text {
-		s, _ := changes[k].(string)
-		return pgtype.Text{String: s, Valid: s != ""}
-	}
-
-	name, _ := changes["name"].(string)
-	bevType, _ := changes["type"].(string)
-	lat, _ := changes["latitude"].(float64)
-	lng, _ := changes["longitude"].(float64)
-
-	params := store.CreateBeverageParams{
-		Name:        name,
-		Type:        bevType,
-		Address:     getStr("address"),
-		City:        getStr("city"),
-		State:       getStr("state"),
-		Zip:         getStr("zip"),
-		Latitude:    lat,
-		Longitude:   lng,
-		Phone:       getStr("phone"),
-		Website:     getStr("website"),
-		Hours:       getStr("hours"),
-		Description: getStr("description"),
-		Review:      getStr("review"),
-		ImageUrl:    getStr("image_url"),
-	}
-
-	if arr, ok := changes["tags"].([]interface{}); ok {
-		tags := make([]string, 0, len(arr))
-		for _, v := range arr {
-			if s, ok := v.(string); ok {
-				tags = append(tags, s)
-			}
-		}
-		params.Tags = tags
-	}
-	if f, ok := changes["price_level"].(float64); ok {
-		params.PriceLevel = pgtype.Int4{Int32: int32(f), Valid: true}
-	}
-
-	_, err := h.queries.CreateBeverage(r.Context(), params)
-	return err
-}
-
-func (h *SuggestionHandler) applyFoodChanges(r *http.Request, targetID pgtype.UUID, changes map[string]interface{}) error {
-	food, err := h.queries.GetFood(r.Context(), targetID)
-	if err != nil {
-		return err
-	}
-
-	params := store.UpdateFoodParams{
-		ID:          targetID,
-		Name:        food.Name,
-		Cuisine:     food.Cuisine,
-		Address:     food.Address,
-		City:        food.City,
-		State:       food.State,
-		Zip:         food.Zip,
-		Latitude:    food.Latitude,
-		Longitude:   food.Longitude,
-		Phone:       food.Phone,
-		Website:     food.Website,
-		Hours:       food.Hours,
-		Description: food.Description,
-		Review:      food.Review,
-		ImageUrl:    food.ImageUrl,
-		Tags:        food.Tags,
-		PriceLevel:  food.PriceLevel,
-	}
-
-	for key, val := range changes {
-		str, _ := val.(string)
-		switch key {
-		case "name":
-			params.Name = str
 		case "cuisine":
-			if allowedCuisines[str] {
-				params.Cuisine = str
+			if validateCuisine(str) {
+				params.Cuisine = pgtype.Text{String: str, Valid: true}
+			}
+		case "bar_type":
+			if validateBarType(str) {
+				params.BarType = pgtype.Text{String: str, Valid: true}
 			}
 		case "address":
 			params.Address = pgtype.Text{String: str, Valid: str != ""}
@@ -922,24 +765,45 @@ func (h *SuggestionHandler) applyFoodChanges(r *http.Request, targetID pgtype.UU
 		}
 	}
 
-	_, err = h.queries.UpdateFood(r.Context(), params)
+	if !params.IsFood {
+		params.Cuisine = pgtype.Text{}
+	}
+	if !params.IsDrink {
+		params.BarType = pgtype.Text{}
+	}
+
+	_, err = h.queries.UpdatePlace(r.Context(), params)
 	return err
 }
 
-func (h *SuggestionHandler) applyFoodCreate(r *http.Request, changes map[string]interface{}) error {
+func (h *SuggestionHandler) applyPlaceCreate(r *http.Request, changes map[string]interface{}) error {
 	getStr := func(k string) pgtype.Text {
 		s, _ := changes[k].(string)
 		return pgtype.Text{String: s, Valid: s != ""}
 	}
 
 	name, _ := changes["name"].(string)
-	cuisine, _ := changes["cuisine"].(string)
+	isFood, _ := changes["is_food"].(bool)
+	isDrink, _ := changes["is_drink"].(bool)
 	lat, _ := changes["latitude"].(float64)
 	lng, _ := changes["longitude"].(float64)
 
-	params := store.CreateFoodParams{
+	var cuisine, barType pgtype.Text
+	if isFood {
+		c, _ := changes["cuisine"].(string)
+		cuisine = pgtype.Text{String: c, Valid: c != ""}
+	}
+	if isDrink {
+		t, _ := changes["bar_type"].(string)
+		barType = pgtype.Text{String: t, Valid: t != ""}
+	}
+
+	params := store.CreatePlaceParams{
 		Name:        name,
+		IsFood:      isFood,
+		IsDrink:     isDrink,
 		Cuisine:     cuisine,
+		BarType:     barType,
 		Address:     getStr("address"),
 		City:        getStr("city"),
 		State:       getStr("state"),
@@ -967,6 +831,6 @@ func (h *SuggestionHandler) applyFoodCreate(r *http.Request, changes map[string]
 		params.PriceLevel = pgtype.Int4{Int32: int32(f), Valid: true}
 	}
 
-	_, err := h.queries.CreateFood(r.Context(), params)
+	_, err := h.queries.CreatePlace(r.Context(), params)
 	return err
 }

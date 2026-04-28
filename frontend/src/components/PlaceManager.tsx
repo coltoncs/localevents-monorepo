@@ -10,36 +10,37 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import { formatCuisineLabel } from "#/components/FoodCard";
-import { emptyFoodForm, FoodForm, foodToForm } from "#/components/FoodForm";
+import { emptyPlaceForm, PlaceForm, placeToForm } from "#/components/PlaceForm";
 import { Spinner } from "#/components/Spinner";
-import { CUISINES } from "#/lib/cuisines";
+import { formatCuisineLabel } from "#/lib/cuisines";
 import {
-	useCreateFood,
-	useDeleteFood,
-	useFoods,
-	useUpdateFood,
-} from "#/lib/hooks/useFoods";
-import type { CreateFoodInput, Cuisine, Food } from "#/lib/types";
+	useCreatePlace,
+	useDeletePlace,
+	usePlaces,
+	useUpdatePlace,
+} from "#/lib/hooks/usePlaces";
+import type { CreatePlaceInput, Place } from "#/lib/types";
 
 const WIDE_CENTER = { lat: 35.7796, lng: -78.6382 };
 const WIDE_RADIUS = 500;
 
+type KindFilter = "all" | "food_only" | "drink_only" | "both";
+
 function ActionsCell({
-	food,
+	place,
 	onEdit,
 }: {
-	food: Food;
-	onEdit: (f: Food) => void;
+	place: Place;
+	onEdit: (p: Place) => void;
 }) {
-	const deleteFood = useDeleteFood();
+	const deletePlace = useDeletePlace();
 	const [confirming, setConfirming] = useState(false);
 
 	return (
 		<div className="flex justify-end gap-2">
 			<button
 				type="button"
-				onClick={() => onEdit(food)}
+				onClick={() => onEdit(place)}
 				className="cursor-pointer rounded-md border border-(--line) px-2.5 py-1 text-xs font-medium text-(--sea-ink) hover:bg-(--surface)"
 			>
 				Edit
@@ -47,11 +48,11 @@ function ActionsCell({
 			{confirming ? (
 				<button
 					type="button"
-					onClick={() => deleteFood.mutate(food.ID)}
-					disabled={deleteFood.isPending}
+					onClick={() => deletePlace.mutate(place.ID)}
+					disabled={deletePlace.isPending}
 					className="cursor-pointer rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
 				>
-					{deleteFood.isPending ? "..." : "Confirm"}
+					{deletePlace.isPending ? "..." : "Confirm"}
 				</button>
 			) : (
 				<button
@@ -95,41 +96,69 @@ function SortIcon({ isSorted }: { isSorted: false | "asc" | "desc" }) {
 	);
 }
 
-export function FoodManager() {
-	const { data, isLoading } = useFoods({
+function KindBadges({ place }: { place: Place }) {
+	return (
+		<div className="flex flex-wrap gap-1">
+			{place.IsFood && place.Cuisine && (
+				<span className="rounded-full bg-orange-200 px-2 py-0.5 text-xs font-medium text-orange-900 dark:bg-orange-900/30 dark:text-orange-300">
+					{formatCuisineLabel(place.Cuisine)}
+				</span>
+			)}
+			{place.IsDrink && place.BarType && (
+				<span
+					className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+						place.BarType === "brewery"
+							? "bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300"
+							: "bg-purple-200 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300"
+					}`}
+				>
+					{place.BarType === "brewery" ? "Brewery" : "Bar"}
+				</span>
+			)}
+		</div>
+	);
+}
+
+export function PlaceManager() {
+	const { data, isLoading } = usePlaces({
 		lat: WIDE_CENTER.lat,
 		lng: WIDE_CENTER.lng,
 		radius: WIDE_RADIUS,
 	});
-	const foods = data?.foods ?? [];
+	const places = data?.places ?? [];
 
-	const createFood = useCreateFood();
-	const updateFood = useUpdateFood();
+	const createPlace = useCreatePlace();
+	const updatePlace = useUpdatePlace();
 
-	const [mode, setMode] = useState<"list" | "create" | { editing: Food }>(
+	const [mode, setMode] = useState<"list" | "create" | { editing: Place }>(
 		"list",
 	);
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [globalFilter, setGlobalFilter] = useState("");
-	const [cuisineFilter, setCuisineFilter] = useState<"all" | Cuisine>("all");
+	const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
-	const filteredData = useMemo(
-		() =>
-			cuisineFilter === "all"
-				? foods
-				: foods.filter((f) => f.Cuisine === cuisineFilter),
-		[foods, cuisineFilter],
-	);
+	const filteredData = useMemo(() => {
+		switch (kindFilter) {
+			case "food_only":
+				return places.filter((p) => p.IsFood && !p.IsDrink);
+			case "drink_only":
+				return places.filter((p) => p.IsDrink && !p.IsFood);
+			case "both":
+				return places.filter((p) => p.IsFood && p.IsDrink);
+			default:
+				return places;
+		}
+	}, [places, kindFilter]);
 
-	const columns = useMemo<ColumnDef<Food>[]>(
+	const columns = useMemo<ColumnDef<Place>[]>(
 		() => [
 			{
 				accessorKey: "Name",
 				header: "Name",
 				cell: ({ row }) => (
 					<Link
-						to="/food/$foodId"
-						params={{ foodId: row.original.ID }}
+						to="/place/$placeId"
+						params={{ placeId: row.original.ID }}
 						className="font-medium text-(--lagoon-deep) hover:text-(--lagoon)"
 					>
 						{row.original.Name}
@@ -137,13 +166,9 @@ export function FoodManager() {
 				),
 			},
 			{
-				accessorKey: "Cuisine",
-				header: "Cuisine",
-				cell: ({ row }) => (
-					<span className="rounded-full bg-orange-200 px-2 py-0.5 text-xs font-medium text-orange-900 dark:bg-orange-900/30 dark:text-orange-300">
-						{formatCuisineLabel(row.original.Cuisine)}
-					</span>
-				),
+				id: "kind",
+				header: "Kind",
+				cell: ({ row }) => <KindBadges place={row.original} />,
 			},
 			{
 				id: "location",
@@ -157,8 +182,8 @@ export function FoodManager() {
 				enableSorting: false,
 				cell: ({ row }) => (
 					<ActionsCell
-						food={row.original}
-						onEdit={(f) => setMode({ editing: f })}
+						place={row.original}
+						onEdit={(p) => setMode({ editing: p })}
 					/>
 				),
 			},
@@ -179,15 +204,15 @@ export function FoodManager() {
 		initialState: { pagination: { pageSize: 20 } },
 	});
 
-	function handleCreate(formData: CreateFoodInput) {
-		createFood.mutate(formData, {
+	function handleCreate(formData: CreatePlaceInput) {
+		createPlace.mutate(formData, {
 			onSuccess: () => setMode("list"),
 		});
 	}
 
-	function handleUpdate(formData: CreateFoodInput) {
+	function handleUpdate(formData: CreatePlaceInput) {
 		if (typeof mode !== "object") return;
-		updateFood.mutate(
+		updatePlace.mutate(
 			{ id: mode.editing.ID, data: formData },
 			{ onSuccess: () => setMode("list") },
 		);
@@ -197,10 +222,10 @@ export function FoodManager() {
 		<div>
 			<div className="mb-4 flex items-center justify-between">
 				<h2 className="text-xl font-bold text-(--sea-ink)">
-					Manage Restaurants
-					{foods.length > 0 && (
+					Manage Places
+					{places.length > 0 && (
 						<span className="ml-2 inline-flex items-center rounded-full bg-[rgba(79,184,178,0.14)] px-2.5 py-0.5 text-sm font-medium text-(--lagoon-deep)">
-							{foods.length}
+							{places.length}
 						</span>
 					)}
 				</h2>
@@ -210,29 +235,29 @@ export function FoodManager() {
 						onClick={() => setMode("create")}
 						className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon)"
 					>
-						Add Restaurant
+						Add Place
 					</button>
 				)}
 			</div>
 
 			{mode === "create" && (
-				<FoodForm
-					initial={emptyFoodForm()}
+				<PlaceForm
+					initial={emptyPlaceForm()}
 					onSubmit={handleCreate}
 					onCancel={() => setMode("list")}
-					isPending={createFood.isPending}
-					isError={createFood.isError}
+					isPending={createPlace.isPending}
+					isError={createPlace.isError}
 					submitLabel="Create"
 				/>
 			)}
 
 			{typeof mode === "object" && (
-				<FoodForm
-					initial={foodToForm(mode.editing)}
+				<PlaceForm
+					initial={placeToForm(mode.editing)}
 					onSubmit={handleUpdate}
 					onCancel={() => setMode("list")}
-					isPending={updateFood.isPending}
-					isError={updateFood.isError}
+					isPending={updatePlace.isPending}
+					isError={updatePlace.isError}
 					submitLabel="Save Changes"
 				/>
 			)}
@@ -240,9 +265,9 @@ export function FoodManager() {
 			{mode === "list" &&
 				(isLoading ? (
 					<Spinner className="py-12" />
-				) : foods.length === 0 ? (
+				) : places.length === 0 ? (
 					<p className="py-8 text-center text-(--sea-ink-soft)">
-						No restaurants yet. Click "Add Restaurant" to create one.
+						No places yet. Click "Add Place" to create one.
 					</p>
 				) : (
 					<div className="space-y-3">
@@ -255,21 +280,17 @@ export function FoodManager() {
 								className="rounded-md border border-(--line) bg-(--surface) px-3 py-1.5 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon) sm:w-64"
 							/>
 							<select
-								value={cuisineFilter}
-								onChange={(e) =>
-									setCuisineFilter(e.target.value as "all" | Cuisine)
-								}
+								value={kindFilter}
+								onChange={(e) => setKindFilter(e.target.value as KindFilter)}
 								className="rounded-md border border-(--line) bg-(--surface) px-3 py-1.5 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon)"
 							>
-								<option value="all">All Cuisines</option>
-								{CUISINES.map((c) => (
-									<option key={c.value} value={c.value}>
-										{c.label}
-									</option>
-								))}
+								<option value="all">All kinds</option>
+								<option value="food_only">Food only</option>
+								<option value="drink_only">Drinks only</option>
+								<option value="both">Both</option>
 							</select>
 							<span className="text-xs text-(--sea-ink-soft)">
-								{table.getFilteredRowModel().rows.length} of {foods.length}
+								{table.getFilteredRowModel().rows.length} of {places.length}
 							</span>
 						</div>
 

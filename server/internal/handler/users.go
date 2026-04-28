@@ -161,55 +161,36 @@ func (h *UserHandler) ListSaved(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(events)
 }
 
-type checkInItem struct {
-	ID            string  `json:"id"`
-	BeverageID    string  `json:"beverage_id"`
-	BeverageName  string  `json:"beverage_name"`
-	BeverageType  string  `json:"beverage_type"`
-	BeverageCity  *string `json:"beverage_city,omitempty"`
-	BeverageImage *string `json:"beverage_image_url,omitempty"`
-	CheckinDate   string  `json:"checkin_date"`
-	CreatedAt     string  `json:"created_at"`
+type placeCheckInItem struct {
+	ID          string  `json:"id"`
+	PlaceID     string  `json:"place_id"`
+	PlaceName   string  `json:"place_name"`
+	IsFood      bool    `json:"is_food"`
+	IsDrink     bool    `json:"is_drink"`
+	Cuisine     *string `json:"cuisine,omitempty"`
+	BarType     *string `json:"bar_type,omitempty"`
+	PlaceCity   *string `json:"place_city,omitempty"`
+	PlaceImage  *string `json:"place_image_url,omitempty"`
+	CheckinDate string  `json:"checkin_date"`
+	CreatedAt   string  `json:"created_at"`
 }
 
-type foodCheckInItem struct {
-	ID           string  `json:"id"`
-	FoodID       string  `json:"food_id"`
-	FoodName     string  `json:"food_name"`
-	FoodCuisine  string  `json:"food_cuisine"`
-	FoodCity     *string `json:"food_city,omitempty"`
-	FoodImage    *string `json:"food_image_url,omitempty"`
-	CheckinDate  string  `json:"checkin_date"`
-	CreatedAt    string  `json:"created_at"`
-}
-
-type foodCheckInStats struct {
-	TotalCheckins      int64   `json:"total_checkins"`
-	UniqueRestaurants  int64   `json:"unique_restaurants"`
-	FirstCheckinDate   *string `json:"first_checkin_date,omitempty"`
-	LastCheckinDate    *string `json:"last_checkin_date,omitempty"`
-}
-
-type myFoodCheckInsResponse struct {
-	Stats    foodCheckInStats  `json:"stats"`
-	CheckIns []foodCheckInItem `json:"checkins"`
-}
-
-type checkInStats struct {
+type placeCheckInStats struct {
 	TotalCheckins    int64   `json:"total_checkins"`
-	UniqueVenues     int64   `json:"unique_venues"`
+	UniquePlaces     int64   `json:"unique_places"`
+	UniqueFoods      int64   `json:"unique_foods"`
 	UniqueBreweries  int64   `json:"unique_breweries"`
 	UniqueBars       int64   `json:"unique_bars"`
 	FirstCheckinDate *string `json:"first_checkin_date,omitempty"`
 	LastCheckinDate  *string `json:"last_checkin_date,omitempty"`
 }
 
-type myCheckInsResponse struct {
-	Stats     checkInStats  `json:"stats"`
-	CheckIns  []checkInItem `json:"checkins"`
+type myPlaceCheckInsResponse struct {
+	Stats    placeCheckInStats  `json:"stats"`
+	CheckIns []placeCheckInItem `json:"checkins"`
 }
 
-func (h *UserHandler) ListMyCheckIns(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) ListMyPlaceCheckIns(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {
 		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
@@ -222,111 +203,55 @@ func (h *UserHandler) ListMyCheckIns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.queries.ListUserCheckIns(r.Context(), user.ID)
+	rows, err := h.queries.ListUserPlaceCheckIns(r.Context(), user.ID)
 	if err != nil {
 		http.Error(w, `{"error":"failed to list check-ins"}`, http.StatusInternalServerError)
 		return
 	}
 
-	stats, err := h.queries.GetUserCheckInStats(r.Context(), user.ID)
+	stats, err := h.queries.GetUserPlaceCheckInStats(r.Context(), user.ID)
 	if err != nil {
 		http.Error(w, `{"error":"failed to get check-in stats"}`, http.StatusInternalServerError)
 		return
 	}
 
-	items := make([]checkInItem, 0, len(rows))
+	items := make([]placeCheckInItem, 0, len(rows))
 	for _, row := range rows {
-		item := checkInItem{
-			ID:           uuid.UUID(row.ID.Bytes).String(),
-			BeverageID:   uuid.UUID(row.BeverageID.Bytes).String(),
-			BeverageName: row.BeverageName,
-			BeverageType: row.BeverageType,
-			CheckinDate:  row.CheckinDate.Time.Format("2006-01-02"),
-			CreatedAt:    row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-		}
-		if row.BeverageCity.Valid {
-			city := row.BeverageCity.String
-			item.BeverageCity = &city
-		}
-		if row.BeverageImageUrl.Valid {
-			img := row.BeverageImageUrl.String
-			item.BeverageImage = &img
-		}
-		items = append(items, item)
-	}
-
-	resp := myCheckInsResponse{
-		Stats: checkInStats{
-			TotalCheckins:   stats.TotalCheckins,
-			UniqueVenues:    stats.UniqueVenues,
-			UniqueBreweries: stats.UniqueBreweries,
-			UniqueBars:      stats.UniqueBars,
-		},
-		CheckIns: items,
-	}
-	if stats.FirstCheckinDate.Valid {
-		s := stats.FirstCheckinDate.Time.Format("2006-01-02")
-		resp.Stats.FirstCheckinDate = &s
-	}
-	if stats.LastCheckinDate.Valid {
-		s := stats.LastCheckinDate.Time.Format("2006-01-02")
-		resp.Stats.LastCheckinDate = &s
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
-}
-
-func (h *UserHandler) ListMyFoodCheckIns(w http.ResponseWriter, r *http.Request) {
-	clerkID := middleware.GetClerkUserID(r.Context())
-	if clerkID == "" {
-		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-		return
-	}
-
-	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
-	if err != nil {
-		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
-		return
-	}
-
-	rows, err := h.queries.ListUserFoodCheckIns(r.Context(), user.ID)
-	if err != nil {
-		http.Error(w, `{"error":"failed to list food check-ins"}`, http.StatusInternalServerError)
-		return
-	}
-
-	stats, err := h.queries.GetUserFoodCheckInStats(r.Context(), user.ID)
-	if err != nil {
-		http.Error(w, `{"error":"failed to get food check-in stats"}`, http.StatusInternalServerError)
-		return
-	}
-
-	items := make([]foodCheckInItem, 0, len(rows))
-	for _, row := range rows {
-		item := foodCheckInItem{
+		item := placeCheckInItem{
 			ID:          uuid.UUID(row.ID.Bytes).String(),
-			FoodID:      uuid.UUID(row.FoodID.Bytes).String(),
-			FoodName:    row.FoodName,
-			FoodCuisine: row.FoodCuisine,
+			PlaceID:     uuid.UUID(row.PlaceID.Bytes).String(),
+			PlaceName:   row.PlaceName,
+			IsFood:      row.PlaceIsFood,
+			IsDrink:     row.PlaceIsDrink,
 			CheckinDate: row.CheckinDate.Time.Format("2006-01-02"),
 			CreatedAt:   row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		}
-		if row.FoodCity.Valid {
-			city := row.FoodCity.String
-			item.FoodCity = &city
+		if row.PlaceCuisine.Valid {
+			c := row.PlaceCuisine.String
+			item.Cuisine = &c
 		}
-		if row.FoodImageUrl.Valid {
-			img := row.FoodImageUrl.String
-			item.FoodImage = &img
+		if row.PlaceBarType.Valid {
+			t := row.PlaceBarType.String
+			item.BarType = &t
+		}
+		if row.PlaceCity.Valid {
+			city := row.PlaceCity.String
+			item.PlaceCity = &city
+		}
+		if row.PlaceImageUrl.Valid {
+			img := row.PlaceImageUrl.String
+			item.PlaceImage = &img
 		}
 		items = append(items, item)
 	}
 
-	resp := myFoodCheckInsResponse{
-		Stats: foodCheckInStats{
-			TotalCheckins:     stats.TotalCheckins,
-			UniqueRestaurants: stats.UniqueRestaurants,
+	resp := myPlaceCheckInsResponse{
+		Stats: placeCheckInStats{
+			TotalCheckins:   stats.TotalCheckins,
+			UniquePlaces:    stats.UniquePlaces,
+			UniqueFoods:     stats.UniqueFoods,
+			UniqueBreweries: stats.UniqueBreweries,
+			UniqueBars:      stats.UniqueBars,
 		},
 		CheckIns: items,
 	}

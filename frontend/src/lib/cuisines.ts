@@ -1,5 +1,12 @@
 import type { Cuisine } from "#/lib/types";
 
+export function formatCuisineLabel(cuisine: string): string {
+	return cuisine
+		.split("_")
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
+
 export const CUISINES: { value: Cuisine; label: string }[] = [
 	{ value: "american", label: "American" },
 	{ value: "italian", label: "Italian" },
@@ -20,11 +27,27 @@ export const CUISINES: { value: Cuisine; label: string }[] = [
 	{ value: "cafe", label: "Cafe" },
 	{ value: "bakery", label: "Bakery" },
 	{ value: "dessert", label: "Dessert" },
-	{ value: "other", label: "Other" },
 ];
 
-const VALID: Set<string> = new Set(CUISINES.map((c) => c.value));
+const KNOWN: Set<string> = new Set(CUISINES.map((c) => c.value));
 
 export function isCuisine(v: unknown): v is Cuisine {
-	return typeof v === "string" && VALID.has(v);
+	return typeof v === "string" && v.length > 0 && v.length <= 50;
+}
+
+export function isKnownCuisine(v: string): boolean {
+	return KNOWN.has(v);
+}
+
+export function mergeCuisines(
+	extras: Iterable<string>,
+): { value: Cuisine; label: string }[] {
+	const seen = new Set<string>(KNOWN);
+	const out = [...CUISINES];
+	for (const c of extras) {
+		if (!c || seen.has(c)) continue;
+		seen.add(c);
+		out.push({ value: c, label: formatCuisineLabel(c) });
+	}
+	return out;
 }

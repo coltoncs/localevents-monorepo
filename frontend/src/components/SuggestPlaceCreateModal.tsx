@@ -1,23 +1,22 @@
 import { useState } from "react";
-import { BeverageForm, emptyBeverageForm } from "#/components/BeverageForm";
+import { emptyPlaceForm, PlaceForm } from "#/components/PlaceForm";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
-import type { CreateBeverageInput } from "#/lib/types";
+import type { CreatePlaceInput } from "#/lib/types";
 
-export function SuggestBeverageCreateModal({
-	onClose,
-}: {
-	onClose: () => void;
-}) {
+export function SuggestPlaceCreateModal({ onClose }: { onClose: () => void }) {
 	const createSuggestion = useCreateSuggestion();
 	const [submitted, setSubmitted] = useState(false);
 
-	async function handleSubmit(data: CreateBeverageInput) {
+	async function handleSubmit(data: CreatePlaceInput) {
 		const payload: Record<string, unknown> = {
 			name: data.name,
-			type: data.type,
+			is_food: data.is_food,
+			is_drink: data.is_drink,
 			latitude: data.latitude,
 			longitude: data.longitude,
 		};
+		if (data.is_food && data.cuisine) payload.cuisine = data.cuisine;
+		if (data.is_drink && data.bar_type) payload.bar_type = data.bar_type;
 		if (data.address) payload.address = data.address;
 		if (data.city) payload.city = data.city;
 		if (data.state) payload.state = data.state;
@@ -32,7 +31,7 @@ export function SuggestBeverageCreateModal({
 		if (data.price_level !== undefined) payload.price_level = data.price_level;
 
 		await createSuggestion.mutateAsync({
-			target_type: "beverage",
+			target_type: "place",
 			action: "create",
 			proposed_changes: payload,
 		});
@@ -47,8 +46,8 @@ export function SuggestBeverageCreateModal({
 						Suggestion submitted
 					</p>
 					<p className="mt-1 text-sm text-(--sea-ink-soft)">
-						Thanks! An admin will review your suggested bar or brewery before it
-						appears on the map.
+						Thanks! An admin will review your suggested place before it appears
+						on the map.
 					</p>
 					<button
 						type="button"
@@ -67,15 +66,15 @@ export function SuggestBeverageCreateModal({
 			<div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-(--line) bg-(--surface-strong) p-6 shadow-xl space-y-4">
 				<div>
 					<h2 className="text-lg font-semibold text-(--sea-ink)">
-						Suggest a Bar or Brewery
+						Suggest a Place
 					</h2>
 					<p className="text-sm text-(--sea-ink-soft)">
 						Fill in what you know. An admin will review and publish it.
 					</p>
 				</div>
 
-				<BeverageForm
-					initial={emptyBeverageForm()}
+				<PlaceForm
+					initial={emptyPlaceForm()}
 					onSubmit={handleSubmit}
 					onCancel={onClose}
 					isPending={createSuggestion.isPending}

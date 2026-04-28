@@ -1,18 +1,18 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
-import { formatCuisineLabel } from "#/components/FoodCard";
-import { FoodMap } from "#/components/FoodMap";
-import { useFoods } from "#/lib/hooks/useFoods";
-import type { Cuisine, Food } from "#/lib/types";
+import { PlaceMap } from "#/components/PlaceMap";
+import { formatCuisineLabel } from "#/lib/cuisines";
+import { usePlaces } from "#/lib/hooks/usePlaces";
+import type { BarType, Cuisine, Place } from "#/lib/types";
 
-type SheetSnap = "peek" | "half" | "full";
-
-interface FullscreenFoodMapProps {
+interface FullscreenPlaceMapProps {
+	tab: "food" | "drinks";
 	lat: number;
 	lng: number;
 	radius?: number;
 	cuisine?: Cuisine[];
+	barType?: BarType[];
 	minPrice?: number;
 	maxPrice?: number;
 	search?: string;
@@ -28,21 +28,22 @@ const RADIUS_OPTIONS: Array<{ value: number; label: string }> = [
 	{ value: 0, label: "All" },
 ];
 
-export function FullscreenFoodMap({
+export function FullscreenPlaceMap({
+	tab,
 	lat,
 	lng,
 	radius,
 	cuisine,
+	barType,
 	minPrice,
 	maxPrice,
 	search,
 	onClose,
-}: FullscreenFoodMapProps) {
+}: FullscreenPlaceMapProps) {
 	const navigate = useNavigate();
 	const [settingOrigin, setSettingOrigin] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
-	const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null);
+	const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 	const [searchInput, setSearchInput] = useState(search ?? "");
 	const mapInstanceRef = useRef<MapboxMap | null>(null);
 
@@ -52,13 +53,16 @@ export function FullscreenFoodMap({
 		lat,
 		lng,
 		radius: showAll ? 25000 : effectiveRadius,
-		cuisine,
-		minPrice,
-		maxPrice,
+		isFood: tab === "food",
+		isDrink: tab === "drinks",
+		cuisine: tab === "food" ? cuisine : undefined,
+		barType: tab === "drinks" ? barType : undefined,
+		minPrice: tab === "food" ? minPrice : undefined,
+		maxPrice: tab === "food" ? maxPrice : undefined,
 		search,
 	};
-	const { data, isLoading } = useFoods(filters);
-	const foods = data?.foods ?? [];
+	const { data, isLoading } = usePlaces(filters);
+	const places = data?.places ?? [];
 
 	useEffect(() => {
 		document.body.style.overflow = "hidden";
@@ -80,6 +84,7 @@ export function FullscreenFoodMap({
 		};
 	}, [settingOrigin]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: trigger resize on sidebar collapse
 	useEffect(() => {
 		const map = mapInstanceRef.current;
 		if (!map) return;
@@ -95,11 +100,11 @@ export function FullscreenFoodMap({
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: clear selection when any filter changes
 	useEffect(() => {
-		setSelectedFoodId(null);
-	}, [cuisine, minPrice, maxPrice, search, lat, lng, radius]);
+		setSelectedPlaceId(null);
+	}, [tab, cuisine, barType, minPrice, maxPrice, search, lat, lng, radius]);
 
 	const currentSearch = {
-		tab: "food" as const,
+		tab,
 		lat,
 		lng,
 		radius,
@@ -141,14 +146,13 @@ export function FullscreenFoodMap({
 		});
 	}
 
-	function handleSelectFood(food: Food) {
-		setSelectedFoodId(food.ID);
+	function handleSelectPlace(place: Place) {
+		setSelectedPlaceId(place.ID);
 		mapInstanceRef.current?.flyTo({
-			center: [food.Longitude, food.Latitude],
+			center: [place.Longitude, place.Latitude],
 			zoom: 15,
 			duration: 900,
 		});
-		if (sheetSnap === "full") setSheetSnap("half");
 	}
 
 	function handleRecenter() {
@@ -170,16 +174,19 @@ export function FullscreenFoodMap({
 				submitSearch("");
 			}}
 			onRadiusChange={setRadius}
+			placeholder={
+				tab === "food" ? "Search restaurants…" : "Search breweries & bars…"
+			}
 		/>
 	);
 
 	const listNode = (
-		<FoodList
-			foods={foods}
+		<PlaceList
+			places={places}
 			isLoading={isLoading}
 			center={{ lat, lng }}
-			selectedFoodId={selectedFoodId}
-			onSelect={handleSelectFood}
+			selectedPlaceId={selectedPlaceId}
+			onSelect={handleSelectPlace}
 		/>
 	);
 
@@ -192,7 +199,7 @@ export function FullscreenFoodMap({
 			>
 				{!sidebarCollapsed && (
 					<>
-						<SidebarHeader count={foods.length} />
+						<SidebarHeader tab={tab} count={places.length} />
 						{filtersNode}
 						<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
 					</>
@@ -219,8 +226,8 @@ export function FullscreenFoodMap({
 			</aside>
 
 			<div className="relative min-w-0 flex-1">
-				<FoodMap
-					foods={foods}
+				<PlaceMap
+					places={places}
 					center={{ lat, lng }}
 					radiusMiles={showAll ? 0 : effectiveRadius}
 					className="h-full w-full"
@@ -228,7 +235,7 @@ export function FullscreenFoodMap({
 						mapInstanceRef.current = map;
 					}}
 					onMapClick={handleMapClick}
-					selectedFoodId={selectedFoodId}
+					selectedPlaceId={selectedPlaceId}
 				/>
 
 				<div className="pointer-events-none absolute inset-0">
@@ -262,7 +269,6 @@ export function FullscreenFoodMap({
 										: "text-(--sea-ink) hover:bg-(--link-bg-hover)"
 								}`}
 								aria-label="Set search center"
-								title="Click map to set new search center"
 							>
 								<svg
 									width="18"
@@ -285,7 +291,6 @@ export function FullscreenFoodMap({
 								onClick={handleRecenter}
 								className="flex h-10 w-10 cursor-pointer items-center justify-center text-(--sea-ink) hover:bg-(--link-bg-hover)"
 								aria-label="Recenter map"
-								title="Recenter map"
 							>
 								<svg
 									width="18"
@@ -303,36 +308,39 @@ export function FullscreenFoodMap({
 							</button>
 						</div>
 					</div>
-
-					{settingOrigin && (
-						<div
-							className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-(--lagoon) bg-(--surface-strong) px-4 py-2 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-(--lagoon) shadow-lg backdrop-blur-lg"
-							style={{
-								boxShadow:
-									"0 0 0 1px var(--lagoon), 0 0 22px color-mix(in oklab, var(--lagoon) 40%, transparent)",
-							}}
-						>
-							Click anywhere to set search center
-						</div>
-					)}
 				</div>
 			</div>
 		</div>
 	);
 }
 
-function SidebarHeader({ count }: { count: number }) {
+function SidebarHeader({
+	tab,
+	count,
+}: {
+	tab: "food" | "drinks";
+	count: number;
+}) {
 	return (
 		<div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
 			<div>
-				<div className="island-kicker">Food Map</div>
+				<div className="island-kicker">
+					{tab === "food" ? "Food Map" : "Drinks Map"}
+				</div>
 				<div className="mt-0.5 text-lg font-bold tracking-tight text-(--sea-ink)">
 					{count} spot{count !== 1 ? "s" : ""}
 				</div>
 			</div>
 			<div
-				className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,#f59e0b,#d97706)]"
-				style={{ boxShadow: "0 0 10px #f59e0b" }}
+				className="h-2.5 w-2.5 rounded-full"
+				style={{
+					background:
+						tab === "food"
+							? "linear-gradient(90deg,#f59e0b,#d97706)"
+							: "linear-gradient(90deg, var(--lagoon), var(--lagoon-deep))",
+					boxShadow:
+						tab === "food" ? "0 0 10px #f59e0b" : "0 0 10px var(--lagoon)",
+				}}
 				aria-hidden
 			/>
 		</div>
@@ -346,6 +354,7 @@ function FiltersRow({
 	onSubmitSearch,
 	onClearSearch,
 	onRadiusChange,
+	placeholder,
 }: {
 	radius: number;
 	searchInput: string;
@@ -353,6 +362,7 @@ function FiltersRow({
 	onSubmitSearch: () => void;
 	onClearSearch: () => void;
 	onRadiusChange: (r: number) => void;
+	placeholder: string;
 }) {
 	return (
 		<div className="space-y-2 border-b border-(--line) p-3">
@@ -367,7 +377,7 @@ function FiltersRow({
 					type="text"
 					value={searchInput}
 					onChange={(e) => onSearchInputChange(e.target.value)}
-					placeholder="Search restaurants…"
+					placeholder={placeholder}
 					className="h-9 flex-1 rounded-lg border border-(--line) bg-(--chip-bg) px-3 text-sm text-(--sea-ink) outline-none placeholder:text-(--sea-ink-soft) focus:border-(--lagoon)"
 				/>
 				{searchInput && (
@@ -381,7 +391,6 @@ function FiltersRow({
 					</button>
 				)}
 			</form>
-
 			<select
 				value={radius}
 				onChange={(e) => onRadiusChange(Number(e.target.value))}
@@ -397,18 +406,18 @@ function FiltersRow({
 	);
 }
 
-function FoodList({
-	foods,
+function PlaceList({
+	places,
 	isLoading,
 	center,
-	selectedFoodId,
+	selectedPlaceId,
 	onSelect,
 }: {
-	foods: Food[];
+	places: Place[];
 	isLoading: boolean;
 	center: { lat: number; lng: number };
-	selectedFoodId: string | null;
-	onSelect: (f: Food) => void;
+	selectedPlaceId: string | null;
+	onSelect: (p: Place) => void;
 }) {
 	if (isLoading) {
 		return (
@@ -430,7 +439,7 @@ function FoodList({
 			</div>
 		);
 	}
-	if (foods.length === 0) {
+	if (places.length === 0) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center px-8 py-16 text-center">
 				<div className="island-kicker">Nothing nearby</div>
@@ -443,26 +452,26 @@ function FoodList({
 	}
 	return (
 		<ul className="divide-y divide-(--line)">
-			{foods.map((food) => (
-				<FoodCardRow
-					key={food.ID}
-					food={food}
+			{places.map((place) => (
+				<PlaceRow
+					key={place.ID}
+					place={place}
 					center={center}
-					selected={selectedFoodId === food.ID}
-					onClick={() => onSelect(food)}
+					selected={selectedPlaceId === place.ID}
+					onClick={() => onSelect(place)}
 				/>
 			))}
 		</ul>
 	);
 }
 
-function FoodCardRow({
-	food,
+function PlaceRow({
+	place,
 	center,
 	selected,
 	onClick,
 }: {
-	food: Food;
+	place: Place;
 	center: { lat: number; lng: number };
 	selected: boolean;
 	onClick: () => void;
@@ -470,12 +479,12 @@ function FoodCardRow({
 	const distance = haversineMiles(
 		center.lat,
 		center.lng,
-		food.Latitude,
-		food.Longitude,
+		place.Latitude,
+		place.Longitude,
 	);
-	const cuisineLabel = formatCuisineLabel(food.Cuisine);
-	const price = formatPriceLevel(food.PriceLevel);
-	const firstTag = food.Tags?.[0];
+	const price = formatPriceLevel(place.PriceLevel);
+	const firstTag = place.Tags?.[0];
+	const kindLabel = placeKindLabel(place);
 
 	return (
 		<li>
@@ -489,9 +498,9 @@ function FoodCardRow({
 					selected ? { boxShadow: "inset 3px 0 0 var(--lagoon)" } : undefined
 				}
 			>
-				{food.ImageUrl ? (
+				{place.ImageUrl ? (
 					<img
-						src={food.ImageUrl}
+						src={place.ImageUrl}
 						alt=""
 						loading="lazy"
 						className="h-16 w-16 shrink-0 rounded-md border border-(--line) object-cover"
@@ -500,23 +509,21 @@ function FoodCardRow({
 					<div
 						className="h-16 w-16 shrink-0 rounded-md border border-(--line)"
 						style={{
-							background:
-								"linear-gradient(135deg, rgba(245,158,11,0.4), rgba(217,119,6,0.4))",
+							background: place.IsFood
+								? "linear-gradient(135deg, rgba(245,158,11,0.4), rgba(217,119,6,0.4))"
+								: "linear-gradient(135deg, color-mix(in oklab, var(--lagoon) 60%, transparent), var(--lagoon-deep))",
 						}}
 					/>
 				)}
 				<div className="min-w-0 flex-1">
 					<div className="truncate text-sm font-bold text-(--sea-ink)">
-						{food.Name}
+						{place.Name}
 					</div>
 					<div className="mt-0.5 truncate text-xs text-(--sea-ink-soft)">
-						{cuisineLabel}
-						{food.City ? ` · ${food.City}` : ""}
+						{kindLabel}
+						{place.City ? ` · ${place.City}` : ""}
 					</div>
 					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem]">
-						<span className="rounded-full border border-(--chip-line) bg-(--chip-bg) px-2 py-0.5 font-mono text-[0.6rem] font-medium uppercase tracking-wider text-(--lagoon-deep)">
-							{cuisineLabel}
-						</span>
 						<span className="text-(--sea-ink-soft)">
 							{distance.toFixed(1)} mi
 						</span>
@@ -533,6 +540,16 @@ function FoodCardRow({
 			</button>
 		</li>
 	);
+}
+
+function placeKindLabel(place: Place): string {
+	const parts: string[] = [];
+	if (place.IsFood && place.Cuisine)
+		parts.push(formatCuisineLabel(place.Cuisine));
+	if (place.IsDrink && place.BarType) {
+		parts.push(place.BarType === "brewery" ? "Brewery" : "Bar");
+	}
+	return parts.join(" · ");
 }
 
 function haversineMiles(
@@ -555,3 +572,7 @@ function formatPriceLevel(level?: number): string | null {
 	if (!level || level <= 0) return null;
 	return "$".repeat(Math.min(4, level));
 }
+
+export const FullscreenPlaceMapSkeleton = () => (
+	<div className="fixed inset-0 z-[60] flex h-[100dvh] bg-(--bg-base)" />
+);

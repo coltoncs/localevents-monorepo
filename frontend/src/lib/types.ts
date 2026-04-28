@@ -113,10 +113,16 @@ export interface UpdateVenueInput {
 	description?: string;
 }
 
-export interface Beverage {
+export type Cuisine = string;
+export type BarType = "brewery" | "bar";
+
+export interface Place {
 	ID: string;
 	Name: string;
-	Type: "brewery" | "bar";
+	IsFood: boolean;
+	IsDrink: boolean;
+	Cuisine?: Cuisine;
+	BarType?: BarType;
 	Address: string;
 	City: string;
 	State: string;
@@ -133,96 +139,29 @@ export interface Beverage {
 	PriceLevel?: number;
 }
 
-export interface BeverageListResponse {
-	beverages: Beverage[];
+export interface PlaceListResponse {
+	places: Place[];
 }
 
-export interface BeverageFilters {
+export interface PlaceFilters {
 	lat: number;
 	lng: number;
 	radius?: number;
-	type?: "brewery" | "bar";
-	search?: string;
-}
-
-export interface CreateBeverageInput {
-	name: string;
-	type: "brewery" | "bar";
-	address?: string;
-	city?: string;
-	state?: string;
-	zip?: string;
-	latitude: number;
-	longitude: number;
-	phone?: string;
-	website?: string;
-	hours?: string;
-	description?: string;
-	review?: string;
-	image_url?: string;
-	tags?: string[];
-	price_level?: number;
-}
-
-export type Cuisine =
-	| "american"
-	| "italian"
-	| "mexican"
-	| "chinese"
-	| "japanese"
-	| "korean"
-	| "thai"
-	| "vietnamese"
-	| "indian"
-	| "mediterranean"
-	| "middle_eastern"
-	| "french"
-	| "bbq"
-	| "pizza"
-	| "seafood"
-	| "vegan"
-	| "cafe"
-	| "bakery"
-	| "dessert"
-	| "other";
-
-export interface Food {
-	ID: string;
-	Name: string;
-	Cuisine: Cuisine;
-	Address: string;
-	City: string;
-	State: string;
-	Zip: string;
-	Latitude: number;
-	Longitude: number;
-	Phone?: string;
-	Website?: string;
-	Hours?: string;
-	Description?: string;
-	Review?: string;
-	ImageUrl?: string;
-	Tags?: string[];
-	PriceLevel?: number;
-}
-
-export interface FoodListResponse {
-	foods: Food[];
-}
-
-export interface FoodFilters {
-	lat: number;
-	lng: number;
-	radius?: number;
+	isFood?: boolean;
+	isDrink?: boolean;
 	cuisine?: Cuisine[];
+	barType?: BarType[];
 	minPrice?: number;
 	maxPrice?: number;
 	search?: string;
 }
 
-export interface CreateFoodInput {
+export interface CreatePlaceInput {
 	name: string;
-	cuisine: Cuisine;
+	is_food: boolean;
+	is_drink: boolean;
+	cuisine?: Cuisine;
+	bar_type?: BarType;
 	address?: string;
 	city?: string;
 	state?: string;
@@ -237,29 +176,6 @@ export interface CreateFoodInput {
 	image_url?: string;
 	tags?: string[];
 	price_level?: number;
-}
-
-export interface MyFoodCheckIn {
-	id: string;
-	food_id: string;
-	food_name: string;
-	food_cuisine: Cuisine;
-	food_city?: string;
-	food_image_url?: string;
-	checkin_date: string;
-	created_at: string;
-}
-
-export interface MyFoodCheckInStats {
-	total_checkins: number;
-	unique_restaurants: number;
-	first_checkin_date?: string;
-	last_checkin_date?: string;
-}
-
-export interface MyFoodCheckInsResponse {
-	stats: MyFoodCheckInStats;
-	checkins: MyFoodCheckIn[];
 }
 
 export interface UpdateUserInput {
@@ -325,36 +241,40 @@ export interface UpdateNotificationInput {
 	email_style: "detailed" | "compact";
 }
 
-export interface MyCheckIn {
+export interface MyPlaceCheckIn {
 	id: string;
-	beverage_id: string;
-	beverage_name: string;
-	beverage_type: "brewery" | "bar";
-	beverage_city?: string;
-	beverage_image_url?: string;
+	place_id: string;
+	place_name: string;
+	is_food: boolean;
+	is_drink: boolean;
+	cuisine?: Cuisine;
+	bar_type?: BarType;
+	place_city?: string;
+	place_image_url?: string;
 	checkin_date: string;
 	created_at: string;
 }
 
-export interface MyCheckInStats {
+export interface MyPlaceCheckInStats {
 	total_checkins: number;
-	unique_venues: number;
+	unique_places: number;
+	unique_foods: number;
 	unique_breweries: number;
 	unique_bars: number;
 	first_checkin_date?: string;
 	last_checkin_date?: string;
 }
 
-export interface MyCheckInsResponse {
-	stats: MyCheckInStats;
-	checkins: MyCheckIn[];
+export interface MyPlaceCheckInsResponse {
+	stats: MyPlaceCheckInStats;
+	checkins: MyPlaceCheckIn[];
 }
 
 export type SuggestionAction = "edit" | "create" | "delete";
 
 export interface EditSuggestion {
 	ID: string;
-	TargetType: "event" | "venue" | "beverage" | "food";
+	TargetType: "event" | "venue" | "place";
 	TargetID?: string;
 	SubmittedBy: string;
 	Action: SuggestionAction;
@@ -369,7 +289,7 @@ export interface EditSuggestion {
 }
 
 export interface CreateEditSuggestionInput {
-	target_type: "event" | "venue" | "beverage" | "food";
+	target_type: "event" | "venue" | "place";
 	target_id?: string;
 	action?: SuggestionAction;
 	reason?: string;

@@ -4,17 +4,17 @@ import { useState } from "react";
 import { ApiError } from "#/lib/api";
 import { getCurrentPosition } from "#/lib/geolocation";
 import {
-	useFoodCheckIn,
-	useFoodCheckInCounts,
-	useMyFoodCheckInStatus,
-} from "#/lib/hooks/useFoodCheckIns";
+	useMyPlaceCheckInStatus,
+	usePlaceCheckIn,
+	usePlaceCheckInCounts,
+} from "#/lib/hooks/usePlaceCheckIns";
 
-export function FoodCheckInButton({ foodId }: { foodId: string }) {
+export function PlaceCheckInButton({ placeId }: { placeId: string }) {
 	const { isSignedIn } = useAuth();
 	const { openSignIn } = useClerk();
-	const checkIn = useFoodCheckIn(foodId);
-	const { data: status } = useMyFoodCheckInStatus(foodId, !!isSignedIn);
-	const { data: counts } = useFoodCheckInCounts(foodId);
+	const checkIn = usePlaceCheckIn(placeId);
+	const { data: status } = useMyPlaceCheckInStatus(placeId, !!isSignedIn);
+	const { data: counts } = usePlaceCheckInCounts(placeId);
 	const [error, setError] = useState<string | null>(null);
 	const [locating, setLocating] = useState(false);
 

@@ -11,8 +11,7 @@ const TARGET_OPTIONS: { id: TargetFilter; label: string }[] = [
 	{ id: "all", label: "All" },
 	{ id: "event", label: "Events" },
 	{ id: "venue", label: "Venues" },
-	{ id: "beverage", label: "Bars & Breweries" },
-	{ id: "food", label: "Restaurants" },
+	{ id: "place", label: "Places" },
 ];
 
 const ACTION_OPTIONS: { id: ActionFilter; label: string }[] = [

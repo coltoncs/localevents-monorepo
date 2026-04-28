@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Beer, Bookmark, MapPin, Wine } from "lucide-react";
+import { Beer, Bookmark, MapPin, UtensilsCrossed } from "lucide-react";
 import { Spinner } from "#/components/Spinner";
-import { useMyCheckIns } from "#/lib/hooks/useBeverageCheckIns";
+import { useMyPlaceCheckIns } from "#/lib/hooks/usePlaceCheckIns";
 import { useSavedEvents } from "#/lib/hooks/useSavedEvents";
 import { useUser } from "#/lib/hooks/useUser";
 
@@ -15,7 +15,8 @@ function formatMonthYear(iso: string) {
 export function ProfileOverviewTab() {
 	const { data: user, isLoading: userLoading } = useUser();
 	const { data: saved, isLoading: savedLoading } = useSavedEvents();
-	const { data: checkInsData, isLoading: checkInsLoading } = useMyCheckIns();
+	const { data: checkInsData, isLoading: checkInsLoading } =
+		useMyPlaceCheckIns();
 	const navigate = useNavigate();
 
 	if (userLoading || savedLoading || checkInsLoading) {
@@ -55,17 +56,17 @@ export function ProfileOverviewTab() {
 					}
 				/>
 				<StatTile
-					icon={<Beer size={18} />}
-					label="Breweries visited"
-					value={stats?.unique_breweries ?? 0}
+					icon={<UtensilsCrossed size={18} />}
+					label="Restaurants"
+					value={stats?.unique_foods ?? 0}
 					onClick={() =>
 						navigate({ to: "/profile", search: { tab: "checkins" } })
 					}
 				/>
 				<StatTile
-					icon={<Wine size={18} />}
-					label="Bars visited"
-					value={stats?.unique_bars ?? 0}
+					icon={<Beer size={18} />}
+					label="Drink spots"
+					value={(stats?.unique_breweries ?? 0) + (stats?.unique_bars ?? 0)}
 					onClick={() =>
 						navigate({ to: "/profile", search: { tab: "checkins" } })
 					}
@@ -105,12 +106,12 @@ export function ProfileOverviewTab() {
 							{recentCheckIns.map((c) => (
 								<li key={c.id}>
 									<Link
-										to="/drinks/$beverageId"
-										params={{ beverageId: c.beverage_id }}
+										to="/place/$placeId"
+										params={{ placeId: c.place_id }}
 										className="flex items-center justify-between rounded-lg border border-(--line) bg-(--surface-strong) px-3 py-2 no-underline hover:bg-(--surface)"
 									>
 										<span className="truncate text-sm text-(--sea-ink)">
-											{c.beverage_name}
+											{c.place_name}
 										</span>
 										<span className="shrink-0 pl-3 text-xs text-(--sea-ink-soft)">
 											{new Date(

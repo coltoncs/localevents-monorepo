@@ -1,44 +1,49 @@
 import { useEffect, useRef, useState } from "react";
+import { CuisineSelect } from "#/components/CuisineSelect";
 import {
 	LocationPickerMap,
 	type PoiSelection,
 } from "#/components/LocationPickerMap";
 import { getSavedLocation } from "#/components/LocationSearch";
-import { CUISINES } from "#/lib/cuisines";
-import type { CreateFoodInput, Food } from "#/lib/types";
+import type { CreatePlaceInput, Place } from "#/lib/types";
 
 const inputClass =
 	"mt-1 block w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)]";
 const labelClass = "block text-sm font-medium text-[var(--sea-ink-soft)]";
 
-export function emptyFoodForm(): CreateFoodInput {
+export function emptyPlaceForm(): CreatePlaceInput {
 	const saved = getSavedLocation();
 	return {
 		name: "",
+		is_food: true,
+		is_drink: false,
 		cuisine: "american",
 		latitude: saved?.lat ?? 0,
 		longitude: saved?.lng ?? 0,
 	};
 }
 
-export function foodToForm(f: Food): CreateFoodInput {
+export function placeToForm(p: Place): CreatePlaceInput {
 	return {
-		name: f.Name,
-		cuisine: f.Cuisine,
-		address: f.Address || undefined,
-		city: f.City || undefined,
-		state: f.State || undefined,
-		zip: f.Zip || undefined,
-		latitude: f.Latitude,
-		longitude: f.Longitude,
-		phone: f.Phone || undefined,
-		website: f.Website || undefined,
-		hours: f.Hours || undefined,
-		description: f.Description || undefined,
-		review: f.Review || undefined,
-		image_url: f.ImageUrl || undefined,
-		tags: f.Tags ?? [],
-		price_level: f.PriceLevel ?? undefined,
+		name: p.Name,
+		is_food: p.IsFood,
+		is_drink: p.IsDrink,
+		cuisine: p.Cuisine,
+		bar_type: p.BarType,
+		address: p.Address || undefined,
+		city: p.City || undefined,
+		state: p.State || undefined,
+		zip: p.Zip || undefined,
+		latitude: p.Latitude,
+		longitude: p.Longitude,
+		phone: p.Phone || undefined,
+		website: p.Website || undefined,
+		hours: p.Hours || undefined,
+		description: p.Description || undefined,
+		review: p.Review || undefined,
+		image_url: p.ImageUrl || undefined,
+		tags: p.Tags ?? [],
+		price_level: p.PriceLevel ?? undefined,
 	};
 }
 
@@ -88,7 +93,7 @@ function useAddressGeocode(
 	return geocode;
 }
 
-export function FoodForm({
+export function PlaceForm({
 	initial,
 	onSubmit,
 	onCancel,
@@ -96,8 +101,8 @@ export function FoodForm({
 	isError,
 	submitLabel,
 }: {
-	initial: CreateFoodInput;
-	onSubmit: (data: CreateFoodInput) => void;
+	initial: CreatePlaceInput;
+	onSubmit: (data: CreatePlaceInput) => void;
 	onCancel: () => void;
 	isPending: boolean;
 	isError: boolean;
@@ -106,9 +111,9 @@ export function FoodForm({
 	const [form, setForm] = useState(initial);
 	const [tagsInput, setTagsInput] = useState((initial.tags ?? []).join(", "));
 
-	function set<K extends keyof CreateFoodInput>(
+	function set<K extends keyof CreatePlaceInput>(
 		key: K,
-		value: CreateFoodInput[K],
+		value: CreatePlaceInput[K],
 	) {
 		setForm((prev) => ({ ...prev, [key]: value }));
 	}
@@ -134,11 +139,17 @@ export function FoodForm({
 
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		if (!form.is_food && !form.is_drink) return;
 		const tags = tagsInput
 			.split(",")
 			.map((t) => t.trim())
 			.filter(Boolean);
-		onSubmit({ ...form, tags: tags.length > 0 ? tags : undefined });
+		onSubmit({
+			...form,
+			cuisine: form.is_food ? form.cuisine || "american" : undefined,
+			bar_type: form.is_drink ? form.bar_type || "brewery" : undefined,
+			tags: tags.length > 0 ? tags : undefined,
+		});
 	}
 
 	return (
@@ -146,8 +157,35 @@ export function FoodForm({
 			onSubmit={handleSubmit}
 			className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-4"
 		>
+			<div className="space-y-2">
+				<span className={labelClass}>This place is *</span>
+				<div className="flex flex-wrap gap-3">
+					<label className="flex cursor-pointer items-center gap-2 rounded-md border border-(--line) bg-(--surface) px-3 py-1.5 text-sm">
+						<input
+							type="checkbox"
+							checked={form.is_food}
+							onChange={(e) => set("is_food", e.target.checked)}
+						/>
+						Restaurant / Food
+					</label>
+					<label className="flex cursor-pointer items-center gap-2 rounded-md border border-(--line) bg-(--surface) px-3 py-1.5 text-sm">
+						<input
+							type="checkbox"
+							checked={form.is_drink}
+							onChange={(e) => set("is_drink", e.target.checked)}
+						/>
+						Brewery / Bar
+					</label>
+				</div>
+				{!form.is_food && !form.is_drink && (
+					<p className="text-xs text-red-600">
+						Pick at least one — a place must be food, drinks, or both.
+					</p>
+				)}
+			</div>
+
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<label className={labelClass}>
+				<label className={`sm:col-span-2 ${labelClass}`}>
 					Name *
 					<input
 						type="text"
@@ -157,22 +195,32 @@ export function FoodForm({
 						className={inputClass}
 					/>
 				</label>
-				<label className={labelClass}>
-					Cuisine *
-					<select
-						value={form.cuisine}
-						onChange={(e) =>
-							set("cuisine", e.target.value as CreateFoodInput["cuisine"])
-						}
+
+				{form.is_food && (
+					<CuisineSelect
+						label="Cuisine *"
+						value={form.cuisine ?? ""}
+						onChange={(v) => set("cuisine", v)}
 						className={inputClass}
-					>
-						{CUISINES.map((c) => (
-							<option key={c.value} value={c.value}>
-								{c.label}
-							</option>
-						))}
-					</select>
-				</label>
+						labelClassName={labelClass}
+						required
+					/>
+				)}
+				{form.is_drink && (
+					<label className={labelClass}>
+						Type *
+						<select
+							value={form.bar_type ?? "brewery"}
+							onChange={(e) =>
+								set("bar_type", e.target.value as CreatePlaceInput["bar_type"])
+							}
+							className={inputClass}
+						>
+							<option value="brewery">Brewery</option>
+							<option value="bar">Bar</option>
+						</select>
+					</label>
+				)}
 
 				<label className={`sm:col-span-2 ${labelClass}`}>
 					Address
@@ -379,7 +427,7 @@ export function FoodForm({
 				</button>
 				<button
 					type="submit"
-					disabled={isPending}
+					disabled={isPending || (!form.is_food && !form.is_drink)}
 					className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
 				>
 					{isPending ? "Saving..." : submitLabel}

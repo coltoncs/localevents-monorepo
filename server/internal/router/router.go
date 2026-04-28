@@ -1,6 +1,9 @@
 package router
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -13,6 +16,16 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
+
+// redirectLegacyPath rewrites the URL prefix and replies with a 301.
+// Used to forward old /foods and /beverages paths to the unified /places routes.
+func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPrefix string) {
+	target := newPrefix + strings.TrimPrefix(r.URL.Path, oldPrefix)
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	http.Redirect(w, r, target, http.StatusMovedPermanently)
+}
 
 func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client) *chi.Mux {
 	r := chi.NewRouter()
@@ -35,9 +48,15 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	suggestionHandler := handler.NewSuggestionHandler(queries)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
-	beverageHandler := handler.NewBeverageHandler(queries)
-	foodHandler := handler.NewFoodHandler(queries)
+	placeHandler := handler.NewPlaceHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)
+
+	redirectFoods := func(w http.ResponseWriter, r *http.Request) {
+		redirectLegacyPath(w, r, "/api/foods", "/api/places")
+	}
+	redirectBeverages := func(w http.ResponseWriter, r *http.Request) {
+		redirectLegacyPath(w, r, "/api/beverages", "/api/places")
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handler.HealthCheck)
@@ -54,13 +73,18 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
 			r.Get("/venues", venueHandler.List)
 			r.Get("/venues/{id}", venueHandler.Get)
-			r.Get("/beverages", beverageHandler.List)
-			r.Get("/beverages/{id}", beverageHandler.Get)
-			r.Get("/beverages/{id}/checkin-counts", beverageHandler.CheckInCounts)
-			r.Get("/foods", foodHandler.List)
-			r.Get("/foods/{id}", foodHandler.Get)
-			r.Get("/foods/{id}/checkin-counts", foodHandler.CheckInCounts)
+			r.Get("/places", placeHandler.List)
+			r.Get("/places/{id}", placeHandler.Get)
+			r.Get("/places/{id}/checkin-counts", placeHandler.CheckInCounts)
 		})
+
+		// Legacy /foods and /beverages paths -> 301 redirects to /places
+		r.Get("/foods", redirectFoods)
+		r.Get("/foods/{id}", redirectFoods)
+		r.Get("/foods/{id}/checkin-counts", redirectFoods)
+		r.Get("/beverages", redirectBeverages)
+		r.Get("/beverages/{id}", redirectBeverages)
+		r.Get("/beverages/{id}/checkin-counts", redirectBeverages)
 
 		// Authenticated routes (any signed-in user)
 		r.Group(func(r chi.Router) {
@@ -69,8 +93,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Put("/me", userHandler.UpdateMe)
 			r.Get("/me/events", userHandler.ListMyEvents)
 			r.Get("/me/saved", userHandler.ListSaved)
-			r.Get("/me/beverage-checkins", userHandler.ListMyCheckIns)
-			r.Get("/me/food-checkins", userHandler.ListMyFoodCheckIns)
+			r.Get("/me/place-checkins", userHandler.ListMyPlaceCheckIns)
 			r.Post("/me/saved/{eventId}", userHandler.SaveEvent)
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)
@@ -83,10 +106,8 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Get("/images", imageHandler.List)
 			r.Delete("/images/{id}", imageHandler.Delete)
 			r.Post("/suggestions", suggestionHandler.Create)
-			r.Post("/beverages/{id}/checkins", beverageHandler.CheckIn)
-			r.Get("/beverages/{id}/my-checkin-status", beverageHandler.MyCheckInStatus)
-			r.Post("/foods/{id}/checkins", foodHandler.CheckIn)
-			r.Get("/foods/{id}/my-checkin-status", foodHandler.MyCheckInStatus)
+			r.Post("/places/{id}/checkins", placeHandler.CheckIn)
+			r.Get("/places/{id}/my-checkin-status", placeHandler.MyCheckInStatus)
 		})
 
 		// Author/Admin routes
@@ -108,12 +129,9 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireAuth())
 			r.Use(middleware.RequireRole(middleware.RoleAdmin))
-			r.Post("/beverages", beverageHandler.Create)
-			r.Put("/beverages/{id}", beverageHandler.Update)
-			r.Delete("/beverages/{id}", beverageHandler.Delete)
-			r.Post("/foods", foodHandler.Create)
-			r.Put("/foods/{id}", foodHandler.Update)
-			r.Delete("/foods/{id}", foodHandler.Delete)
+			r.Post("/places", placeHandler.Create)
+			r.Put("/places/{id}", placeHandler.Update)
+			r.Delete("/places/{id}", placeHandler.Delete)
 			r.Get("/admin/applications", appHandler.ListPending)
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)

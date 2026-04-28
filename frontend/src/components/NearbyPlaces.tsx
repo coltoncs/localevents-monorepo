@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { useBeverages } from "#/lib/hooks/useBeverages";
-import { useFoods } from "#/lib/hooks/useFoods";
-import type { Beverage, Food } from "#/lib/types";
-import { formatCuisineLabel } from "./FoodCard";
+import { formatCuisineLabel } from "#/lib/cuisines";
+import { usePlaces } from "#/lib/hooks/usePlaces";
+import type { Place } from "#/lib/types";
 
 const WALKABLE_RADIUS_MI = 0.5;
 const MAX_PER_SECTION = 4;
@@ -13,23 +12,19 @@ interface NearbyPlacesProps {
 }
 
 export function NearbyPlaces({ lat, lng }: NearbyPlacesProps) {
-	const { data: foodData, isLoading: foodsLoading } = useFoods({
-		lat,
-		lng,
-		radius: WALKABLE_RADIUS_MI,
-	});
-	const { data: bevData, isLoading: bevsLoading } = useBeverages({
+	const { data, isLoading } = usePlaces({
 		lat,
 		lng,
 		radius: WALKABLE_RADIUS_MI,
 	});
 
-	if (foodsLoading || bevsLoading) return null;
+	if (isLoading) return null;
 
-	const foods = (foodData?.foods ?? []).slice(0, MAX_PER_SECTION);
-	const beverages = (bevData?.beverages ?? []).slice(0, MAX_PER_SECTION);
+	const all = data?.places ?? [];
+	const foods = all.filter((p) => p.IsFood).slice(0, MAX_PER_SECTION);
+	const drinks = all.filter((p) => p.IsDrink).slice(0, MAX_PER_SECTION);
 
-	if (foods.length === 0 && beverages.length === 0) return null;
+	if (foods.length === 0 && drinks.length === 0) return null;
 
 	return (
 		<section className="space-y-3 rounded-lg border border-(--line) bg-(--surface-strong) p-4">
@@ -48,21 +43,33 @@ export function NearbyPlaces({ lat, lng }: NearbyPlacesProps) {
 						Eat
 					</h3>
 					<ul className="mt-1.5 divide-y divide-(--line)">
-						{foods.map((food) => (
-							<FoodItem key={food.ID} food={food} lat={lat} lng={lng} />
+						{foods.map((place) => (
+							<PlaceItem
+								key={`f-${place.ID}`}
+								place={place}
+								lat={lat}
+								lng={lng}
+								kind="food"
+							/>
 						))}
 					</ul>
 				</div>
 			)}
 
-			{beverages.length > 0 && (
+			{drinks.length > 0 && (
 				<div>
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-(--sea-ink-soft)">
 						Drink
 					</h3>
 					<ul className="mt-1.5 divide-y divide-(--line)">
-						{beverages.map((bev) => (
-							<BeverageItem key={bev.ID} beverage={bev} lat={lat} lng={lng} />
+						{drinks.map((place) => (
+							<PlaceItem
+								key={`d-${place.ID}`}
+								place={place}
+								lat={lat}
+								lng={lng}
+								kind="drink"
+							/>
 						))}
 					</ul>
 				</div>
@@ -71,62 +78,36 @@ export function NearbyPlaces({ lat, lng }: NearbyPlacesProps) {
 	);
 }
 
-function FoodItem({
-	food,
+function PlaceItem({
+	place,
 	lat,
 	lng,
+	kind,
 }: {
-	food: Food;
+	place: Place;
 	lat: number;
 	lng: number;
+	kind: "food" | "drink";
 }) {
-	const distance = haversineMiles(lat, lng, food.Latitude, food.Longitude);
+	const distance = haversineMiles(lat, lng, place.Latitude, place.Longitude);
+	const label =
+		kind === "food" && place.Cuisine
+			? formatCuisineLabel(place.Cuisine)
+			: place.BarType === "brewery"
+				? "Brewery"
+				: "Bar";
 	return (
 		<li>
 			<Link
-				to="/food/$foodId"
-				params={{ foodId: food.ID }}
+				to="/place/$placeId"
+				params={{ placeId: place.ID }}
 				className="flex items-baseline justify-between gap-2 py-1.5 no-underline hover:text-(--lagoon-deep)"
 			>
 				<span className="truncate text-sm font-medium text-(--sea-ink)">
-					{food.Name}
+					{place.Name}
 				</span>
 				<span className="shrink-0 text-xs text-(--sea-ink-soft)">
-					{formatCuisineLabel(food.Cuisine)} · {formatDistance(distance)}
-				</span>
-			</Link>
-		</li>
-	);
-}
-
-function BeverageItem({
-	beverage,
-	lat,
-	lng,
-}: {
-	beverage: Beverage;
-	lat: number;
-	lng: number;
-}) {
-	const distance = haversineMiles(
-		lat,
-		lng,
-		beverage.Latitude,
-		beverage.Longitude,
-	);
-	const typeLabel = beverage.Type === "brewery" ? "Brewery" : "Bar";
-	return (
-		<li>
-			<Link
-				to="/drinks/$beverageId"
-				params={{ beverageId: beverage.ID }}
-				className="flex items-baseline justify-between gap-2 py-1.5 no-underline hover:text-(--lagoon-deep)"
-			>
-				<span className="truncate text-sm font-medium text-(--sea-ink)">
-					{beverage.Name}
-				</span>
-				<span className="shrink-0 text-xs text-(--sea-ink-soft)">
-					{typeLabel} · {formatDistance(distance)}
+					{label} · {formatDistance(distance)}
 				</span>
 			</Link>
 		</li>

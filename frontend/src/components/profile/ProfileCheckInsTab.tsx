@@ -1,14 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { Beer, MapPin, UtensilsCrossed, Wine } from "lucide-react";
-import { formatCuisineLabel } from "#/components/FoodCard";
 import { Spinner } from "#/components/Spinner";
-import { useMyCheckIns } from "#/lib/hooks/useBeverageCheckIns";
-import { useMyFoodCheckIns } from "#/lib/hooks/useFoodCheckIns";
-import type { MyCheckIn, MyFoodCheckIn } from "#/lib/types";
-
-type CombinedItem =
-	| { kind: "drink"; sortKey: string; item: MyCheckIn }
-	| { kind: "food"; sortKey: string; item: MyFoodCheckIn };
+import { formatCuisineLabel } from "#/lib/cuisines";
+import { useMyPlaceCheckIns } from "#/lib/hooks/usePlaceCheckIns";
+import type { MyPlaceCheckIn } from "#/lib/types";
 
 function formatDate(iso: string) {
 	const d = new Date(`${iso}T00:00:00`);
@@ -19,66 +14,53 @@ function formatDate(iso: string) {
 	});
 }
 
-function DrinkRow({ item }: { item: MyCheckIn }) {
-	const Icon = item.beverage_type === "brewery" ? Beer : Wine;
+function placeIcon(item: MyPlaceCheckIn) {
+	if (item.is_food) return UtensilsCrossed;
+	if (item.bar_type === "brewery") return Beer;
+	return Wine;
+}
+
+function placeKindLabel(item: MyPlaceCheckIn): string {
+	const parts: string[] = [];
+	if (item.is_food && item.cuisine)
+		parts.push(formatCuisineLabel(item.cuisine));
+	if (item.is_drink && item.bar_type) {
+		parts.push(item.bar_type === "brewery" ? "Brewery" : "Bar");
+	}
+	return parts.join(" · ");
+}
+
+function PlaceRow({ item }: { item: MyPlaceCheckIn }) {
+	const Icon = placeIcon(item);
+	const iconBgClass = item.is_food
+		? "bg-[rgba(245,158,11,0.14)] text-orange-700"
+		: "bg-[rgba(79,184,178,0.14)] text-(--lagoon-deep)";
 	return (
 		<Link
-			to="/drinks/$beverageId"
-			params={{ beverageId: item.beverage_id }}
+			to="/place/$placeId"
+			params={{ placeId: item.place_id }}
 			className="flex items-center gap-3 rounded-lg border border-(--line) bg-(--surface-strong) px-3 py-2.5 no-underline hover:bg-(--surface)"
 		>
-			{item.beverage_image_url ? (
+			{item.place_image_url ? (
 				<img
-					src={item.beverage_image_url}
+					src={item.place_image_url}
 					alt=""
 					className="h-12 w-12 shrink-0 rounded-md object-cover"
 				/>
 			) : (
-				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[rgba(79,184,178,0.14)] text-(--lagoon-deep)">
+				<div
+					className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md ${iconBgClass}`}
+				>
 					<Icon size={22} />
 				</div>
 			)}
 			<div className="min-w-0 flex-1">
 				<p className="truncate text-sm font-medium text-(--sea-ink)">
-					{item.beverage_name}
+					{item.place_name}
 				</p>
 				<p className="truncate text-xs text-(--sea-ink-soft)">
-					{item.beverage_type === "brewery" ? "Brewery" : "Bar"}
-					{item.beverage_city ? ` · ${item.beverage_city}` : ""}
-				</p>
-			</div>
-			<p className="shrink-0 text-xs text-(--sea-ink-soft)">
-				{formatDate(item.checkin_date)}
-			</p>
-		</Link>
-	);
-}
-
-function FoodRow({ item }: { item: MyFoodCheckIn }) {
-	return (
-		<Link
-			to="/food/$foodId"
-			params={{ foodId: item.food_id }}
-			className="flex items-center gap-3 rounded-lg border border-(--line) bg-(--surface-strong) px-3 py-2.5 no-underline hover:bg-(--surface)"
-		>
-			{item.food_image_url ? (
-				<img
-					src={item.food_image_url}
-					alt=""
-					className="h-12 w-12 shrink-0 rounded-md object-cover"
-				/>
-			) : (
-				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[rgba(245,158,11,0.14)] text-orange-700">
-					<UtensilsCrossed size={22} />
-				</div>
-			)}
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-sm font-medium text-(--sea-ink)">
-					{item.food_name}
-				</p>
-				<p className="truncate text-xs text-(--sea-ink-soft)">
-					{formatCuisineLabel(item.food_cuisine)}
-					{item.food_city ? ` · ${item.food_city}` : ""}
+					{placeKindLabel(item)}
+					{item.place_city ? ` · ${item.place_city}` : ""}
 				</p>
 			</div>
 			<p className="shrink-0 text-xs text-(--sea-ink-soft)">
@@ -89,20 +71,15 @@ function FoodRow({ item }: { item: MyFoodCheckIn }) {
 }
 
 export function ProfileCheckInsTab() {
-	const drinksQuery = useMyCheckIns();
-	const foodsQuery = useMyFoodCheckIns();
+	const query = useMyPlaceCheckIns();
 
-	if (drinksQuery.isLoading || foodsQuery.isLoading) {
+	if (query.isLoading) {
 		return <Spinner className="py-12" />;
 	}
 
-	const drinkStats = drinksQuery.data?.stats;
-	const foodStats = foodsQuery.data?.stats;
-	const drinkCheckins = drinksQuery.data?.checkins ?? [];
-	const foodCheckins = foodsQuery.data?.checkins ?? [];
-
-	const totalCheckins =
-		(drinkStats?.total_checkins ?? 0) + (foodStats?.total_checkins ?? 0);
+	const stats = query.data?.stats;
+	const checkins = query.data?.checkins ?? [];
+	const totalCheckins = stats?.total_checkins ?? 0;
 
 	if (totalCheckins === 0) {
 		return (
@@ -123,36 +100,14 @@ export function ProfileCheckInsTab() {
 		);
 	}
 
-	const combined: CombinedItem[] = [
-		...drinkCheckins.map<CombinedItem>((item) => ({
-			kind: "drink",
-			sortKey: item.created_at,
-			item,
-		})),
-		...foodCheckins.map<CombinedItem>((item) => ({
-			kind: "food",
-			sortKey: item.created_at,
-			item,
-		})),
-	].sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
 				<StatCard label="Total check-ins" value={totalCheckins} />
-				<StatCard
-					label="Unique venues"
-					value={
-						(drinkStats?.unique_venues ?? 0) +
-						(foodStats?.unique_restaurants ?? 0)
-					}
-				/>
-				<StatCard label="Breweries" value={drinkStats?.unique_breweries ?? 0} />
-				<StatCard label="Bars" value={drinkStats?.unique_bars ?? 0} />
-				<StatCard
-					label="Restaurants"
-					value={foodStats?.unique_restaurants ?? 0}
-				/>
+				<StatCard label="Unique places" value={stats?.unique_places ?? 0} />
+				<StatCard label="Restaurants" value={stats?.unique_foods ?? 0} />
+				<StatCard label="Breweries" value={stats?.unique_breweries ?? 0} />
+				<StatCard label="Bars" value={stats?.unique_bars ?? 0} />
 			</div>
 
 			<div>
@@ -160,13 +115,9 @@ export function ProfileCheckInsTab() {
 					Recent check-ins
 				</h2>
 				<div className="space-y-2">
-					{combined.map((entry) =>
-						entry.kind === "drink" ? (
-							<DrinkRow key={`d-${entry.item.id}`} item={entry.item} />
-						) : (
-							<FoodRow key={`f-${entry.item.id}`} item={entry.item} />
-						),
-					)}
+					{checkins.map((item) => (
+						<PlaceRow key={item.id} item={item} />
+					))}
 				</div>
 			</div>
 		</div>

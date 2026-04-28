@@ -1,4 +1,4 @@
-import type { BeverageFilters, EventFilters, FoodFilters } from "./types";
+import type { EventFilters, PlaceFilters } from "./types";
 
 interface VenueFilters {
 	lat: number;
@@ -7,15 +7,10 @@ interface VenueFilters {
 }
 
 export const queryKeys = {
-	beverages: {
-		all: ["beverages"] as const,
-		list: (filters: BeverageFilters) => ["beverages", "list", filters] as const,
-		detail: (id: string) => ["beverages", "detail", id] as const,
-	},
-	foods: {
-		all: ["foods"] as const,
-		list: (filters: FoodFilters) => ["foods", "list", filters] as const,
-		detail: (id: string) => ["foods", "detail", id] as const,
+	places: {
+		all: ["places"] as const,
+		list: (filters: PlaceFilters) => ["places", "list", filters] as const,
+		detail: (id: string) => ["places", "detail", id] as const,
 	},
 	events: {
 		all: ["events"] as const,
@@ -41,19 +36,12 @@ export const queryKeys = {
 		all: ["saveCounts"] as const,
 		detail: (eventId: string) => ["saveCounts", eventId] as const,
 	},
-	beverageCheckIns: {
-		all: ["beverageCheckIns"] as const,
-		counts: (beverageId: string) =>
-			["beverageCheckIns", "counts", beverageId] as const,
-		myStatus: (beverageId: string) =>
-			["beverageCheckIns", "myStatus", beverageId] as const,
-		mine: ["beverageCheckIns", "mine"] as const,
-	},
-	foodCheckIns: {
-		all: ["foodCheckIns"] as const,
-		counts: (foodId: string) => ["foodCheckIns", "counts", foodId] as const,
-		myStatus: (foodId: string) => ["foodCheckIns", "myStatus", foodId] as const,
-		mine: ["foodCheckIns", "mine"] as const,
+	placeCheckIns: {
+		all: ["placeCheckIns"] as const,
+		counts: (placeId: string) => ["placeCheckIns", "counts", placeId] as const,
+		myStatus: (placeId: string) =>
+			["placeCheckIns", "myStatus", placeId] as const,
+		mine: ["placeCheckIns", "mine"] as const,
 	},
 	applications: {
 		all: ["applications"] as const,

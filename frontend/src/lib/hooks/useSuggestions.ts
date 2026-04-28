@@ -43,7 +43,7 @@ export function useApproveSuggestion() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.suggestions.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.venues.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.beverages.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.places.all });
 		},
 	});
 }

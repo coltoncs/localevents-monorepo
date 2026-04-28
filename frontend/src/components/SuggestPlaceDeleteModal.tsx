@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
-import type { Food } from "#/lib/types";
+import type { Place } from "#/lib/types";
 
-export function SuggestFoodDeleteModal({
-	food,
+export function SuggestPlaceDeleteModal({
+	place,
 	onClose,
 }: {
-	food: Food;
+	place: Place;
 	onClose: () => void;
 }) {
 	const createSuggestion = useCreateSuggestion();
@@ -20,8 +20,8 @@ export function SuggestFoodDeleteModal({
 		e.preventDefault();
 		if (!canSubmit) return;
 		await createSuggestion.mutateAsync({
-			target_type: "food",
-			target_id: food.ID,
+			target_type: "place",
+			target_id: place.ID,
 			action: "delete",
 			reason: trimmed,
 			proposed_changes: {},
@@ -53,7 +53,7 @@ export function SuggestFoodDeleteModal({
 	}
 
 	const locationLabel =
-		[food.City, food.State].filter(Boolean).join(", ") || food.Address || "";
+		[place.City, place.State].filter(Boolean).join(", ") || place.Address || "";
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -65,7 +65,7 @@ export function SuggestFoodDeleteModal({
 					Report as Closed
 				</h2>
 				<div className="rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm">
-					<p className="font-medium text-(--sea-ink)">{food.Name}</p>
+					<p className="font-medium text-(--sea-ink)">{place.Name}</p>
 					{locationLabel && (
 						<p className="text-(--sea-ink-soft)">{locationLabel}</p>
 					)}

@@ -4,16 +4,14 @@ export type AdminTab =
 	| "dashboard"
 	| "applications"
 	| "suggestions"
-	| "beverages"
-	| "foods"
+	| "places"
 	| "ops";
 
 const TABS: { id: AdminTab; label: string }[] = [
 	{ id: "dashboard", label: "Dashboard" },
 	{ id: "applications", label: "Applications" },
 	{ id: "suggestions", label: "Suggestions" },
-	{ id: "beverages", label: "Beverages" },
-	{ id: "foods", label: "Foods" },
+	{ id: "places", label: "Places" },
 	{ id: "ops", label: "Ops" },
 ];
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -15,26 +16,50 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
-type FoodHandler struct {
+type PlaceHandler struct {
 	queries *store.Queries
 }
 
-func NewFoodHandler(q *store.Queries) *FoodHandler {
-	return &FoodHandler{queries: q}
+func NewPlaceHandler(q *store.Queries) *PlaceHandler {
+	return &PlaceHandler{queries: q}
 }
 
-var allowedCuisines = map[string]bool{
-	"american": true, "italian": true, "mexican": true, "chinese": true,
-	"japanese": true, "korean": true, "thai": true, "vietnamese": true,
-	"indian": true, "mediterranean": true, "middle_eastern": true, "french": true,
-	"bbq": true, "pizza": true, "seafood": true, "vegan": true,
-	"cafe": true, "bakery": true, "dessert": true, "other": true,
+const maxCuisineLen = 50
+
+func validateCuisine(c string) bool {
+	return c != "" && len(c) <= maxCuisineLen
 }
 
-type foodResponse struct {
+func validateBarType(t string) bool {
+	return t == "brewery" || t == "bar"
+}
+
+const checkInMaxDistanceMeters = 150.0
+
+type checkInRequest struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusMeters = 6371000.0
+	rad := math.Pi / 180.0
+	dLat := (lat2 - lat1) * rad
+	dLon := (lon2 - lon1) * rad
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*rad)*math.Cos(lat2*rad)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusMeters * c
+}
+
+type placeResponse struct {
 	ID          string   `json:"ID"`
 	Name        string   `json:"Name"`
-	Cuisine     string   `json:"Cuisine"`
+	IsFood      bool     `json:"IsFood"`
+	IsDrink     bool     `json:"IsDrink"`
+	Cuisine     string   `json:"Cuisine,omitempty"`
+	BarType     string   `json:"BarType,omitempty"`
 	Address     string   `json:"Address"`
 	City        string   `json:"City"`
 	State       string   `json:"State"`
@@ -51,38 +76,43 @@ type foodResponse struct {
 	PriceLevel  *int32   `json:"PriceLevel,omitempty"`
 }
 
-func foodToResponse(f store.Food) foodResponse {
-	id := uuid.UUID(f.ID.Bytes).String()
+func placeToResponse(p store.Place) placeResponse {
+	id := uuid.UUID(p.ID.Bytes).String()
 
 	var priceLevel *int32
-	if f.PriceLevel.Valid {
-		priceLevel = &f.PriceLevel.Int32
+	if p.PriceLevel.Valid {
+		priceLevel = &p.PriceLevel.Int32
 	}
 
-	return foodResponse{
+	return placeResponse{
 		ID:          id,
-		Name:        f.Name,
-		Cuisine:     f.Cuisine,
-		Address:     f.Address.String,
-		City:        f.City.String,
-		State:       f.State.String,
-		Zip:         f.Zip.String,
-		Latitude:    f.Latitude,
-		Longitude:   f.Longitude,
-		Phone:       f.Phone.String,
-		Website:     f.Website.String,
-		Hours:       f.Hours.String,
-		Description: f.Description.String,
-		Review:      f.Review.String,
-		ImageUrl:    f.ImageUrl.String,
-		Tags:        f.Tags,
+		Name:        p.Name,
+		IsFood:      p.IsFood,
+		IsDrink:     p.IsDrink,
+		Cuisine:     p.Cuisine.String,
+		BarType:     p.BarType.String,
+		Address:     p.Address.String,
+		City:        p.City.String,
+		State:       p.State.String,
+		Zip:         p.Zip.String,
+		Latitude:    p.Latitude,
+		Longitude:   p.Longitude,
+		Phone:       p.Phone.String,
+		Website:     p.Website.String,
+		Hours:       p.Hours.String,
+		Description: p.Description.String,
+		Review:      p.Review.String,
+		ImageUrl:    p.ImageUrl.String,
+		Tags:        p.Tags,
 		PriceLevel:  priceLevel,
 	}
 }
 
-func (h *FoodHandler) List(w http.ResponseWriter, r *http.Request) {
-	latStr := r.URL.Query().Get("lat")
-	lngStr := r.URL.Query().Get("lng")
+func (h *PlaceHandler) List(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	latStr := q.Get("lat")
+	lngStr := q.Get("lng")
 	if latStr == "" || lngStr == "" {
 		http.Error(w, `{"error":"lat and lng are required"}`, http.StatusBadRequest)
 		return
@@ -100,7 +130,7 @@ func (h *FoodHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	radiusMiles := 10.0
-	if v := r.URL.Query().Get("radius"); v != "" {
+	if v := q.Get("radius"); v != "" {
 		radiusMiles, err = strconv.ParseFloat(v, 64)
 		if err != nil {
 			http.Error(w, `{"error":"invalid radius"}`, http.StatusBadRequest)
@@ -109,19 +139,27 @@ func (h *FoodHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	radiusMeters := radiusMiles * 1609.34
 
-	cuisines := r.URL.Query()["cuisine"]
-	for _, c := range cuisines {
-		if !allowedCuisines[c] {
-			http.Error(w, `{"error":"invalid cuisine: `+c+`"}`, http.StatusBadRequest)
-			return
-		}
-	}
+	requireFood := q.Get("is_food") == "true"
+	requireDrink := q.Get("is_drink") == "true"
+
+	cuisines := q["cuisine"]
 	if cuisines == nil {
 		cuisines = []string{}
 	}
 
+	barTypes := q["bar_type"]
+	for _, t := range barTypes {
+		if !validateBarType(t) {
+			http.Error(w, `{"error":"invalid bar_type"}`, http.StatusBadRequest)
+			return
+		}
+	}
+	if barTypes == nil {
+		barTypes = []string{}
+	}
+
 	var minPrice, maxPrice pgtype.Int4
-	if v := r.URL.Query().Get("min_price"); v != "" {
+	if v := q.Get("min_price"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 || n > 4 {
 			http.Error(w, `{"error":"min_price must be 1..4"}`, http.StatusBadRequest)
@@ -129,7 +167,7 @@ func (h *FoodHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		minPrice = pgtype.Int4{Int32: int32(n), Valid: true}
 	}
-	if v := r.URL.Query().Get("max_price"); v != "" {
+	if v := q.Get("max_price"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 || n > 4 {
 			http.Error(w, `{"error":"max_price must be 1..4"}`, http.StatusBadRequest)
@@ -139,56 +177,62 @@ func (h *FoodHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var search pgtype.Text
-	if s := r.URL.Query().Get("search"); s != "" {
+	if s := q.Get("search"); s != "" {
 		search = pgtype.Text{String: s, Valid: true}
 	}
 
-	rows, err := h.queries.ListFoodsByLocation(r.Context(), store.ListFoodsByLocationParams{
+	rows, err := h.queries.ListPlacesByLocation(r.Context(), store.ListPlacesByLocationParams{
 		Lng:          lng,
 		Lat:          lat,
 		RadiusMeters: radiusMeters,
+		RequireFood:  requireFood,
+		RequireDrink: requireDrink,
 		Cuisines:     cuisines,
+		BarTypes:     barTypes,
 		MinPrice:     minPrice,
 		MaxPrice:     maxPrice,
 		Search:       search,
 	})
 	if err != nil {
-		http.Error(w, `{"error":"failed to query foods"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to query places"}`, http.StatusInternalServerError)
 		return
 	}
 
-	foods := make([]foodResponse, 0, len(rows))
+	places := make([]placeResponse, 0, len(rows))
 	for _, row := range rows {
-		foods = append(foods, foodToResponse(row))
+		places = append(places, placeToResponse(row))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct {
-		Foods []foodResponse `json:"foods"`
-	}{Foods: foods})
+		Places []placeResponse `json:"places"`
+	}{Places: places})
 }
 
-func (h *FoodHandler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
-	food, err := h.queries.GetFood(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	place, err := h.queries.GetPlace(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		http.Error(w, `{"error":"food not found"}`, http.StatusNotFound)
+		http.Error(w, `{"error":"place not found"}`, http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(foodToResponse(food))
+	json.NewEncoder(w).Encode(placeToResponse(place))
 }
 
-type createFoodRequest struct {
+type createPlaceRequest struct {
 	Name        string   `json:"name"`
-	Cuisine     string   `json:"cuisine"`
+	IsFood      bool     `json:"is_food"`
+	IsDrink     bool     `json:"is_drink"`
+	Cuisine     *string  `json:"cuisine"`
+	BarType     *string  `json:"bar_type"`
 	Address     *string  `json:"address"`
 	City        *string  `json:"city"`
 	State       *string  `json:"state"`
@@ -205,19 +249,46 @@ type createFoodRequest struct {
 	PriceLevel  *int32   `json:"price_level"`
 }
 
-func (h *FoodHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req createFoodRequest
+func validatePlaceRequest(req createPlaceRequest) (cuisine pgtype.Text, barType pgtype.Text, errMsg string) {
+	if req.Name == "" {
+		return cuisine, barType, "name is required"
+	}
+	if !req.IsFood && !req.IsDrink {
+		return cuisine, barType, "place must be tagged as food, drink, or both"
+	}
+	if req.IsFood {
+		c := ""
+		if req.Cuisine != nil {
+			c = *req.Cuisine
+		}
+		if !validateCuisine(c) {
+			return cuisine, barType, "cuisine is required for food places"
+		}
+		cuisine = pgtype.Text{String: c, Valid: true}
+	}
+	if req.IsDrink {
+		t := ""
+		if req.BarType != nil {
+			t = *req.BarType
+		}
+		if !validateBarType(t) {
+			return cuisine, barType, "bar_type must be brewery or bar for drink places"
+		}
+		barType = pgtype.Text{String: t, Valid: true}
+	}
+	return cuisine, barType, ""
+}
+
+func (h *PlaceHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req createPlaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
 	}
 
-	if req.Name == "" {
-		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
-		return
-	}
-	if !allowedCuisines[req.Cuisine] {
-		http.Error(w, `{"error":"invalid cuisine"}`, http.StatusBadRequest)
+	cuisine, barType, errMsg := validatePlaceRequest(req)
+	if errMsg != "" {
+		http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -226,9 +297,12 @@ func (h *FoodHandler) Create(w http.ResponseWriter, r *http.Request) {
 		priceLevel = pgtype.Int4{Int32: *req.PriceLevel, Valid: true}
 	}
 
-	food, err := h.queries.CreateFood(r.Context(), store.CreateFoodParams{
+	place, err := h.queries.CreatePlace(r.Context(), store.CreatePlaceParams{
 		Name:        req.Name,
-		Cuisine:     req.Cuisine,
+		IsFood:      req.IsFood,
+		IsDrink:     req.IsDrink,
+		Cuisine:     cuisine,
+		BarType:     barType,
 		Address:     textFromPtr(req.Address),
 		City:        textFromPtr(req.City),
 		State:       textFromPtr(req.State),
@@ -245,35 +319,32 @@ func (h *FoodHandler) Create(w http.ResponseWriter, r *http.Request) {
 		PriceLevel:  priceLevel,
 	})
 	if err != nil {
-		http.Error(w, `{"error":"failed to create food"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to create place"}`, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(foodToResponse(food))
+	json.NewEncoder(w).Encode(placeToResponse(place))
 }
 
-func (h *FoodHandler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
-	var req createFoodRequest
+	var req createPlaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
 	}
 
-	if req.Name == "" {
-		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
-		return
-	}
-	if !allowedCuisines[req.Cuisine] {
-		http.Error(w, `{"error":"invalid cuisine"}`, http.StatusBadRequest)
+	cuisine, barType, errMsg := validatePlaceRequest(req)
+	if errMsg != "" {
+		http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -282,10 +353,13 @@ func (h *FoodHandler) Update(w http.ResponseWriter, r *http.Request) {
 		priceLevel = pgtype.Int4{Int32: *req.PriceLevel, Valid: true}
 	}
 
-	food, err := h.queries.UpdateFood(r.Context(), store.UpdateFoodParams{
+	place, err := h.queries.UpdatePlace(r.Context(), store.UpdatePlaceParams{
 		ID:          pgtype.UUID{Bytes: id, Valid: true},
 		Name:        req.Name,
-		Cuisine:     req.Cuisine,
+		IsFood:      req.IsFood,
+		IsDrink:     req.IsDrink,
+		Cuisine:     cuisine,
+		BarType:     barType,
 		Address:     textFromPtr(req.Address),
 		City:        textFromPtr(req.City),
 		State:       textFromPtr(req.State),
@@ -302,32 +376,31 @@ func (h *FoodHandler) Update(w http.ResponseWriter, r *http.Request) {
 		PriceLevel:  priceLevel,
 	})
 	if err != nil {
-		http.Error(w, `{"error":"failed to update food"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to update place"}`, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(foodToResponse(food))
+	json.NewEncoder(w).Encode(placeToResponse(place))
 }
 
-func (h *FoodHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
-	err = h.queries.DeleteFood(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
-	if err != nil {
-		http.Error(w, `{"error":"failed to delete food"}`, http.StatusInternalServerError)
+	if err := h.queries.DeletePlace(r.Context(), pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+		http.Error(w, `{"error":"failed to delete place"}`, http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *FoodHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {
 		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
@@ -337,7 +410,7 @@ func (h *FoodHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -353,20 +426,20 @@ func (h *FoodHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	food, err := h.queries.GetFood(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	place, err := h.queries.GetPlace(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		http.Error(w, `{"error":"food not found"}`, http.StatusNotFound)
+		http.Error(w, `{"error":"place not found"}`, http.StatusNotFound)
 		return
 	}
 
-	if haversineMeters(req.Latitude, req.Longitude, food.Latitude, food.Longitude) > checkInMaxDistanceMeters {
+	if haversineMeters(req.Latitude, req.Longitude, place.Latitude, place.Longitude) > checkInMaxDistanceMeters {
 		http.Error(w, `{"error":"too far from venue to check in"}`, http.StatusForbidden)
 		return
 	}
 
-	row, err := h.queries.CheckInFood(r.Context(), store.CheckInFoodParams{
+	row, err := h.queries.CheckInPlace(r.Context(), store.CheckInPlaceParams{
 		UserID:        user.ID,
-		FoodID:        pgtype.UUID{Bytes: id, Valid: true},
+		PlaceID:       pgtype.UUID{Bytes: id, Valid: true},
 		UserLatitude:  req.Latitude,
 		UserLongitude: req.Longitude,
 	})
@@ -384,15 +457,15 @@ func (h *FoodHandler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(row)
 }
 
-func (h *FoodHandler) CheckInCounts(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) CheckInCounts(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
-	counts, err := h.queries.GetFoodCheckInCounts(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
+	counts, err := h.queries.GetPlaceCheckInCounts(r.Context(), pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
 		http.Error(w, `{"error":"failed to get check-in counts"}`, http.StatusInternalServerError)
 		return
@@ -405,7 +478,7 @@ func (h *FoodHandler) CheckInCounts(w http.ResponseWriter, r *http.Request) {
 	}{Total: counts.TotalCount, Unique: counts.UniqueCount})
 }
 
-func (h *FoodHandler) MyCheckInStatus(w http.ResponseWriter, r *http.Request) {
+func (h *PlaceHandler) MyCheckInStatus(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {
 		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
@@ -415,7 +488,7 @@ func (h *FoodHandler) MyCheckInStatus(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid food id"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid place id"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -425,9 +498,9 @@ func (h *FoodHandler) MyCheckInStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checkedIn, err := h.queries.HasUserCheckedInFoodToday(r.Context(), store.HasUserCheckedInFoodTodayParams{
-		UserID: user.ID,
-		FoodID: pgtype.UUID{Bytes: id, Valid: true},
+	checkedIn, err := h.queries.HasUserCheckedInPlaceToday(r.Context(), store.HasUserCheckedInPlaceTodayParams{
+		UserID:  user.ID,
+		PlaceID: pgtype.UUID{Bytes: id, Valid: true},
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to check status"}`, http.StatusInternalServerError)
