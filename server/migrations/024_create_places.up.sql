@@ -106,6 +106,11 @@ SELECT
 FROM beverage_checkins
 ON CONFLICT (user_id, place_id, checkin_date) DO NOTHING;
 
+-- Drop the old target_type CHECK constraint before migrating values, then re-add
+-- the tighter constraint after — running the UPDATEs without a constraint avoids
+-- transient violations (existing rows are 'food'/'beverage', new value is 'place').
+ALTER TABLE edit_suggestions DROP CONSTRAINT IF EXISTS edit_suggestions_target_type_check;
+
 -- Migrate edit_suggestions: 'food' -> 'place', stamp is_food=true
 UPDATE edit_suggestions
 SET target_type = 'place',
@@ -125,8 +130,6 @@ SET target_type = 'place',
     )
 WHERE target_type = 'beverage';
 
--- Update target_type CHECK constraint to allow 'place'
-ALTER TABLE edit_suggestions DROP CONSTRAINT IF EXISTS edit_suggestions_target_type_check;
 ALTER TABLE edit_suggestions ADD CONSTRAINT edit_suggestions_target_type_check
     CHECK (target_type IN ('event', 'venue', 'place'));
 
