@@ -39,7 +39,7 @@ func Load() *Config {
 
 	return &Config{
 		DatabaseURL:         getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/localevents?sslmode=disable"),
-		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", "sk_test_Tq1fYDEweXJvFsLNwWMYOyBkwK15BqvUt1MegBgqbO"),
+		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
 		Port:                getEnv("PORT", "8080"),
 		CORSOrigins:         getEnv("CORS_ORIGINS", "http://localhost:3000"),
 		TicketmasterAPIKey:  getEnv("TICKETMASTER_API_KEY", ""),
