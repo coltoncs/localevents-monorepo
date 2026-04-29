@@ -41,7 +41,7 @@ function PreviewOption({
 			</div>
 			<div className="mt-3 flex items-start gap-2">
 				<span
-					className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+					className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
 						selected
 							? "border-(--lagoon-deep)"
 							: "border-(--line) group-hover:border-(--lagoon)"
@@ -78,7 +78,7 @@ function GroupedByDayMock({ active }: { active: boolean }) {
 		<div className="flex h-full flex-col gap-1.5">
 			{days.map(({ day, widths }) => (
 				<div key={day} className="flex items-center gap-2">
-					<div className={`${label} w-7 flex-shrink-0`}>{day}</div>
+					<div className={`${label} w-7 shrink-0`}>{day}</div>
 					<div className="flex-1 space-y-1">
 						{widths.map((w) => (
 							<div key={`${day}-${w}`} className={`${bar} ${w}`} />
@@ -112,7 +112,7 @@ function DetailedMock({ active }: { active: boolean }) {
 	return (
 		<div className="h-full space-y-2">
 			<div className="flex gap-2">
-				<div className={`${tile} h-9 w-9 flex-shrink-0`} />
+				<div className={`${tile} h-9 w-9 shrink-0`} />
 				<div className="flex-1 space-y-1 pt-1">
 					<div className={bar} />
 					<div className={`${bar} w-2/3`} />
@@ -120,7 +120,7 @@ function DetailedMock({ active }: { active: boolean }) {
 				</div>
 			</div>
 			<div className="flex gap-2">
-				<div className={`${tile} h-7 w-9 flex-shrink-0`} />
+				<div className={`${tile} h-7 w-9 shrink-0`} />
 				<div className="flex-1 space-y-1 pt-1">
 					<div className={bar} />
 					<div className={`${thin} w-1/2`} />
