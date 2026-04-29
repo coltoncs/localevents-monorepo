@@ -34,7 +34,7 @@ function DonatePage() {
           and keep building new features.
         </p>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="mt-10 grid grid-cols-1 gap-8">
           {/* Subscription section */}
           <div className="rounded-lg border border-(--line) bg-(--surface) p-6">
             <h2 className="text-center text-lg font-semibold text-(--sea-ink)">
