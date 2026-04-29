@@ -13,3 +13,10 @@ __unconfig*
 vite.config.timestamp_*
 todos.json
 mcp-todos.json
+
+# Playwright
+/test-results
+/playwright-report
+/playwright/.cache
+/e2e/.clerk
+.env.test

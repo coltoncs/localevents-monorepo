@@ -67,19 +67,6 @@ function DonatePage() {
               )}
             </div>
           </div>
-
-          {/* CashApp section */}
-          <div className="flex flex-col items-center justify-center rounded-lg border border-(--line) bg-(--surface) p-6 text-center">
-            <h2 className="text-lg font-semibold text-(--sea-ink)">
-              One-time via Cash App
-            </h2>
-            <p className="mt-1 text-sm text-(--sea-ink-soft)">
-              Send a one-time donation of any amount.
-            </p>
-            <p className="mt-4 text-2xl font-bold text-(--lagoon-deep)">
-              $coltoncs
-            </p>
-          </div>
         </div>
       </section>
     </main>
