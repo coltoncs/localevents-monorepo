@@ -2,8 +2,8 @@ import { useAuth } from "@clerk/clerk-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useUserRole } from "#/lib/hooks/useUserRole";
-import ClerkHeader from "../integrations/clerk/header-user.tsx";
-import ThemeToggle from "./ThemeToggle";
+import ClerkHeader from "../../integrations/clerk/header-user.tsx";
+import ThemeToggle from "../ThemeToggle";
 
 export default function Header() {
 	const { isSignedIn } = useAuth();

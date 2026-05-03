@@ -1,5 +1,5 @@
 import { AdminSuggestionsTab } from "#/components/admin/AdminSuggestionsTab";
-import { PlaceManager } from "#/components/PlaceManager";
+import { PlaceManager } from "#/components/places/PlaceManager";
 
 export function AdminPlacesTab() {
 	return (

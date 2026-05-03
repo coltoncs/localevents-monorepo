@@ -3,16 +3,16 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { CategoryPicker } from "#/components/EventForm";
+import { CategoryPicker } from "#/components/events/EventForm";
 import { ImageUpload } from "#/components/ImageUpload";
 import {
 	LocationPickerMap,
 	type PoiSelection,
-} from "#/components/LocationPickerMap";
-import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
+} from "#/components/maps/LocationPickerMap";
+import { RoleProtectedRoute } from "#/components/auth/RoleProtectedRoute";
 import { Spinner } from "#/components/Spinner";
 import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
-import { VenueCombobox } from "#/components/VenueCombobox";
+import { VenueCombobox } from "#/components/venues/VenueCombobox";
 import {
 	eventDetailOptions,
 	useEvent,

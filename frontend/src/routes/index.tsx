@@ -4,8 +4,8 @@ import { useRef } from 'react'
 import gsap from 'gsap'
 import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
-import { LocationSearch } from '#/components/LocationSearch'
-import { EventCard } from '#/components/EventCard'
+import { LocationSearch } from '#/components/maps/LocationSearch'
+import { EventCard } from '#/components/events/EventCard'
 import { useSavedEvents } from '#/lib/hooks/useSavedEvents'
 
 gsap.registerPlugin(SplitText)

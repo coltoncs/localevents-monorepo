@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useForm } from '@tanstack/react-form'
-import { ProtectedRoute } from '#/components/ProtectedRoute'
+import { ProtectedRoute } from '#/components/auth/ProtectedRoute'
 import { useUserRole } from '#/lib/hooks/useUserRole'
 import {
   useMyApplication,

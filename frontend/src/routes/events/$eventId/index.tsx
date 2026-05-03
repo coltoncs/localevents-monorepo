@@ -1,11 +1,11 @@
 import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { EventMap } from "#/components/EventMap";
-import { NearbyPlaces } from "#/components/NearbyPlaces";
+import { EventMap } from "#/components/maps/EventMap";
+import { NearbyPlaces } from "#/components/places/NearbyPlaces";
 import { SaveButton } from "#/components/SaveButton";
 import { Spinner } from "#/components/Spinner";
-import { SuggestEventEditModal } from "#/components/SuggestEventEditModal";
+import { SuggestEventEditModal } from "#/components/events/SuggestEventEditModal";
 import {
 	formatDateLong,
 	formatTimeOnly,

@@ -8,7 +8,7 @@ import {
 	type DigestFormat,
 	DigestOptInFields,
 	type EmailStyle,
-} from "#/components/DigestOptInFields";
+} from "#/components/notifications/DigestOptInFields";
 import {
 	useNotificationPreferences,
 	useTriggerDigest,

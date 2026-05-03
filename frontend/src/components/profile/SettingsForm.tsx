@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
 	LocationPicker,
 	type LocationValue,
-} from "#/components/LocationPicker";
+} from "#/components/maps/LocationPicker";
 import { useUpdateSettings, useUser } from "#/lib/hooks/useUser";
 
 export function SettingsForm() {

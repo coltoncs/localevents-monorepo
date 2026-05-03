@@ -6,10 +6,10 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { ClerkTokenProvider } from "../components/ClerkTokenProvider";
-import { EmailNotifBanner } from "../components/EmailNotifBanner";
-import Footer from "../components/Footer";
-import Header from "../components/Header";
+import { ClerkTokenProvider } from "../components/auth/ClerkTokenProvider";
+import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
+import Footer from "../components/layout/Footer";
+import Header from "../components/layout/Header";
 import ClerkProvider from "../integrations/clerk/provider";
 
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";

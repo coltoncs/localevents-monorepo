@@ -1,12 +1,12 @@
 import { useAuth } from "@clerk/clerk-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { FullscreenPlaceMap } from "#/components/FullscreenPlaceMap";
-import { getSavedLocation, LocationSearch } from "#/components/LocationSearch";
-import { PlaceCard } from "#/components/PlaceCard";
-import { PlaceMap } from "#/components/PlaceMap";
+import { FullscreenPlaceMap } from "#/components/maps/FullscreenPlaceMap";
+import { getSavedLocation, LocationSearch } from "#/components/maps/LocationSearch";
+import { PlaceCard } from "#/components/places/PlaceCard";
+import { PlaceMap } from "#/components/maps/PlaceMap";
 import { Spinner } from "#/components/Spinner";
-import { SuggestPlaceCreateModal } from "#/components/SuggestPlaceCreateModal";
+import { SuggestPlaceCreateModal } from "#/components/places/SuggestPlaceCreateModal";
 import {
 	CUISINES,
 	formatCuisineLabel,

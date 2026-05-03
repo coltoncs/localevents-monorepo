@@ -10,7 +10,7 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
-import { emptyPlaceForm, PlaceForm, placeToForm } from "#/components/PlaceForm";
+import { emptyPlaceForm, PlaceForm, placeToForm } from "#/components/places/PlaceForm";
 import { Spinner } from "#/components/Spinner";
 import { formatCuisineLabel } from "#/lib/cuisines";
 import {

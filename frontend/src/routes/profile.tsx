@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ProtectedRoute } from "#/components/ProtectedRoute";
+import { ProtectedRoute } from "#/components/auth/ProtectedRoute";
 import { ProfileCheckInsTab } from "#/components/profile/ProfileCheckInsTab";
 import { ProfileOverviewTab } from "#/components/profile/ProfileOverviewTab";
 import { ProfileSavedTab } from "#/components/profile/ProfileSavedTab";

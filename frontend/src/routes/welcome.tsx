@@ -5,11 +5,11 @@ import {
 	type DigestFormat,
 	DigestOptInFields,
 	type EmailStyle,
-} from "#/components/DigestOptInFields";
+} from "#/components/notifications/DigestOptInFields";
 import {
 	LocationPicker,
 	type LocationValue,
-} from "#/components/LocationPicker";
+} from "#/components/maps/LocationPicker";
 import { useUpdateNotificationPreferences } from "#/lib/hooks/useNotifications";
 import { useUpdateSettings, useUser } from "#/lib/hooks/useUser";
 

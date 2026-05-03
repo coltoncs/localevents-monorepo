@@ -5,7 +5,7 @@ import { AdminOpsTab } from "#/components/admin/AdminOpsTab";
 import { AdminPlacesTab } from "#/components/admin/AdminPlacesTab";
 import { AdminSuggestionsTab } from "#/components/admin/AdminSuggestionsTab";
 import { type AdminTab, AdminTabNav } from "#/components/admin/AdminTabNav";
-import { RoleProtectedRoute } from "#/components/RoleProtectedRoute";
+import { RoleProtectedRoute } from "#/components/auth/RoleProtectedRoute";
 import { useAdminStats } from "#/lib/hooks/useAdminStats";
 
 const VALID_TABS: AdminTab[] = [
