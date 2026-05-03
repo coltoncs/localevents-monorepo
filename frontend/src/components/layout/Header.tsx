@@ -23,6 +23,7 @@ export default function Header() {
 			<Link
 				to="/places"
 				search={{ tab: "food" }}
+				activeOptions={{ includeSearch: false }}
 				className="nav-link"
 				activeProps={{ className: "nav-link is-active" }}
 				onClick={() => setMenuOpen(false)}
