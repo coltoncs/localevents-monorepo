@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { EventCard } from "#/components/EventCard";
-import { EventTable } from "#/components/EventTable";
+import { EventCard } from "#/components/events/EventCard";
+import { EventTable } from "#/components/events/EventTable";
 import { Spinner } from "#/components/Spinner";
 import { ViewToggle } from "#/components/ViewToggle";
 import { useSavedEvents, useUnsaveEvent } from "#/lib/hooks/useSavedEvents";

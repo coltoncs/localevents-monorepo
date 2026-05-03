@@ -1,10 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
-import { PlaceMap } from "#/components/PlaceMap";
+import { PlaceMap } from "#/components/maps/PlaceMap";
 import { formatCuisineLabel } from "#/lib/cuisines";
 import { usePlaces } from "#/lib/hooks/usePlaces";
 import type { BarType, Cuisine, Place } from "#/lib/types";
+
+type SheetSnap = "peek" | "half" | "full";
 
 interface FullscreenPlaceMapProps {
 	tab: "food" | "drinks";
@@ -43,6 +45,7 @@ export function FullscreenPlaceMap({
 	const navigate = useNavigate();
 	const [settingOrigin, setSettingOrigin] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
 	const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 	const [searchInput, setSearchInput] = useState(search ?? "");
 	const mapInstanceRef = useRef<MapboxMap | null>(null);
@@ -153,6 +156,7 @@ export function FullscreenPlaceMap({
 			zoom: 15,
 			duration: 900,
 		});
+		if (sheetSnap === "full") setSheetSnap("half");
 	}
 
 	function handleRecenter() {
@@ -309,7 +313,145 @@ export function FullscreenPlaceMap({
 						</div>
 					</div>
 				</div>
+
+				<MobileSheet
+					snap={sheetSnap}
+					onSnapChange={setSheetSnap}
+					tab={tab}
+					count={places.length}
+				>
+					{filtersNode}
+					<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
+				</MobileSheet>
 			</div>
+		</div>
+	);
+}
+
+function MobileSheet({
+	snap,
+	onSnapChange,
+	tab,
+	count,
+	children,
+}: {
+	snap: SheetSnap;
+	onSnapChange: (s: SheetSnap) => void;
+	tab: "food" | "drinks";
+	count: number;
+	children: React.ReactNode;
+}) {
+	const [dragHeight, setDragHeight] = useState<number | null>(null);
+	const dragStartY = useRef(0);
+	const dragStartHeight = useRef(0);
+
+	function computeSnapPx(s: SheetSnap): number {
+		const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+		if (s === "peek") return 120;
+		if (s === "half") return Math.round(vh * 0.5);
+		return Math.round(vh * 0.9);
+	}
+
+	function onPointerDown(e: React.PointerEvent) {
+		dragStartY.current = e.clientY;
+		dragStartHeight.current = computeSnapPx(snap);
+		setDragHeight(dragStartHeight.current);
+		try {
+			e.currentTarget.setPointerCapture(e.pointerId);
+		} catch {}
+	}
+
+	function onPointerMove(e: React.PointerEvent) {
+		if (dragHeight == null) return;
+		const delta = dragStartY.current - e.clientY;
+		const vh = window.innerHeight;
+		const h = Math.max(80, Math.min(vh * 0.9, dragStartHeight.current + delta));
+		setDragHeight(h);
+	}
+
+	function onPointerUp(e: React.PointerEvent) {
+		if (dragHeight == null) return;
+		const vh = window.innerHeight;
+		const snaps: Array<[SheetSnap, number]> = [
+			["peek", 120],
+			["half", Math.round(vh * 0.5)],
+			["full", Math.round(vh * 0.9)],
+		];
+		let nearest: SheetSnap = "peek";
+		let bestDist = Infinity;
+		for (const [s, h] of snaps) {
+			const d = Math.abs(dragHeight - h);
+			if (d < bestDist) {
+				bestDist = d;
+				nearest = s;
+			}
+		}
+		onSnapChange(nearest);
+		setDragHeight(null);
+		try {
+			e.currentTarget.releasePointerCapture(e.pointerId);
+		} catch {}
+	}
+
+	const style: React.CSSProperties =
+		dragHeight != null
+			? { height: `${dragHeight}px`, transition: "none" }
+			: {
+					height: snap === "peek" ? "120px" : snap === "half" ? "50vh" : "90vh",
+				};
+
+	function cycleSnap() {
+		onSnapChange(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
+	}
+
+	const dotStyle: React.CSSProperties =
+		tab === "food"
+			? {
+					background: "linear-gradient(90deg,#f59e0b,#d97706)",
+					boxShadow: "0 0 8px #f59e0b",
+				}
+			: {
+					background:
+						"linear-gradient(90deg, var(--lagoon), var(--lagoon-deep))",
+					boxShadow: "0 0 8px var(--lagoon)",
+				};
+
+	return (
+		<div
+			className="absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg transition-[height] duration-200 md:hidden"
+			style={style}
+		>
+			<div
+				className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+				onPointerDown={onPointerDown}
+				onPointerMove={onPointerMove}
+				onPointerUp={onPointerUp}
+				onPointerCancel={onPointerUp}
+				role="slider"
+				aria-label="Resize place list"
+				aria-valuenow={snap === "peek" ? 0 : snap === "half" ? 50 : 100}
+				aria-valuemin={0}
+				aria-valuemax={100}
+				tabIndex={0}
+			>
+				<div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-40" />
+			</div>
+			<button
+				type="button"
+				onClick={cycleSnap}
+				className="flex items-center justify-between gap-2 border-b border-(--line) px-4 pb-3 text-left"
+			>
+				<div>
+					<div className="island-kicker">
+						{tab === "food" ? "Food Map" : "Drinks Map"}
+					</div>
+					<div className="mt-0.5 text-sm font-bold text-(--sea-ink)">
+						{count} spot{count !== 1 ? "s" : ""}
+					</div>
+				</div>
+				<div className="h-2 w-2 rounded-full" style={dotStyle} aria-hidden />
+			</button>
+			<div className="flex min-h-0 flex-1 flex-col">{children}</div>
 		</div>
 	);
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { CuisineSelect } from "#/components/CuisineSelect";
+import { CuisineSelect } from "#/components/places/CuisineSelect";
 import {
 	LocationPickerMap,
 	type PoiSelection,
-} from "#/components/LocationPickerMap";
-import { getSavedLocation } from "#/components/LocationSearch";
+} from "#/components/maps/LocationPickerMap";
+import { getSavedLocation } from "#/components/maps/LocationSearch";
 import type { CreatePlaceInput, Place } from "#/lib/types";
 
 const inputClass =

@@ -1,12 +1,12 @@
 import { useAuth, useClerk } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { PlaceCheckInButton } from "#/components/PlaceCheckInButton";
-import { PlaceForm, placeToForm } from "#/components/PlaceForm";
-import { PlaceMap } from "#/components/PlaceMap";
+import { PlaceCheckInButton } from "#/components/places/PlaceCheckInButton";
+import { PlaceForm, placeToForm } from "#/components/places/PlaceForm";
+import { PlaceMap } from "#/components/maps/PlaceMap";
 import { Spinner } from "#/components/Spinner";
-import { SuggestPlaceDeleteModal } from "#/components/SuggestPlaceDeleteModal";
-import { SuggestPlaceEditModal } from "#/components/SuggestPlaceEditModal";
+import { SuggestPlaceDeleteModal } from "#/components/places/SuggestPlaceDeleteModal";
+import { SuggestPlaceEditModal } from "#/components/places/SuggestPlaceEditModal";
 import { formatCuisineLabel } from "#/lib/cuisines";
 import { usePlaceCheckInCounts } from "#/lib/hooks/usePlaceCheckIns";
 import {

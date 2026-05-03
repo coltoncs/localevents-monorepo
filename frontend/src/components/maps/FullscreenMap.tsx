@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { Map as MapboxMap } from 'mapbox-gl'
-import { EventMap } from '#/components/EventMap'
+import { EventMap } from '#/components/maps/EventMap'
 import { useEvents } from '#/lib/hooks/useEvents'
 import { isAllDay } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
-import { CATEGORIES } from './EventFilters'
+import { CATEGORIES } from '../events/EventFilters'
 
 type SheetSnap = 'peek' | 'half' | 'full'
 

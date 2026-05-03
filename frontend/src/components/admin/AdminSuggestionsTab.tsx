@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Spinner } from "#/components/Spinner";
-import { SuggestionCard } from "#/components/SuggestionCard";
+import { SuggestionCard } from "#/components/suggestions/SuggestionCard";
 import { usePendingSuggestions } from "#/lib/hooks/useSuggestions";
 import type { EditSuggestion, SuggestionAction } from "#/lib/types";
 

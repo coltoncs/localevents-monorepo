@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PlaceForm, placeToForm } from "#/components/PlaceForm";
+import { PlaceForm, placeToForm } from "#/components/places/PlaceForm";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
 import type { CreatePlaceInput, Place } from "#/lib/types";
 

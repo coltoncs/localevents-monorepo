@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { RoleProtectedRoute } from '#/components/RoleProtectedRoute'
-import { EventForm } from '#/components/EventForm'
+import { RoleProtectedRoute } from '#/components/auth/RoleProtectedRoute'
+import { EventForm } from '#/components/events/EventForm'
 import { eventDetailOptions, useEvent } from '#/lib/hooks/useEvents'
 
 interface SubmitSearch {

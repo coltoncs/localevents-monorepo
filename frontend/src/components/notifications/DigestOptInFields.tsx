@@ -1,4 +1,4 @@
-import { CATEGORIES } from "#/components/EventFilters";
+import { CATEGORIES } from "#/components/events/EventFilters";
 
 export type DigestFormat = "daily" | "bulk";
 export type EmailStyle = "detailed" | "compact";

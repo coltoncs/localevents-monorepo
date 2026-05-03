@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { NotificationSettings } from "#/components/NotificationSettings";
-import { SettingsForm } from "#/components/SettingsForm";
+import { NotificationSettings } from "#/components/notifications/NotificationSettings";
+import { SettingsForm } from "#/components/profile/SettingsForm";
 
 export function ProfileSettingsTab() {
 	return (

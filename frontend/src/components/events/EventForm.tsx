@@ -7,10 +7,10 @@ import { ImageUpload } from "#/components/ImageUpload";
 import {
 	LocationPickerMap,
 	type PoiSelection,
-} from "#/components/LocationPickerMap";
-import { getSavedLocation } from "#/components/LocationSearch";
+} from "#/components/maps/LocationPickerMap";
+import { getSavedLocation } from "#/components/maps/LocationSearch";
 import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
-import { VenueCombobox } from "#/components/VenueCombobox";
+import { VenueCombobox } from "#/components/venues/VenueCombobox";
 import { useCreateEvent } from "#/lib/hooks/useEvents";
 import type { CreateEventInput, Venue } from "#/lib/types";
 import { CATEGORIES } from "./EventFilters";
