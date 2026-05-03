@@ -11,7 +11,10 @@ import {
 import { getSavedLocation } from "#/components/maps/LocationSearch";
 import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
 import { VenueCombobox } from "#/components/venues/VenueCombobox";
-import { useCreateEvent } from "#/lib/hooks/useEvents";
+import {
+	type CreateSeriesInstance,
+	useCreateEventSeries,
+} from "#/lib/hooks/useEvents";
 import type { CreateEventInput, Venue } from "#/lib/types";
 import { CATEGORIES } from "./EventFilters";
 
@@ -206,7 +209,7 @@ function useAddressGeocode(form: {
 export function EventForm({ initialValues }: EventFormProps = {}) {
 	const navigate = useNavigate();
 	const router = useRouter();
-	const createEvent = useCreateEvent();
+	const createSeries = useCreateEventSeries();
 	const savedLocation = getSavedLocation();
 
 	const [dateMode, setDateMode] = useState<DateMode>("single");
@@ -299,7 +302,7 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 			setSubmitting(true);
 
 			try {
-				const base: Omit<CreateEventInput, "start_time"> = {
+				const base: Omit<CreateEventInput, "start_time" | "end_time"> = {
 					title: value.title as string,
 					latitude: Number(value.latitude),
 					longitude: Number(value.longitude),
@@ -318,57 +321,57 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 				if (value.price_max) base.price_max = Number(value.price_max);
 				if (value.venue_id) base.venue_id = value.venue_id as string;
 
-				let lastEvent = null;
 				const isRange = dateMode === "range" && eventDates.length > 1;
-				const seriesId =
-					eventDates.length > 1 ? crypto.randomUUID() : undefined;
-				for (let i = 0; i < eventDates.length; i++) {
-					const date = eventDates[i];
+				const instances: CreateSeriesInstance[] = eventDates.map((date, i) => {
 					const isFirst = i === 0;
 					const isLast = i === eventDates.length - 1;
-					const data: CreateEventInput = { ...base, start_time: "" };
-
 					if (usePerDate) {
-						// Multiple dates with individual times
 						const times = perDateTimes.get(date.getTime());
-						data.start_time = combineDateAndTime(
-							date,
-							times?.start ?? null,
-						).toISOString();
-						if (times?.end) {
-							data.end_time = combineDateAndTime(date, times.end).toISOString();
-						}
-					} else if (!isRange) {
-						// Single / multiple (same time): same start+end time for every date
-						data.start_time = combineDateAndTime(date, startTime).toISOString();
-						if (endTime) {
-							data.end_time = combineDateAndTime(date, endTime).toISOString();
-						}
-					} else if (isFirst) {
-						// First day: starts at chosen start time, no end time
-						data.start_time = combineDateAndTime(date, startTime).toISOString();
-					} else if (isLast) {
-						// Last day: starts at midnight, ends at chosen end time
-						data.start_time = combineDateAndTime(date, null).toISOString();
-						if (endTime) {
-							data.end_time = combineDateAndTime(date, endTime).toISOString();
-						}
-					} else {
-						// Middle days: all day (midnight to 11:59 PM)
-						data.start_time = combineDateAndTime(date, null).toISOString();
-						const endOfDay = new Date(date);
-						endOfDay.setHours(23, 59, 0, 0);
-						data.end_time = endOfDay.toISOString();
+						return {
+							start_time: combineDateAndTime(
+								date,
+								times?.start ?? null,
+							).toISOString(),
+							end_time: times?.end
+								? combineDateAndTime(date, times.end).toISOString()
+								: undefined,
+						};
 					}
+					if (!isRange) {
+						return {
+							start_time: combineDateAndTime(date, startTime).toISOString(),
+							end_time: endTime
+								? combineDateAndTime(date, endTime).toISOString()
+								: undefined,
+						};
+					}
+					if (isFirst) {
+						return {
+							start_time: combineDateAndTime(date, startTime).toISOString(),
+						};
+					}
+					if (isLast) {
+						return {
+							start_time: combineDateAndTime(date, null).toISOString(),
+							end_time: endTime
+								? combineDateAndTime(date, endTime).toISOString()
+								: undefined,
+						};
+					}
+					const endOfDay = new Date(date);
+					endOfDay.setHours(23, 59, 0, 0);
+					return {
+						start_time: combineDateAndTime(date, null).toISOString(),
+						end_time: endOfDay.toISOString(),
+					};
+				});
 
-					if (seriesId) data.series_id = seriesId;
-					lastEvent = await createEvent.mutateAsync(data);
-				}
+				const created = await createSeries.mutateAsync({ base, instances });
 
-				if (eventDates.length === 1 && lastEvent) {
+				if (created.length === 1) {
 					navigate({
 						to: "/events/$eventId",
-						params: { eventId: lastEvent.ID },
+						params: { eventId: created[0].ID },
 					});
 				} else {
 					navigate({ to: "/events" });
@@ -474,6 +477,29 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 					)}
 				</form.Field>
 
+				<div className="sm:col-span-2 flex items-start gap-2.5 rounded-md border border-(--lagoon)/30 bg-[rgba(79,184,178,0.08)] px-3.5 py-2.5 text-sm">
+					<svg
+						className="mt-0.5 h-4 w-4 shrink-0 text-(--lagoon-deep)"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						aria-hidden="true"
+					>
+						<title>Tip</title>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<p className="text-(--sea-ink)">
+						<span className="font-semibold">Tip:</span> Search for the venue
+						on the map below to autofill the address — or fill in the details
+						manually.
+					</p>
+				</div>
+
 				<form.Field name="address">
 					{(field) => (
 						<div>
@@ -552,6 +578,15 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 						return null;
 					}}
 				</form.Subscribe>
+
+				<div className="sm:col-span-2 relative py-2" aria-hidden="true">
+					<div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-(--line)" />
+					<div className="relative flex justify-center">
+						<span className="bg-(--surface-strong) px-3 text-xs font-semibold uppercase tracking-wider text-(--sea-ink-soft)">
+							Or search the map
+						</span>
+					</div>
+				</div>
 
 				<div className="sm:col-span-2">
 					<label className="block text-sm font-medium text-(--sea-ink-soft) mb-1">
@@ -944,7 +979,7 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 				</form.Field>
 			</div>
 
-			{createEvent.isError && (
+			{createSeries.isError && (
 				<p className="text-sm text-red-600">
 					Failed to create event. Please try again.
 				</p>

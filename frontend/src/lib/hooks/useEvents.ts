@@ -72,6 +72,30 @@ export function useCreateEvent() {
 	});
 }
 
+export interface CreateSeriesInstance {
+	start_time: string;
+	end_time?: string;
+}
+
+export interface CreateSeriesInput {
+	base: Omit<CreateEventInput, "start_time" | "end_time">;
+	instances: CreateSeriesInstance[];
+}
+
+export function useCreateEventSeries() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (data: CreateSeriesInput) =>
+			apiClient<Event[]>("/api/events/series", {
+				method: "POST",
+				body: JSON.stringify(data),
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+		},
+	});
+}
+
 export function useUpdateEvent() {
 	const queryClient = useQueryClient();
 	return useMutation({

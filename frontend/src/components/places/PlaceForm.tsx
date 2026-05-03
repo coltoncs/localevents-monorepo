@@ -222,6 +222,29 @@ export function PlaceForm({
 					</label>
 				)}
 
+				<div className="sm:col-span-2 flex items-start gap-2.5 rounded-md border border-(--lagoon)/30 bg-[rgba(79,184,178,0.08)] px-3.5 py-2.5 text-sm">
+					<svg
+						className="mt-0.5 h-4 w-4 shrink-0 text-(--lagoon-deep)"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						aria-hidden="true"
+					>
+						<title>Tip</title>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<p className="text-(--sea-ink)">
+						<span className="font-semibold">Tip:</span> Search for the place
+						on the map below to autofill the name, address, phone, and website
+						— or fill in the details manually.
+					</p>
+				</div>
+
 				<label className={`sm:col-span-2 ${labelClass}`}>
 					Address
 					<input
@@ -263,6 +286,15 @@ export function PlaceForm({
 							className={inputClass}
 						/>
 					</label>
+				</div>
+
+				<div className="sm:col-span-2 relative py-2" aria-hidden="true">
+					<div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-(--line)" />
+					<div className="relative flex justify-center">
+						<span className="bg-(--surface-strong) px-3 text-xs font-semibold uppercase tracking-wider text-(--sea-ink-soft)">
+							Or search the map
+						</span>
+					</div>
 				</div>
 
 				<div className="sm:col-span-2">

@@ -21,7 +21,18 @@ type publicMetadata struct {
 	Role string `json:"role"`
 }
 
+type roleContextKey struct{}
+
+// RoleContextKey lets callers stash a Role on the request context to
+// short-circuit the Clerk SDK lookup. Production code does not set this;
+// it exists so handler tests can exercise role-gated paths without a
+// live Clerk roundtrip, mirroring the ClerkUserIDKey escape hatch.
+var RoleContextKey = roleContextKey{}
+
 func GetUserRole(ctx context.Context, clerkUserID string) (Role, error) {
+	if role, ok := ctx.Value(RoleContextKey).(Role); ok {
+		return role, nil
+	}
 	u, err := clerkuser.Get(ctx, clerkUserID)
 	if err != nil {
 		return RoleUser, err

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/coltonsweeney/localevents/server/internal/config"
@@ -27,7 +28,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -38,7 +39,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 
 	r.Handle("/metrics", promhttp.Handler())
 
-	eventHandler := handler.NewEventHandler(queries, r2)
+	eventHandler := handler.NewEventHandler(queries, pool, r2)
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries)
@@ -115,6 +116,7 @@ func New(queries *store.Queries, cfg *config.Config, digestRunner *notifier.Runn
 			r.Use(middleware.RequireAuth())
 			r.Use(middleware.RequireRole(middleware.RoleAuthor, middleware.RoleAdmin))
 			r.Post("/events", eventHandler.Create)
+			r.Post("/events/series", eventHandler.CreateSeries)
 			r.Put("/events/series/{seriesId}", eventHandler.UpdateSeries)
 			r.Put("/events/{id}", eventHandler.Update)
 			r.Delete("/events/{id}", eventHandler.Delete)

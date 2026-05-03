@@ -218,7 +218,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, cfg, digestRunner, r2)
+	r := router.New(queries, pool, cfg, digestRunner, r2)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

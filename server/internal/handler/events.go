@@ -9,7 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
@@ -18,11 +20,12 @@ import (
 
 type EventHandler struct {
 	queries *store.Queries
+	pool    *pgxpool.Pool
 	r2      *storage.R2Client
 }
 
-func NewEventHandler(q *store.Queries, r2 *storage.R2Client) *EventHandler {
-	return &EventHandler{queries: q, r2: r2}
+func NewEventHandler(q *store.Queries, pool *pgxpool.Pool, r2 *storage.R2Client) *EventHandler {
+	return &EventHandler{queries: q, pool: pool, r2: r2}
 }
 
 func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -339,6 +342,163 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(event)
+}
+
+type seriesInstance struct {
+	StartTime string  `json:"start_time"`
+	EndTime   *string `json:"end_time"`
+}
+
+type createSeriesRequest struct {
+	Base      createEventRequest `json:"base"`
+	Instances []seriesInstance   `json:"instances"`
+}
+
+// CreateSeries creates one or more events that share the same metadata
+// (title, venue, location, image, etc.) but each have their own start/end
+// time. All events are created in a single transaction — either every
+// event is inserted or none are. When more than one instance is provided,
+// they're linked by a generated series_id.
+func (h *EventHandler) CreateSeries(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	role, err := middleware.GetUserRole(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
+		return
+	}
+	if !middleware.CanCreateEvent(role) {
+		http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		return
+	}
+
+	var req createSeriesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Base.Title == "" {
+		http.Error(w, `{"error":"title is required"}`, http.StatusBadRequest)
+		return
+	}
+	if len(req.Instances) == 0 {
+		http.Error(w, `{"error":"at least one instance is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	type parsedInstance struct {
+		start time.Time
+		end   pgtype.Timestamptz
+	}
+	parsed := make([]parsedInstance, len(req.Instances))
+	for i, inst := range req.Instances {
+		startTime, err := time.Parse(time.RFC3339, inst.StartTime)
+		if err != nil {
+			http.Error(w, `{"error":"invalid start_time, use RFC3339 format"}`, http.StatusBadRequest)
+			return
+		}
+		var endTime pgtype.Timestamptz
+		if inst.EndTime != nil {
+			t, err := time.Parse(time.RFC3339, *inst.EndTime)
+			if err != nil {
+				http.Error(w, `{"error":"invalid end_time, use RFC3339 format"}`, http.StatusBadRequest)
+				return
+			}
+			endTime = pgtype.Timestamptz{Time: t, Valid: true}
+		}
+		parsed[i] = parsedInstance{start: startTime, end: endTime}
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Upsert venue once for the whole series so we don't redo it per instance.
+	venueID := uuidFromPtr(req.Base.VenueID)
+	if req.Base.VenueID == nil && req.Base.VenueName != nil && *req.Base.VenueName != "" &&
+		(req.Base.Latitude != 0 || req.Base.Longitude != 0) {
+		venue, err := h.queries.UpsertVenue(r.Context(), store.UpsertVenueParams{
+			Name:      *req.Base.VenueName,
+			Address:   textFromPtr(req.Base.Address),
+			City:      textFromPtr(req.Base.City),
+			State:     textFromPtr(req.Base.State),
+			Zip:       textFromPtr(req.Base.Zip),
+			Latitude:  req.Base.Latitude,
+			Longitude: req.Base.Longitude,
+		})
+		if err == nil {
+			venueID = venue.ID
+		}
+	}
+
+	// Mirror image once for the whole series.
+	if h.r2 != nil && req.Base.ImageURL != nil && *req.Base.ImageURL != "" {
+		if r2URL, err := h.r2.MirrorImage(r.Context(), *req.Base.ImageURL); err == nil && r2URL != "" {
+			req.Base.ImageURL = &r2URL
+		}
+	}
+
+	// Generate a series_id when there's more than one instance and the
+	// caller didn't supply one. Single-instance calls behave like Create.
+	seriesID := uuidFromPtr(req.Base.SeriesID)
+	if !seriesID.Valid && len(req.Instances) > 1 {
+		seriesID = pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	}
+
+	tx, err := h.pool.BeginTx(r.Context(), pgx.TxOptions{})
+	if err != nil {
+		http.Error(w, `{"error":"failed to begin transaction"}`, http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	qtx := h.queries.WithTx(tx)
+	created := make([]store.Event, 0, len(parsed))
+	for _, inst := range parsed {
+		event, err := qtx.CreateEvent(r.Context(), store.CreateEventParams{
+			Source:      "user",
+			Title:       req.Base.Title,
+			Description: textFromPtr(req.Base.Description),
+			VenueName:   textFromPtr(req.Base.VenueName),
+			Address:     textFromPtr(req.Base.Address),
+			City:        textFromPtr(req.Base.City),
+			State:       textFromPtr(req.Base.State),
+			Zip:         textFromPtr(req.Base.Zip),
+			Latitude:    req.Base.Latitude,
+			Longitude:   req.Base.Longitude,
+			StartTime:   pgtype.Timestamptz{Time: inst.start, Valid: true},
+			EndTime:     inst.end,
+			Categories:  req.Base.Categories,
+			ImageUrl:    textFromPtr(req.Base.ImageURL),
+			TicketUrl:   textFromPtr(req.Base.TicketURL),
+			PriceMin:    numericFromFloat(req.Base.PriceMin),
+			PriceMax:    numericFromFloat(req.Base.PriceMax),
+			SubmittedBy: user.ID,
+			VenueID:     venueID,
+			SeriesID:    seriesID,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"failed to create event"}`, http.StatusInternalServerError)
+			return
+		}
+		created = append(created, event)
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, `{"error":"failed to commit series"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(created)
 }
 
 func textFromPtr(s *string) pgtype.Text {
