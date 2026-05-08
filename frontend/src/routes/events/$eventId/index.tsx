@@ -380,7 +380,7 @@ function EventDetailPage() {
 						className="h-64 w-full rounded-lg"
 					/>
 
-					<NearbyPlaces lat={event.Latitude} lng={event.Longitude} />
+					{/* <NearbyPlaces lat={event.Latitude} lng={event.Longitude} /> */}
 				</div>
 			</div>
 

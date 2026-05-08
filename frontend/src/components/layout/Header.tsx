@@ -20,7 +20,7 @@ export default function Header() {
 			>
 				Events
 			</Link>
-			<Link
+			{/* <Link
 				to="/places"
 				search={{ tab: "food" }}
 				activeOptions={{ includeSearch: false }}
@@ -29,7 +29,7 @@ export default function Header() {
 				onClick={() => setMenuOpen(false)}
 			>
 				Places
-			</Link>
+			</Link> */}
 			{isSignedIn && canCreateEvent && (
 				<Link
 					to="/submit"
