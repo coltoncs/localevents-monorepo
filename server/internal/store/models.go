@@ -6,6 +6,7 @@ package store
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 type AuthorApplication struct {
@@ -77,6 +78,18 @@ type Event struct {
 	VenueID        pgtype.UUID
 	Categories     []string
 	SeriesID       pgtype.UUID
+}
+
+type EventEmbedding struct {
+	EventID   pgtype.UUID
+	Embedding pgvector.Vector
+	UpdatedAt pgtype.Timestamptz
+}
+
+type EventView struct {
+	UserID   pgtype.UUID
+	EventID  pgtype.UUID
+	ViewedAt pgtype.Timestamptz
 }
 
 type Image struct {
@@ -167,6 +180,14 @@ type User struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	PhoneNumber        pgtype.Text
+}
+
+type UserPreference struct {
+	UserID           pgtype.UUID
+	PreferenceVector pgvector.Vector
+	SignalCount      int32
+	NeedsRecompute   bool
+	UpdatedAt        pgtype.Timestamptz
 }
 
 type Venue struct {

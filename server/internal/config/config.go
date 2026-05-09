@@ -30,6 +30,8 @@ type Config struct {
 	DigestEnabled       bool
 	CleanupCronSchedule string
 	FrontendURL         string
+	OpenAIAPIKey        string
+	RecsRecomputeCron   string
 }
 
 func Load() *Config {
@@ -62,6 +64,9 @@ func Load() *Config {
 		// images that will survive until the following week's cleanup.
 		CleanupCronSchedule: getEnv("CLEANUP_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 8 * * 5"),
 		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
+		OpenAIAPIKey:        getEnv("OPENAI_API_KEY", ""),
+		// Nightly at 3 AM ET — quiet window for vector recomputes.
+		RecsRecomputeCron: getEnv("RECS_RECOMPUTE_CRON", "CRON_TZ=America/New_York 0 3 * * *"),
 	}
 }
 

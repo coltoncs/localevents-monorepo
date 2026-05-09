@@ -12,9 +12,11 @@ import (
 
 	"github.com/coltonsweeney/localevents/server/internal/config"
 	"github.com/coltonsweeney/localevents/server/internal/database"
+	"github.com/coltonsweeney/localevents/server/internal/embedding"
 	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
@@ -48,6 +50,19 @@ func main() {
 	var r2 *storage.R2Client
 	if cfg.R2AccountID != "" && cfg.R2AccessKeyID != "" && cfg.R2SecretAccessKey != "" && cfg.R2PublicURL != "" {
 		r2 = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
+	}
+
+	// Embedding + recommendations (optional; require OPENAI_API_KEY).
+	var embedClient *embedding.Client
+	var embedStore *embedding.Store
+	var recsService *recommend.Service
+	if cfg.OpenAIAPIKey != "" {
+		embedClient = embedding.NewClient(cfg.OpenAIAPIKey)
+		embedStore = embedding.NewStore(pool)
+		recsService = recommend.New(pool)
+		log.Println("Recommendations enabled (OpenAI embeddings)")
+	} else {
+		log.Println("OPENAI_API_KEY not set, recommendations disabled")
 	}
 
 	c := cron.New()
@@ -168,6 +183,11 @@ func main() {
 			log.Println("R2 credentials not fully set, image mirroring disabled")
 		}
 
+		if embedClient != nil {
+			runner.Embedder = embedClient
+			runner.EmbeddedStore = embedStore
+		}
+
 		c.AddFunc(cfg.ScraperCronSchedule, func() {
 			start := time.Now()
 			runner.Run(context.Background())
@@ -204,6 +224,31 @@ func main() {
 		log.Println("Twilio credentials not fully set, SMS digest disabled")
 	}
 
+	// Nightly user-preference vector recompute. Lazy-invalidates when users
+	// save/view events; this drains the queue.
+	if recsService != nil {
+		c.AddFunc(cfg.RecsRecomputeCron, func() {
+			start := time.Now()
+			ctx := context.Background()
+			done, err := recsService.RecomputeStale(ctx, 1000)
+			status := "success"
+			if err != nil {
+				log.Printf("Recs recompute error after %d users: %v", done, err)
+				status = "error"
+			}
+			log.Printf("Recs recompute: %d users updated", done)
+			metrics.CronJobRunsTotal.WithLabelValues("recs_recompute", status).Inc()
+			metrics.CronJobDuration.WithLabelValues("recs_recompute").Observe(time.Since(start).Seconds())
+			details, _ := json.Marshal(map[string]int{"users_recomputed": done})
+			queries.InsertCronLog(ctx, store.InsertCronLogParams{
+				JobName:       "recs_recompute",
+				ItemsAffected: int32(done),
+				Details:       details,
+			})
+		})
+		log.Printf("Recs recompute enabled (schedule: %s)", cfg.RecsRecomputeCron)
+	}
+
 	// Set up weekly digest cron job
 	if cfg.DigestEnabled {
 		c.AddFunc(cfg.DigestCronSchedule, func() {
@@ -218,7 +263,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, pool, cfg, digestRunner, r2)
+	r := router.New(queries, pool, cfg, digestRunner, r2, recsService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

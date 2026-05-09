@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coltonsweeney/localevents/server/internal/embedding"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -54,10 +56,12 @@ type EventSource interface {
 
 // Runner orchestrates fetching events from all sources for all locations.
 type Runner struct {
-	Sources   []EventSource
-	Locations []Location
-	Queries   *store.Queries
-	R2        *storage.R2Client // optional; when set, images are mirrored to R2
+	Sources       []EventSource
+	Locations     []Location
+	Queries       *store.Queries
+	R2            *storage.R2Client    // optional; when set, images are mirrored to R2
+	Embedder      *embedding.Client    // optional; when set, new events are embedded after scrape
+	EmbeddedStore *embedding.Store     // required when Embedder is set
 }
 
 // prioritySources are local/community scrapers whose listings are preferred
@@ -236,12 +240,74 @@ func (r *Runner) Run(ctx context.Context) {
 
 	log.Printf("Event scrape complete: %d total events upserted, %d images mirrored", total, mirrored)
 
-	details, _ := json.Marshal(map[string]int{"mirrored": mirrored})
+	embedded := 0
+	if r.Embedder != nil && r.EmbeddedStore != nil {
+		embedded = embedNewEvents(ctx, r.Embedder, r.EmbeddedStore)
+	}
+
+	details, _ := json.Marshal(map[string]int{
+		"mirrored": mirrored,
+		"embedded": embedded,
+	})
 	r.Queries.InsertCronLog(ctx, store.InsertCronLogParams{
 		JobName:       "scrape",
 		ItemsAffected: int32(total),
 		Details:       details,
 	})
+}
+
+// embedNewEvents embeds any events that don't yet have a row in
+// event_embeddings. Run after each scrape so newly-upserted events become
+// recommendable on the next user request. Caps work per scrape so a large
+// backfill doesn't run inline; the catch-up keeps draining over time.
+func embedNewEvents(ctx context.Context, client *embedding.Client, store *embedding.Store) int {
+	const maxPerRun = 500
+	pending, err := store.ListUnembedded(ctx, maxPerRun)
+	if err != nil {
+		log.Printf("embed: list unembedded failed: %v", err)
+		return 0
+	}
+	if len(pending) == 0 {
+		return 0
+	}
+
+	total := 0
+	for start := 0; start < len(pending); start += embedding.MaxBatch {
+		end := start + embedding.MaxBatch
+		if end > len(pending) {
+			end = len(pending)
+		}
+		batch := pending[start:end]
+
+		inputs := make([]string, len(batch))
+		for i, e := range batch {
+			inputs[i] = embedding.EventInput{
+				Title:       e.Title,
+				Description: e.Description,
+				Categories:  e.Categories,
+				VenueName:   e.VenueName,
+				City:        e.City,
+			}.String()
+		}
+
+		vecs, err := client.Embed(ctx, inputs)
+		if err != nil {
+			log.Printf("embed: batch %d-%d failed: %v", start, end, err)
+			continue
+		}
+
+		ids := make([]uuid.UUID, len(batch))
+		for i, e := range batch {
+			ids[i] = e.ID
+		}
+		if err := store.UpsertEmbeddings(ctx, ids, vecs); err != nil {
+			log.Printf("embed: upsert batch %d-%d failed: %v", start, end, err)
+			continue
+		}
+		total += len(batch)
+	}
+	log.Printf("embed: generated %d event embeddings", total)
+	return total
 }
 
 // enrichPriorityEvent fills in missing fields on a priority (local) event
