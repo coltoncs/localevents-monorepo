@@ -14,6 +14,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
@@ -28,7 +29,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -51,6 +52,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 	placeHandler := handler.NewPlaceHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)
+	recsHandler := handler.NewRecommendationHandler(queries, recs)
 
 	redirectFoods := func(w http.ResponseWriter, r *http.Request) {
 		redirectLegacyPath(w, r, "/api/foods", "/api/places")
@@ -102,6 +104,8 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Get("/me/notifications", notificationHandler.GetPreferences)
 			r.Put("/me/notifications", notificationHandler.UpdatePreferences)
 			r.Post("/me/notifications/trigger-digest", notificationHandler.TriggerDigest)
+			r.Get("/me/recommendations", recsHandler.List)
+			r.Post("/me/event-views/{eventId}", recsHandler.RecordView)
 			r.Post("/images/presign", imageHandler.Presign)
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)

@@ -6,7 +6,9 @@ import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
 import { LocationSearch } from '#/components/maps/LocationSearch'
 import { EventCard } from '#/components/events/EventCard'
+import { RecommendedEventsSection } from '#/components/events/RecommendedEventsSection'
 import { useSavedEvents } from '#/lib/hooks/useSavedEvents'
+import { useUser } from '#/lib/hooks/useUser'
 
 gsap.registerPlugin(SplitText)
 
@@ -157,6 +159,21 @@ function HomePage() {
         </div>
       )}
       {isSignedIn && <UpcomingSavedEvents />}
+      {isSignedIn && <SignedInRecommendations />}
     </div>
+  )
+}
+
+function SignedInRecommendations() {
+  const { data: user } = useUser()
+  const lat = user?.DefaultLatitude
+  const lng = user?.DefaultLongitude
+  if (lat == null || lng == null) return null
+  return (
+    <RecommendedEventsSection
+      lat={lat}
+      lng={lng}
+      radius={user?.DefaultRadiusMiles ?? undefined}
+    />
   )
 }

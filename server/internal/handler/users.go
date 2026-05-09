@@ -297,6 +297,10 @@ func (h *UserHandler) SaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Flag the user's preference vector for nightly recompute. Best-effort.
+	_ = h.queries.EnsureUserPreferences(r.Context(), user.ID)
+	_ = h.queries.MarkUserPreferencesStale(r.Context(), user.ID)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(saved)
@@ -329,6 +333,9 @@ func (h *UserHandler) UnsaveEvent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to unsave event"}`, http.StatusInternalServerError)
 		return
 	}
+
+	_ = h.queries.EnsureUserPreferences(r.Context(), user.ID)
+	_ = h.queries.MarkUserPreferencesStale(r.Context(), user.ID)
 
 	w.WriteHeader(http.StatusNoContent)
 }

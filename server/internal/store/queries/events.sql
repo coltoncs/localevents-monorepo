@@ -1,6 +1,9 @@
 -- name: GetEvent :one
 SELECT * FROM events WHERE id = $1;
 
+-- name: GetEventsByIDs :many
+SELECT * FROM events WHERE id = ANY($1::uuid[]);
+
 -- name: CountEventsByLocation :one
 SELECT COUNT(*)
 FROM events

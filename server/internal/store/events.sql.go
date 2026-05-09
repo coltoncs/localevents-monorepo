@@ -217,6 +217,56 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 	return i, err
 }
 
+const getEventsByIDs = `-- name: GetEventsByIDs :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id FROM events WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Event, error) {
+	rows, err := q.db.Query(ctx, getEventsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+			&i.Categories,
+			&i.SeriesID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEventsByLocation = `-- name: ListEventsByLocation :many
 SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
 FROM events

@@ -63,4 +63,9 @@ export const queryKeys = {
 	admin: {
 		stats: ["admin", "stats"] as const,
 	},
+	recommendations: {
+		all: ["recommendations"] as const,
+		list: (lat: number, lng: number, radius?: number) =>
+			["recommendations", "list", lat, lng, radius] as const,
+	},
 };
