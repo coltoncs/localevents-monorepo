@@ -9,7 +9,7 @@ import {
 	type PoiSelection,
 } from "#/components/maps/LocationPickerMap";
 import { getSavedLocation } from "#/components/maps/LocationSearch";
-import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
+import { SimpleEditor } from "#/components/tiptap/templates/simple/simple-editor";
 import { VenueCombobox } from "#/components/venues/VenueCombobox";
 import {
 	type CreateSeriesInstance,
