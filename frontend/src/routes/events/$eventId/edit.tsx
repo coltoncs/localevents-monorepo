@@ -11,7 +11,7 @@ import {
 } from "#/components/maps/LocationPickerMap";
 import { RoleProtectedRoute } from "#/components/auth/RoleProtectedRoute";
 import { Spinner } from "#/components/Spinner";
-import { SimpleEditor } from "#/components/tiptap-templates/simple/simple-editor";
+import { SimpleEditor } from "#/components/tiptap/templates/simple/simple-editor";
 import { VenueCombobox } from "#/components/venues/VenueCombobox";
 import {
 	eventDetailOptions,
