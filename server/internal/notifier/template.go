@@ -146,11 +146,7 @@ func RenderDigestEmail(events, savedEvents []store.Event, preferredCategories []
 
 	if digestFormat == "daily" {
 		data.DayGroups = groupEventsByDay(remaining, loc, frontendURL)
-		total := len(saved)
-		for _, g := range data.DayGroups {
-			total += len(g.Events)
-		}
-		data.TotalCount = total
+		data.TotalCount = len(saved) + len(remaining)
 	} else {
 		prefSet := make(map[string]bool, len(preferredCategories))
 		for _, c := range preferredCategories {
