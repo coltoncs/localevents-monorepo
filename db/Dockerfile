@@ -1,4 +1,4 @@
-FROM postgis/postgis:18-3.5
+FROM postgis/postgis:18-3.6
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
        build-essential \
