@@ -21,8 +21,6 @@ export function RecommendedEventsSection({ lat, lng, radius }: Props) {
 		limit: 9,
 	});
 
-	console.log(data);
-
 	if (isLoading || !data) return null;
 	if (data.events.length === 0) return null;
 
