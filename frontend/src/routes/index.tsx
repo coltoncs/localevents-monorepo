@@ -105,7 +105,8 @@ function UpcomingSavedEvents() {
   const { data: saved } = useSavedEvents()
 
   const upcoming = saved
-    ?.sort((a, b) => new Date(a.StartTime).getTime() - new Date(b.StartTime).getTime())
+    ?.filter(event => new Date(event.StartTime) > new Date())
+    .sort((a, b) => new Date(a.StartTime).getTime() - new Date(b.StartTime).getTime())
     .slice(0, 6)
 
   if (!upcoming?.length) return null
