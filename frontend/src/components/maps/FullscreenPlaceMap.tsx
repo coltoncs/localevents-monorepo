@@ -197,7 +197,7 @@ export function FullscreenPlaceMap({
 	return (
 		<div className="fixed inset-0 z-[60] flex h-[100dvh] bg-(--bg-base)">
 			<aside
-				className={`fullscreen-slide-up relative hidden shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg transition-[width] duration-200 md:flex ${
+				className={`fullscreen-slide-up relative z-10 hidden shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg transition-[width] duration-200 md:flex ${
 					sidebarCollapsed ? "w-0" : "w-[400px]"
 				}`}
 			>
@@ -211,7 +211,7 @@ export function FullscreenPlaceMap({
 				<button
 					type="button"
 					onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-					className="absolute left-full top-6 z-10 flex h-14 w-6 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) shadow-lg backdrop-blur-lg hover:text-(--sea-ink)"
+					className="absolute left-full top-12 z-10 flex h-14 w-6 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) shadow-lg backdrop-blur-lg hover:text-(--sea-ink)"
 					aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
 				>
 					<svg

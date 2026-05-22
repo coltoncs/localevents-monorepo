@@ -4,14 +4,12 @@ import { useAuth } from '@clerk/clerk-react'
 import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
 import { useUser } from '#/lib/hooks/useUser'
 import { EventFilters } from '#/components/events/EventFilters'
-import { EventCard } from '#/components/events/EventCard'
 import { EventTable } from '#/components/events/EventTable'
-import { EventMap } from '#/components/maps/EventMap'
 import { FullscreenMap, FullscreenMapSkeleton } from '#/components/maps/FullscreenMap'
 import { LocationSearch, getSavedLocation } from '#/components/maps/LocationSearch'
 import { Pagination } from '#/components/Pagination'
-import { ViewToggle } from '#/components/ViewToggle'
 import { Spinner } from '#/components/Spinner'
+import { DEFAULT_MAP_CENTER } from '#/lib/mapUtils'
 
 interface EventsSearch {
   lat?: number
@@ -21,9 +19,8 @@ interface EventsSearch {
   endDate?: string
   category?: string
   search?: string
-  view?: 'map' | 'list'
+  view?: 'list'
   page?: number
-  fullscreen?: 1
 }
 
 export const Route = createFileRoute('/events/')({
@@ -46,9 +43,8 @@ export const Route = createFileRoute('/events/')({
     endDate: (search.endDate as string) || undefined,
     category: search.category as string | undefined,
     search: (search.search as string) || undefined,
-    view: (search.view as 'map' | 'list') || undefined,
+    view: search.view === 'list' ? 'list' : undefined,
     page: search.page ? Number(search.page) : undefined,
-    fullscreen: search.fullscreen ? 1 : undefined,
   }),
   loaderDeps: ({ search }) => ({
     lat: search.lat,
@@ -78,11 +74,19 @@ export const Route = createFileRoute('/events/')({
   },
   pendingComponent: function EventsPending() {
     const search = Route.useSearch()
-    if (search.fullscreen) return <FullscreenMapSkeleton />
-    return <Spinner className="py-24" />
+    if (search.view === 'list') return <Spinner className="py-24" />
+    return <FullscreenMapSkeleton />
   },
   component: EventsPage,
 })
+
+function todayString(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 function EventsPage() {
   const search = Route.useSearch()
@@ -93,50 +97,45 @@ function EventsPage() {
   useEffect(() => {
     if (search.lat && search.lng) return
 
-    // 1. Try localStorage
     const saved = getSavedLocation()
     if (saved) {
       navigate({
         to: '/events',
-        search: {
-          lat: saved.lat,
-          lng: saved.lng,
-        },
+        search: (prev) => ({ ...prev, lat: saved.lat, lng: saved.lng }),
         replace: true,
       })
       return
     }
 
-    // 2. Try user profile defaults
     if (isSignedIn && user?.DefaultLatitude && user?.DefaultLongitude) {
       navigate({
         to: '/events',
-        search: {
+        search: (prev) => ({
+          ...prev,
           lat: user.DefaultLatitude,
           lng: user.DefaultLongitude,
           radius: user.DefaultRadiusMiles,
-        },
+        }),
         replace: true,
       })
     }
   }, [search.lat, search.lng, navigate, isSignedIn, user])
 
-  if (!search.lat || !search.lng) {
-    return (
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-(--sea-ink)">Explore Events</h1>
-        <div className="flex flex-col items-center gap-4 py-16">
-          <p className="text-(--sea-ink-soft)">
-            Search for a city to find events near you.
-          </p>
-          <LocationSearch />
-        </div>
-      </div>
-    )
+  const lat = search.lat ?? DEFAULT_MAP_CENTER.lat
+  const lng = search.lng ?? DEFAULT_MAP_CENTER.lng
+
+  if (search.view === 'list') {
+    return <EventsList search={{ ...search, lat, lng }} />
   }
 
   return (
-    <EventsList search={{ ...search, lat: search.lat, lng: search.lng }} />
+    <FullscreenMap
+      lat={lat}
+      lng={lng}
+      radius={search.radius}
+      date={search.date ?? todayString()}
+      category={search.category}
+    />
   )
 }
 
@@ -147,27 +146,13 @@ function EventsList({
 }) {
   const navigate = useNavigate()
   const [locationName, setLocationName] = useState<string | null>(null)
-  const fullscreen = !!search.fullscreen
-  const setFullscreen = (val: boolean) => {
-    navigate({
-      to: '/events',
-      search: (prev) => ({ ...prev, fullscreen: val ? 1 : undefined }),
-    })
-  }
-  const [mapDisplayMode, setMapDisplayMode] = useState<'cards' | 'list'>('cards')
 
   useEffect(() => {
     const saved = getSavedLocation()
     if (saved) setLocationName(saved.name)
   }, [search.lat, search.lng])
 
-  const view = search.view ?? 'list'
-  const center = { lat: search.lat, lng: search.lng }
-  const hasDate = !!search.date
   const page = search.page ?? 1
-
-  // Map view requires a date; list view fetches without one (all upcoming)
-  const shouldFetch = view === 'list' || hasDate
 
   const filters = {
     lat: search.lat,
@@ -180,23 +165,9 @@ function EventsList({
     page,
   }
 
-  const { data, isLoading } = useEvents(filters, shouldFetch)
-  const fetchedEvents = shouldFetch ? (data?.events ?? []) : []
+  const { data, isLoading } = useEvents(filters, true)
+  const fetchedEvents = data?.events ?? []
   const total = data?.total ?? 0
-
-  // Separate unpaginated fetch for map markers (all events, not just current page)
-  const mapFilters = {
-    lat: search.lat,
-    lng: search.lng,
-    radius: search.radius,
-    date: search.date,
-    endDate: search.endDate,
-    category: search.category,
-    search: search.search,
-    limit: 500,
-  }
-  const { data: mapData } = useEvents(mapFilters, view === 'map' && hasDate)
-  const mapEvents = (view === 'map' && hasDate) ? (mapData?.events ?? []) : []
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
 
@@ -222,7 +193,6 @@ function EventsList({
         endDate={search.endDate}
         radius={search.radius}
         search={search.search}
-        view={view}
         lat={search.lat}
         lng={search.lng}
       />
@@ -271,77 +241,13 @@ function EventsList({
         </div>
       )}
 
-      {fullscreen && (
-        <FullscreenMap
-          lat={search.lat}
-          lng={search.lng}
-          radius={search.radius}
-          date={search.date}
-          category={search.category}
-          onClose={() => setFullscreen(false)}
-                 />
-      )}
-
-      {view === 'map' && !hasDate ? (
-        <div className="relative">
-          <EventMap events={[]} center={center} radiusMiles={search.radius ?? 10} />
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-(--bg-base)/60 backdrop-blur-sm">
-            <div className="rounded-xl border border-(--line) bg-(--surface-strong) px-8 py-6 text-center shadow-lg">
-              <p className="text-lg font-semibold text-(--sea-ink)">
-                Select a date to view events on the map
-              </p>
-              <p className="mt-1 text-sm text-(--sea-ink-soft)">
-                Or view the list to see all events
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setFullscreen(true)}
-            className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) backdrop-blur-lg text-(--sea-ink) shadow-lg hover:bg-(--surface) cursor-pointer"
-            aria-label="Fullscreen map"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2h4v4M6 14H2v-4M14 2l-5 5M2 14l5-5" />
-            </svg>
-          </button>
-        </div>
-      ) : isLoading ? (
+      {isLoading ? (
         <Spinner className="py-12" />
-      ) : view === 'map' ? (
-        <div className="space-y-4">
-          <div className="relative">
-            <EventMap events={mapEvents} center={center} radiusMiles={search.radius ?? 10} />
-            <button
-              onClick={() => setFullscreen(true)}
-              className="absolute top-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-(--line) bg-(--surface-strong) backdrop-blur-lg text-(--sea-ink) shadow-lg hover:bg-(--surface) cursor-pointer"
-              aria-label="Fullscreen map"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 2h4v4M6 14H2v-4M14 2l-5 5M2 14l5-5" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex justify-end">
-            <ViewToggle view={mapDisplayMode} onChange={setMapDisplayMode} />
-          </div>
-          {mapDisplayMode === 'cards' ? (
-            <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
-              {fetchedEvents.map((event) => (
-                <div key={event.ID} className="mb-4 break-inside-avoid">
-                  <EventCard event={event} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EventTable events={fetchedEvents} />
-          )}
-        </div>
       ) : (
         <EventTable events={fetchedEvents} />
       )}
 
-      {/* Pagination */}
-      {shouldFetch && totalPages > 1 && (
+      {totalPages > 1 && (
         <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
       )}
     </div>

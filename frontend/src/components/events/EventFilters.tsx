@@ -22,7 +22,6 @@ interface EventFiltersProps {
   endDate?: string
   radius?: number
   search?: string
-  view: 'list' | 'map'
   lat: number
   lng: number
 }
@@ -45,7 +44,6 @@ export function EventFilters({
   endDate,
   radius,
   search,
-  view,
   lat,
   lng,
 }: EventFiltersProps) {
@@ -56,7 +54,7 @@ export function EventFilters({
   function updateSearch(updates: Record<string, string | undefined>) {
     navigate({
       to: '/events',
-      search: (prev) => ({ ...prev, lat, lng, view, page: undefined, ...updates }),
+      search: (prev) => ({ ...prev, lat, lng, view: 'list' as const, page: undefined, ...updates }),
       replace: true,
     })
   }
@@ -80,27 +78,21 @@ export function EventFilters({
     <div className="flex rounded-md border border-(--line)">
       <button
         type="button"
-        onClick={() => updateSearch({ view: 'list' })}
-        className={`cursor-pointer px-3 py-2 text-sm font-medium ${
-          view === 'list'
-            ? 'bg-(--lagoon-deep) text-white'
-            : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
-        } rounded-l-md`}
+        disabled
+        className="cursor-default rounded-l-md bg-(--lagoon-deep) px-3 py-2 text-sm font-medium text-white"
       >
         List
       </button>
       <button
         type="button"
-        onClick={() => {
-          const updates: Record<string, string | undefined> = { view: 'map' }
-          if (!date) updates.date = formatDateStr(new Date())
-          updateSearch(updates)
-        }}
-        className={`cursor-pointer px-3 py-2 text-sm font-medium ${
-          view === 'map'
-            ? 'bg-(--lagoon-deep) text-white'
-            : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
-        } rounded-r-md`}
+        onClick={() =>
+          navigate({
+            to: '/events',
+            search: (prev) => ({ ...prev, lat, lng, view: undefined, page: undefined }),
+            replace: true,
+          })
+        }
+        className="cursor-pointer rounded-r-md bg-(--surface-strong) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) hover:bg-(--surface)"
       >
         Map
       </button>

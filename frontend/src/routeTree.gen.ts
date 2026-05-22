@@ -29,7 +29,6 @@ import { Route as DrinksIndexRouteImport } from './routes/drinks/index'
 import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
 import { Route as PlacePlaceIdRouteImport } from './routes/place/$placeId'
 import { Route as FoodFoodIdRouteImport } from './routes/food/$foodId'
-import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
 import { Route as DrinksBeverageIdRouteImport } from './routes/drinks/$beverageId'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
@@ -134,25 +133,20 @@ const FoodFoodIdRoute = FoodFoodIdRouteImport.update({
   path: '/food/$foodId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EventsEventIdRoute = EventsEventIdRouteImport.update({
-  id: '/events/$eventId',
-  path: '/events/$eventId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DrinksBeverageIdRoute = DrinksBeverageIdRouteImport.update({
   id: '/drinks/$beverageId',
   path: '/drinks/$beverageId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsEventIdIndexRoute = EventsEventIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => EventsEventIdRoute,
+  id: '/events/$eventId/',
+  path: '/events/$eventId/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const EventsEventIdEditRoute = EventsEventIdEditRouteImport.update({
-  id: '/edit',
-  path: '/edit',
-  getParentRoute: () => EventsEventIdRoute,
+  id: '/events/$eventId/edit',
+  path: '/events/$eventId/edit',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -171,7 +165,6 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
-  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -223,7 +216,6 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
-  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -251,7 +243,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/welcome'
     | '/drinks/$beverageId'
-    | '/events/$eventId'
     | '/food/$foodId'
     | '/place/$placeId'
     | '/venues/$venueId'
@@ -302,7 +293,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/welcome'
     | '/drinks/$beverageId'
-    | '/events/$eventId'
     | '/food/$foodId'
     | '/place/$placeId'
     | '/venues/$venueId'
@@ -329,13 +319,14 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
   DrinksBeverageIdRoute: typeof DrinksBeverageIdRoute
-  EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   FoodFoodIdRoute: typeof FoodFoodIdRoute
   PlacePlaceIdRoute: typeof PlacePlaceIdRoute
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
   DrinksIndexRoute: typeof DrinksIndexRoute
   EventsIndexRoute: typeof EventsIndexRoute
   PlacesIndexRoute: typeof PlacesIndexRoute
+  EventsEventIdEditRoute: typeof EventsEventIdEditRoute
+  EventsEventIdIndexRoute: typeof EventsEventIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -480,13 +471,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodFoodIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/events/$eventId': {
-      id: '/events/$eventId'
-      path: '/events/$eventId'
-      fullPath: '/events/$eventId'
-      preLoaderRoute: typeof EventsEventIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/drinks/$beverageId': {
       id: '/drinks/$beverageId'
       path: '/drinks/$beverageId'
@@ -496,34 +480,20 @@ declare module '@tanstack/react-router' {
     }
     '/events/$eventId/': {
       id: '/events/$eventId/'
-      path: '/'
+      path: '/events/$eventId'
       fullPath: '/events/$eventId/'
       preLoaderRoute: typeof EventsEventIdIndexRouteImport
-      parentRoute: typeof EventsEventIdRoute
+      parentRoute: typeof rootRouteImport
     }
     '/events/$eventId/edit': {
       id: '/events/$eventId/edit'
-      path: '/edit'
+      path: '/events/$eventId/edit'
       fullPath: '/events/$eventId/edit'
       preLoaderRoute: typeof EventsEventIdEditRouteImport
-      parentRoute: typeof EventsEventIdRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface EventsEventIdRouteChildren {
-  EventsEventIdEditRoute: typeof EventsEventIdEditRoute
-  EventsEventIdIndexRoute: typeof EventsEventIdIndexRoute
-}
-
-const EventsEventIdRouteChildren: EventsEventIdRouteChildren = {
-  EventsEventIdEditRoute: EventsEventIdEditRoute,
-  EventsEventIdIndexRoute: EventsEventIdIndexRoute,
-}
-
-const EventsEventIdRouteWithChildren = EventsEventIdRoute._addFileChildren(
-  EventsEventIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -541,13 +511,14 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
   DrinksBeverageIdRoute: DrinksBeverageIdRoute,
-  EventsEventIdRoute: EventsEventIdRouteWithChildren,
   FoodFoodIdRoute: FoodFoodIdRoute,
   PlacePlaceIdRoute: PlacePlaceIdRoute,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
   DrinksIndexRoute: DrinksIndexRoute,
   EventsIndexRoute: EventsIndexRoute,
   PlacesIndexRoute: PlacesIndexRoute,
+  EventsEventIdEditRoute: EventsEventIdEditRoute,
+  EventsEventIdIndexRoute: EventsEventIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

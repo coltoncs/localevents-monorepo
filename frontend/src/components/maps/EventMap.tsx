@@ -133,7 +133,7 @@ export function EventMap({
         trackUserLocation: false,
         showUserLocation: true,
       }),
-      "bottom-right",
+      "top-left",
     );
 
     mapRef.current.on("click", (e) => {
