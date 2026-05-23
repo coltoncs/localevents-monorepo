@@ -1,4 +1,4 @@
-import type { EventFilters, PlaceFilters } from "./types";
+import type { EventFilters, MapEventFilters, PlaceFilters } from "./types";
 
 interface VenueFilters {
 	lat: number;
@@ -15,6 +15,7 @@ export const queryKeys = {
 	events: {
 		all: ["events"] as const,
 		list: (filters: EventFilters) => ["events", "list", filters] as const,
+		map: (filters: MapEventFilters) => ["events", "map", filters] as const,
 		detail: (id: string) => ["events", "detail", id] as const,
 		series: (seriesId: string) => ["events", "series", seriesId] as const,
 	},

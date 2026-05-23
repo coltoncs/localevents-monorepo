@@ -71,6 +71,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.OptionalAuth())
 			r.Get("/events", eventHandler.List)
+			r.Get("/events/map", eventHandler.ListMap)
 			r.Get("/events/series/{seriesId}", eventHandler.ListSeriesEvents)
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)

@@ -197,6 +197,135 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	}{Events: events, Total: total})
 }
 
+// ListMap returns up to 500 events in the radius without pagination.
+// Used by map views, which need every pin in the area rather than a page slice.
+func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
+	latStr := r.URL.Query().Get("lat")
+	lngStr := r.URL.Query().Get("lng")
+	if latStr == "" || lngStr == "" {
+		http.Error(w, `{"error":"lat and lng are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid lat"}`, http.StatusBadRequest)
+		return
+	}
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid lng"}`, http.StatusBadRequest)
+		return
+	}
+
+	radiusMiles := 10.0
+	if v := r.URL.Query().Get("radius"); v != "" {
+		radiusMiles, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			http.Error(w, `{"error":"invalid radius"}`, http.StatusBadRequest)
+			return
+		}
+	}
+	radiusMeters := radiusMiles * 1609.34
+
+	eastern, _ := time.LoadLocation("America/New_York")
+
+	dateStr := r.URL.Query().Get("date")
+	endDateStr := r.URL.Query().Get("end_date")
+	var startDate, endDate time.Time
+	if dateStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", dateStr, eastern)
+		if err != nil {
+			http.Error(w, `{"error":"invalid date format, use YYYY-MM-DD"}`, http.StatusBadRequest)
+			return
+		}
+		if endDateStr != "" {
+			endDate, err = time.ParseInLocation("2006-01-02", endDateStr, eastern)
+			if err != nil {
+				http.Error(w, `{"error":"invalid end_date format, use YYYY-MM-DD"}`, http.StatusBadRequest)
+				return
+			}
+			endDate = endDate.Add(24 * time.Hour)
+		} else {
+			endDate = startDate.Add(24 * time.Hour)
+		}
+	} else {
+		now := time.Now().In(eastern)
+		startDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, eastern)
+		endDate = startDate.AddDate(1, 0, 0)
+	}
+
+	var category pgtype.Text
+	if c := r.URL.Query().Get("category"); c != "" {
+		category = pgtype.Text{String: c, Valid: true}
+	}
+
+	var venueName pgtype.Text
+	if v := r.URL.Query().Get("venue"); v != "" {
+		venueName = pgtype.Text{String: v, Valid: true}
+	}
+
+	var search pgtype.Text
+	if s := r.URL.Query().Get("search"); s != "" {
+		search = pgtype.Text{String: s, Valid: true}
+	}
+
+	var venueID pgtype.UUID
+	if v := r.URL.Query().Get("venue_id"); v != "" {
+		id, err := uuid.Parse(v)
+		if err == nil {
+			venueID = pgtype.UUID{Bytes: id, Valid: true}
+		}
+	}
+
+	listParams := store.ListEventsByLocationParams{
+		Lng:          lng,
+		Lat:          lat,
+		RadiusMeters: radiusMeters,
+		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
+		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+		Category:     category,
+		VenueName:    venueName,
+		VenueID:      venueID,
+		Search:       search,
+		EventLimit:   500,
+		EventOffset:  0,
+	}
+
+	var events []store.Event
+	multiDay := dateStr == "" || endDateStr != ""
+	if multiDay {
+		events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
+			Lng:          listParams.Lng,
+			Lat:          listParams.Lat,
+			RadiusMeters: listParams.RadiusMeters,
+			StartDate:    listParams.StartDate,
+			EndDate:      listParams.EndDate,
+			Category:     listParams.Category,
+			VenueName:    listParams.VenueName,
+			VenueID:      listParams.VenueID,
+			Search:       listParams.Search,
+			EventLimit:   listParams.EventLimit,
+			EventOffset:  listParams.EventOffset,
+		})
+	} else {
+		events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
+	}
+	if err != nil {
+		http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if events == nil {
+		events = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Events []store.Event `json:"events"`
+	}{Events: events})
+}
+
 func (h *EventHandler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)

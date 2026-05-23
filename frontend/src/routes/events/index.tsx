@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { useEvents, eventListOptions } from '#/lib/hooks/useEvents'
+import { useEvents, eventListOptions, mapEventListOptions } from '#/lib/hooks/useEvents'
 import { useUser } from '#/lib/hooks/useUser'
 import { EventFilters } from '#/components/events/EventFilters'
 import { EventTable } from '#/components/events/EventTable'
@@ -55,9 +55,11 @@ export const Route = createFileRoute('/events/')({
     category: search.category,
     search: search.search,
     page: search.page,
+    view: search.view,
   }),
   loader: async ({ context, deps }) => {
-    if (deps.lat && deps.lng) {
+    if (!deps.lat || !deps.lng) return
+    if (deps.view === 'list') {
       await context.queryClient.prefetchQuery(
         eventListOptions({
           lat: deps.lat,
@@ -70,7 +72,20 @@ export const Route = createFileRoute('/events/')({
           page: deps.page,
         }),
       )
+      return
     }
+    // Map view: FullscreenMap falls back to today's date when none is provided.
+    await context.queryClient.prefetchQuery(
+      mapEventListOptions({
+        lat: deps.lat,
+        lng: deps.lng,
+        radius: deps.radius,
+        date: deps.date ?? todayString(),
+        endDate: deps.endDate,
+        category: deps.category,
+        search: deps.search,
+      }),
+    )
   },
   pendingComponent: function EventsPending() {
     const search = Route.useSearch()

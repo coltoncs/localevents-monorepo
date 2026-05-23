@@ -49,6 +49,22 @@ export interface EventListResponse {
 	total: number;
 }
 
+export interface MapEventListResponse {
+	events: Event[];
+}
+
+export interface MapEventFilters {
+	lat: number;
+	lng: number;
+	radius?: number;
+	date?: string;
+	endDate?: string;
+	category?: string;
+	venueName?: string;
+	venueId?: string;
+	search?: string;
+}
+
 export interface EventFilters {
 	lat: number;
 	lng: number;

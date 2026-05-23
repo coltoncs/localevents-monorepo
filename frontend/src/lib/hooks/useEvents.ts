@@ -11,6 +11,8 @@ import type {
 	Event,
 	EventFilters,
 	EventListResponse,
+	MapEventFilters,
+	MapEventListResponse,
 } from "#/lib/types";
 
 export function eventListOptions(filters: EventFilters) {
@@ -33,6 +35,30 @@ export function eventListOptions(filters: EventFilters) {
 		queryFn: () =>
 			apiClient<EventListResponse>(`/api/events?${params.toString()}`),
 	});
+}
+
+export function mapEventListOptions(filters: MapEventFilters) {
+	const params = new URLSearchParams({
+		lat: String(filters.lat),
+		lng: String(filters.lng),
+	});
+	if (filters.radius) params.set("radius", String(filters.radius));
+	if (filters.date) params.set("date", filters.date);
+	if (filters.endDate) params.set("end_date", filters.endDate);
+	if (filters.category) params.set("category", filters.category);
+	if (filters.venueName) params.set("venue", filters.venueName);
+	if (filters.venueId) params.set("venue_id", filters.venueId);
+	if (filters.search) params.set("search", filters.search);
+
+	return queryOptions({
+		queryKey: queryKeys.events.map(filters),
+		queryFn: () =>
+			apiClient<MapEventListResponse>(`/api/events/map?${params.toString()}`),
+	});
+}
+
+export function useMapEvents(filters: MapEventFilters, enabled = true) {
+	return useQuery({ ...mapEventListOptions(filters), enabled });
 }
 
 export function eventDetailOptions(id: string) {

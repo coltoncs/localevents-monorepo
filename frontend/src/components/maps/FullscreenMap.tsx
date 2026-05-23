@@ -3,7 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@clerk/clerk-react'
 import type { Map as MapboxMap } from 'mapbox-gl'
 import { EventMap } from '#/components/maps/EventMap'
-import { useEvents } from '#/lib/hooks/useEvents'
+import { useMapEvents } from '#/lib/hooks/useEvents'
 import { useUserRole } from '#/lib/hooks/useUserRole'
 import { isAllDay } from '#/lib/date-utils'
 import type { Event } from '#/lib/types'
@@ -37,7 +37,7 @@ export function FullscreenMap({
 
   const filters = { lat, lng, radius, date, category }
   const shouldFetch = !!date
-  const { data, isLoading } = useEvents(filters, shouldFetch)
+  const { data, isLoading } = useMapEvents(filters, shouldFetch)
   const events = shouldFetch ? (data?.events ?? []) : []
 
   useEffect(() => {
