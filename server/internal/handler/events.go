@@ -112,7 +112,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	limit := int32(20)
+	limit := int32(500)
 	if v := r.URL.Query().Get("limit"); v != "" {
 		l, err := strconv.Atoi(v)
 		if err == nil && l > 0 && l <= 500 {
