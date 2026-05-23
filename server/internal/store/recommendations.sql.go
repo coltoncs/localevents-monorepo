@@ -23,11 +23,13 @@ func (q *Queries) EnsureUserPreferences(ctx context.Context, userID pgtype.UUID)
 }
 
 const getUserPreferencesState = `-- name: GetUserPreferencesState :one
-SELECT signal_count,
-       needs_recompute,
-       (preference_vector IS NOT NULL)::bool AS has_vector
-FROM user_preferences
-WHERE user_id = $1
+SELECT
+    ((SELECT COUNT(*) FROM saved_events se WHERE se.user_id = $1)
+        + (SELECT COUNT(*) FROM event_views ev WHERE ev.user_id = $1))::int AS signal_count,
+    up.needs_recompute,
+    (up.preference_vector IS NOT NULL)::bool AS has_vector
+FROM user_preferences up
+WHERE up.user_id = $1
 `
 
 type GetUserPreferencesStateRow struct {
@@ -36,22 +38,13 @@ type GetUserPreferencesStateRow struct {
 	HasVector      bool
 }
 
+// signal_count is derived live so it cannot drift from saved_events/event_views.
+// The stored column on user_preferences is no longer read.
 func (q *Queries) GetUserPreferencesState(ctx context.Context, userID pgtype.UUID) (GetUserPreferencesStateRow, error) {
 	row := q.db.QueryRow(ctx, getUserPreferencesState, userID)
 	var i GetUserPreferencesStateRow
 	err := row.Scan(&i.SignalCount, &i.NeedsRecompute, &i.HasVector)
 	return i, err
-}
-
-const getUserSignalCount = `-- name: GetUserSignalCount :one
-SELECT signal_count FROM user_preferences WHERE user_id = $1
-`
-
-func (q *Queries) GetUserSignalCount(ctx context.Context, userID pgtype.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, getUserSignalCount, userID)
-	var signal_count int32
-	err := row.Scan(&signal_count)
-	return signal_count, err
 }
 
 const listTrendingFutureEvents = `-- name: ListTrendingFutureEvents :many
@@ -158,14 +151,9 @@ func (q *Queries) ListTrendingFutureEvents(ctx context.Context, arg ListTrending
 }
 
 const markUserPreferencesStale = `-- name: MarkUserPreferencesStale :exec
-UPDATE user_preferences up
-SET needs_recompute = TRUE,
-    signal_count = (
-        SELECT COUNT(*) FROM saved_events se WHERE se.user_id = $1
-    ) + (
-        SELECT COUNT(*) FROM event_views ev WHERE ev.user_id = $1
-    )
-WHERE up.user_id = $1
+UPDATE user_preferences
+SET needs_recompute = TRUE
+WHERE user_id = $1
 `
 
 func (q *Queries) MarkUserPreferencesStale(ctx context.Context, userID pgtype.UUID) error {

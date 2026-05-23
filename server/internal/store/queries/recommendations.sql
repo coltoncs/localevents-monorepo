@@ -9,24 +9,20 @@ VALUES ($1)
 ON CONFLICT (user_id) DO NOTHING;
 
 -- name: MarkUserPreferencesStale :exec
-UPDATE user_preferences up
-SET needs_recompute = TRUE,
-    signal_count = (
-        SELECT COUNT(*) FROM saved_events se WHERE se.user_id = $1
-    ) + (
-        SELECT COUNT(*) FROM event_views ev WHERE ev.user_id = $1
-    )
-WHERE up.user_id = $1;
-
--- name: GetUserSignalCount :one
-SELECT signal_count FROM user_preferences WHERE user_id = $1;
+UPDATE user_preferences
+SET needs_recompute = TRUE
+WHERE user_id = $1;
 
 -- name: GetUserPreferencesState :one
-SELECT signal_count,
-       needs_recompute,
-       (preference_vector IS NOT NULL)::bool AS has_vector
-FROM user_preferences
-WHERE user_id = $1;
+-- signal_count is derived live so it cannot drift from saved_events/event_views.
+-- The stored column on user_preferences is no longer read.
+SELECT
+    ((SELECT COUNT(*) FROM saved_events se WHERE se.user_id = $1)
+        + (SELECT COUNT(*) FROM event_views ev WHERE ev.user_id = $1))::int AS signal_count,
+    up.needs_recompute,
+    (up.preference_vector IS NOT NULL)::bool AS has_vector
+FROM user_preferences up
+WHERE up.user_id = $1;
 
 -- name: ListTrendingFutureEvents :many
 SELECT e.*, COUNT(se.user_id) AS save_count

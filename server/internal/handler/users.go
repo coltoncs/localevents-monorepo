@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	clerkuser "github.com/clerk/clerk-sdk-go/v2/user"
@@ -297,9 +298,15 @@ func (h *UserHandler) SaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Flag the user's preference vector for nightly recompute. Best-effort.
-	_ = h.queries.EnsureUserPreferences(r.Context(), user.ID)
-	_ = h.queries.MarkUserPreferencesStale(r.Context(), user.ID)
+	// Flag the user's preference vector for nightly recompute. Best-effort,
+	// but log failures so silent drift between saved_events and the recs
+	// pipeline is visible.
+	if err := h.queries.EnsureUserPreferences(r.Context(), user.ID); err != nil {
+		log.Printf("save event: ensure user preferences %s: %v", user.ID.Bytes, err)
+	}
+	if err := h.queries.MarkUserPreferencesStale(r.Context(), user.ID); err != nil {
+		log.Printf("save event: mark user preferences stale %s: %v", user.ID.Bytes, err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -334,8 +341,12 @@ func (h *UserHandler) UnsaveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.queries.EnsureUserPreferences(r.Context(), user.ID)
-	_ = h.queries.MarkUserPreferencesStale(r.Context(), user.ID)
+	if err := h.queries.EnsureUserPreferences(r.Context(), user.ID); err != nil {
+		log.Printf("unsave event: ensure user preferences %s: %v", user.ID.Bytes, err)
+	}
+	if err := h.queries.MarkUserPreferencesStale(r.Context(), user.ID); err != nil {
+		log.Printf("unsave event: mark user preferences stale %s: %v", user.ID.Bytes, err)
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

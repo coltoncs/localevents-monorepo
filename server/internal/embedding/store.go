@@ -30,8 +30,9 @@ type UnembeddedEvent struct {
 	Categories  []string
 }
 
-// ListUnembedded returns events with no row in event_embeddings, oldest first
-// so backfill makes steady forward progress instead of churning recent events.
+// ListUnembedded returns events with no row in event_embeddings, prioritizing
+// upcoming events (soonest first) so recommendations have something to work
+// with as soon as new events are scraped. Past events are drained last.
 func (s *Store) ListUnembedded(ctx context.Context, limit int) ([]UnembeddedEvent, error) {
 	const q = `
 		SELECT e.id, e.title, COALESCE(e.description, ''),
@@ -40,7 +41,10 @@ func (s *Store) ListUnembedded(ctx context.Context, limit int) ([]UnembeddedEven
 		FROM events e
 		LEFT JOIN event_embeddings ee ON ee.event_id = e.id
 		WHERE ee.event_id IS NULL
-		ORDER BY e.created_at ASC
+		ORDER BY
+		    (e.start_time > NOW()) DESC,
+		    CASE WHEN e.start_time > NOW() THEN e.start_time END ASC,
+		    e.start_time DESC
 		LIMIT $1
 	`
 	rows, err := s.Pool.Query(ctx, q, limit)

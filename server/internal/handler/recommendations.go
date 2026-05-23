@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -170,12 +171,18 @@ func (h *RecommendationHandler) RecordView(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	_ = h.queries.RecordEventView(r.Context(), store.RecordEventViewParams{
+	if err := h.queries.RecordEventView(r.Context(), store.RecordEventViewParams{
 		UserID:  user.ID,
 		EventID: pgtype.UUID{Bytes: eventUUID, Valid: true},
-	})
-	_ = h.queries.EnsureUserPreferences(r.Context(), user.ID)
-	_ = h.queries.MarkUserPreferencesStale(r.Context(), user.ID)
+	}); err != nil {
+		log.Printf("record view: %s event=%s: %v", user.ID.Bytes, eventUUID, err)
+	}
+	if err := h.queries.EnsureUserPreferences(r.Context(), user.ID); err != nil {
+		log.Printf("record view: ensure user preferences %s: %v", user.ID.Bytes, err)
+	}
+	if err := h.queries.MarkUserPreferencesStale(r.Context(), user.ID); err != nil {
+		log.Printf("record view: mark user preferences stale %s: %v", user.ID.Bytes, err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
