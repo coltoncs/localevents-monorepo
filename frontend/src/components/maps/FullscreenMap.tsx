@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@clerk/clerk-react'
 import type { Map as MapboxMap } from 'mapbox-gl'
@@ -139,9 +140,11 @@ export function FullscreenMap({
     <FiltersRow
       date={date}
       category={category}
+      radius={radius}
       onShiftDate={shiftDate}
       onDateChange={(v) => updateSearch({ date: v || undefined })}
       onCategoryChange={(v) => updateSearch({ category: v || undefined })}
+      onRadiusChange={(v) => updateSearch({ radius: v })}
     />
   )
 
@@ -282,18 +285,24 @@ function SidebarHeader({
   )
 }
 
+const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const
+
 function FiltersRow({
   date,
   category,
+  radius,
   onShiftDate,
   onDateChange,
   onCategoryChange,
+  onRadiusChange,
 }: {
   date?: string
   category?: string
+  radius?: number
   onShiftDate: (n: number) => void
   onDateChange: (v: string) => void
   onCategoryChange: (v: string) => void
+  onRadiusChange: (v: string) => void
 }) {
   return (
     <div className="space-y-2 border-b border-(--line) p-3">
@@ -320,18 +329,32 @@ function FiltersRow({
           </svg>
         </IconButton>
       </div>
-      <select
-        value={category ?? ''}
-        onChange={(e) => onCategoryChange(e.target.value)}
-        className="w-full cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
-      >
-        <option value="">All categories</option>
-        {CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
+      <div className="flex items-center gap-1.5">
+        <select
+          value={category ?? ''}
+          onChange={(e) => onCategoryChange(e.target.value)}
+          className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+        >
+          <option value="">All categories</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select
+          value={radius ?? 10}
+          onChange={(e) => onRadiusChange(e.target.value)}
+          className="cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+          aria-label="Search radius"
+        >
+          {RADIUS_OPTIONS.map((r) => (
+            <option key={r} value={r}>
+              {r} mi
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   )
 }
@@ -536,11 +559,32 @@ function MobileSheet({
   const dragStartY = useRef(0)
   const dragStartHeight = useRef(0)
 
+  // Extra headroom (px) below the viewport top that the full snap must leave
+  // clear, on top of safe-area-inset-top, so the iPhone status bar / notch
+  // never overlaps the sheet.
+  const FULL_TOP_PADDING_PX = 24
+
+  function safeAreaInsetTop(): number {
+    if (typeof window === 'undefined') return 0
+    const probe = document.createElement('div')
+    probe.style.cssText =
+      'position:fixed;top:0;height:env(safe-area-inset-top);width:0;'
+    document.body.appendChild(probe)
+    const px = probe.getBoundingClientRect().height
+    probe.remove()
+    return px
+  }
+
+  function fullSnapPx(): number {
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    return Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX)
+  }
+
   function computeSnapPx(s: SheetSnap): number {
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     if (s === 'peek') return 120
     if (s === 'half') return Math.round(vh * 0.5)
-    return Math.round(vh * 0.9)
+    return fullSnapPx()
   }
 
   function onPointerDown(e: React.PointerEvent) {
@@ -555,10 +599,9 @@ function MobileSheet({
   function onPointerMove(e: React.PointerEvent) {
     if (dragHeight == null) return
     const delta = dragStartY.current - e.clientY
-    const vh = window.innerHeight
     const h = Math.max(
       80,
-      Math.min(vh * 0.9, dragStartHeight.current + delta),
+      Math.min(fullSnapPx(), dragStartHeight.current + delta),
     )
     setDragHeight(h)
   }
@@ -569,7 +612,7 @@ function MobileSheet({
     const snaps: Array<[SheetSnap, number]> = [
       ['peek', 120],
       ['half', Math.round(vh * 0.5)],
-      ['full', Math.round(vh * 0.9)],
+      ['full', fullSnapPx()],
     ]
     let nearest: SheetSnap = 'peek'
     let bestDist = Infinity
@@ -592,7 +635,11 @@ function MobileSheet({
       ? { height: `${dragHeight}px`, transition: 'none' }
       : {
         height:
-          snap === 'peek' ? '120px' : snap === 'half' ? '50vh' : '90vh',
+          snap === 'peek'
+            ? '120px'
+            : snap === 'half'
+              ? '50vh'
+              : `calc(100dvh - env(safe-area-inset-top) - ${FULL_TOP_PADDING_PX}px)`,
       }
 
   function cycleSnap() {
@@ -603,7 +650,7 @@ function MobileSheet({
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-20 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg transition-[height] duration-200 md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg transition-[height] duration-200 md:hidden"
       style={style}
     >
       <div
@@ -734,6 +781,20 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
   const { isSignedIn } = useAuth()
   const { isUser, canCreateEvent, canManageAuthors } = useUserRole()
   const [menuOpen, setMenuOpen] = useState(false)
+  const navRef = useRef<HTMLElement | null>(null)
+  const [menuTop, setMenuTop] = useState(0)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const update = () => {
+      if (navRef.current) {
+        setMenuTop(navRef.current.getBoundingClientRect().bottom)
+      }
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [menuOpen])
 
   const navLinks = (
     <>
@@ -800,7 +861,10 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
   )
 
   return (
-    <nav className="relative shrink-0 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg">
+    <nav
+      ref={navRef}
+      className="relative z-30 shrink-0 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg"
+    >
       <div className="flex items-center gap-x-3 px-4 py-2">
         <Link
           to="/"
@@ -847,13 +911,19 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
         <ClerkHeader />
       </div>
 
-      {menuOpen && (
-        <div className="absolute left-0 right-0 top-full z-50 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:hidden">
-          <div className="flex flex-col px-4 py-2 text-sm font-semibold [&>a]:flex [&>a]:min-h-11 [&>a]:items-center">
-            {navLinks}
-          </div>
-        </div>
-      )}
+      {menuOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed left-0 right-0 z-[70] border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:hidden"
+            style={{ top: menuTop }}
+          >
+            <div className="flex flex-col px-4 py-2 text-sm font-semibold [&>a]:flex [&>a]:min-h-11 [&>a]:items-center">
+              {navLinks}
+            </div>
+          </div>,
+          document.body,
+        )}
     </nav>
   )
 }
