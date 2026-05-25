@@ -113,6 +113,7 @@ function EventDetailPage() {
 	const [showSuggestEdit, setShowSuggestEdit] = useState(false);
 	const { data: backendUser } = useUser();
 	const { data: seriesEvents } = useSeriesEvents(event?.SeriesID);
+	const [showAllSeriesDates, setShowAllSeriesDates] = useState(false);
 
 	if (isLoading) {
 		return <Spinner className="py-12" />;
@@ -307,27 +308,48 @@ function EventDetailPage() {
 							)}
 						</div>
 
-						{seriesEvents && seriesEvents.length > 1 && (
-							<div>
-								<h3 className="text-sm font-medium text-(--sea-ink-soft)">
-									Other Dates in This Series
-								</h3>
-								<div className="mt-1 space-y-1">
-									{seriesEvents
-										.filter((e) => e.ID !== event.ID)
-										.map((e) => (
-											<Link
-												key={e.ID}
-												to="/events/$eventId"
-												params={{ eventId: e.ID }}
-												className="block text-sm text-(--lagoon-deep) hover:underline"
-											>
-												{formatDateLong(e.StartTime)}
-											</Link>
-										))}
-								</div>
-							</div>
-						)}
+						{seriesEvents &&
+							seriesEvents.length > 1 &&
+							(() => {
+								const otherDates = seriesEvents.filter(
+									(e) => e.ID !== event.ID,
+								);
+								const collapsedLimit = 6;
+								const visibleDates = showAllSeriesDates
+									? otherDates
+									: otherDates.slice(0, collapsedLimit);
+								const hiddenCount = otherDates.length - collapsedLimit;
+								return (
+									<div>
+										<h3 className="text-sm font-medium text-(--sea-ink-soft)">
+											Other Dates in This Series
+										</h3>
+										<div className="mt-1 space-y-1">
+											{visibleDates.map((e) => (
+												<Link
+													key={e.ID}
+													to="/events/$eventId"
+													params={{ eventId: e.ID }}
+													className="block text-sm text-(--lagoon-deep) hover:underline"
+												>
+													{formatDateLong(e.StartTime)}
+												</Link>
+											))}
+											{hiddenCount > 0 && (
+												<button
+													type="button"
+													onClick={() => setShowAllSeriesDates((v) => !v)}
+													className="cursor-pointer text-sm text-(--lagoon-deep) hover:underline"
+												>
+													{showAllSeriesDates
+														? "Show less"
+														: `and ${hiddenCount} more`}
+												</button>
+											)}
+										</div>
+									</div>
+								);
+							})()}
 
 						{event.VenueName && (
 							<div>

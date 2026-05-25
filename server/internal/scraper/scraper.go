@@ -67,9 +67,10 @@ type Runner struct {
 // prioritySources are local/community scrapers whose listings are preferred
 // over aggregator sources when duplicates are detected.
 var prioritySources = map[string]bool{
-	"visitraleigh":   true,
-	"discoverdurham": true,
-	"visitrichmond":  true,
+	"visitraleigh":    true,
+	"visitchapelhill": true,
+	"discoverdurham":  true,
+	"visitrichmond":   true,
 }
 
 // Run collects events from all sources, deduplicates across sources
