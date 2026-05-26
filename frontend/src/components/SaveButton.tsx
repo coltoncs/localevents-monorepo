@@ -6,7 +6,6 @@ import {
   useUnsaveEvent,
   useEventSaveCount,
 } from '#/lib/hooks/useSavedEvents'
-import { isPastEvent } from '#/lib/date-utils'
 
 export function SaveButton({ eventId, disabled }: { eventId: string, disabled: boolean }) {
   const { isSignedIn } = useAuth()
