@@ -1,25 +1,25 @@
-import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@clerk/clerk-react'
-import type { Map as MapboxMap } from 'mapbox-gl'
-import { EventMap } from '#/components/maps/EventMap'
-import { useMapEvents } from '#/lib/hooks/useEvents'
-import { useUserRole } from '#/lib/hooks/useUserRole'
-import { isAllDay } from '#/lib/date-utils'
-import type { Event } from '#/lib/types'
-import { CATEGORIES } from '../events/EventFilters'
-import ClerkHeader from '#/integrations/clerk/header-user'
-import ThemeToggle from '#/components/ThemeToggle'
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@clerk/clerk-react";
+import type { Map as MapboxMap } from "mapbox-gl";
+import { EventMap } from "#/components/maps/EventMap";
+import { useMapEvents } from "#/lib/hooks/useEvents";
+import { useUserRole } from "#/lib/hooks/useUserRole";
+import { isAllDay } from "#/lib/date-utils";
+import type { Event } from "#/lib/types";
+import { CATEGORIES } from "../events/EventFilters";
+import ClerkHeader from "#/integrations/clerk/header-user";
+import ThemeToggle from "#/components/ThemeToggle";
 
-type SheetSnap = 'peek' | 'half' | 'full'
+type SheetSnap = "peek" | "half" | "full";
 
 interface FullscreenMapProps {
-  lat: number
-  lng: number
-  radius?: number
-  date?: string
-  category?: string
+  lat: number;
+  lng: number;
+  radius?: number;
+  date?: string;
+  category?: string;
 }
 
 export function FullscreenMap({
@@ -29,92 +29,92 @@ export function FullscreenMap({
   date,
   category,
 }: FullscreenMapProps) {
-  const navigate = useNavigate()
-  const [settingOrigin, setSettingOrigin] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [sheetSnap, setSheetSnap] = useState<SheetSnap>('peek')
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
-  const mapInstanceRef = useRef<MapboxMap | null>(null)
+  const navigate = useNavigate();
+  const [settingOrigin, setSettingOrigin] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const mapInstanceRef = useRef<MapboxMap | null>(null);
 
-  const filters = { lat, lng, radius, date, category }
-  const shouldFetch = !!date
-  const { data, isLoading } = useMapEvents(filters, shouldFetch)
-  const events = shouldFetch ? (data?.events ?? []) : []
+  const filters = { lat, lng, radius, date, category };
+  const shouldFetch = !!date;
+  const { data, isLoading } = useMapEvents(filters, shouldFetch);
+  const events = shouldFetch ? (data?.events ?? []) : [];
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = ''
-    }
-  }, [])
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
-    const canvas = mapInstanceRef.current?.getCanvas()
-    if (!canvas) return
-    canvas.style.cursor = settingOrigin ? 'crosshair' : ''
+    const canvas = mapInstanceRef.current?.getCanvas();
+    if (!canvas) return;
+    canvas.style.cursor = settingOrigin ? "crosshair" : "";
     return () => {
-      canvas.style.cursor = ''
-    }
-  }, [settingOrigin])
+      canvas.style.cursor = "";
+    };
+  }, [settingOrigin]);
 
   useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map) return
-    let raf = 0
-    const start = performance.now()
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    let raf = 0;
+    const start = performance.now();
     const tick = (t: number) => {
-      map.resize()
-      if (t - start < 260) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [sidebarCollapsed])
+      map.resize();
+      if (t - start < 260) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
-    setSelectedEventId(null)
-  }, [date, category, lat, lng])
+    setSelectedEventId(null);
+  }, [date, category, lat, lng]);
 
   function handleMapClick(lngLat: { lng: number; lat: number }) {
-    if (!settingOrigin) return
-    setSettingOrigin(false)
+    if (!settingOrigin) return;
+    setSettingOrigin(false);
     updateSearch({
       lat: String(Math.round(lngLat.lat * 1_000_000) / 1_000_000),
       lng: String(Math.round(lngLat.lng * 1_000_000) / 1_000_000),
-    })
+    });
   }
 
   function updateSearch(updates: Record<string, string | undefined>) {
     navigate({
-      to: '/events',
+      to: "/events",
       search: (prev) => ({ ...prev, lat, lng, view: undefined, ...updates }),
       replace: true,
-    })
+    });
   }
 
   function handleShowList() {
     navigate({
-      to: '/events',
+      to: "/events",
       search: (prev) => ({
         ...prev,
-        view: 'list' as const,
+        view: "list" as const,
         date: undefined,
         endDate: undefined,
         page: undefined,
       }),
-    })
+    });
   }
 
   function shiftDate(days: number) {
-    const base = date ? new Date(date + 'T00:00:00') : new Date()
-    base.setDate(base.getDate() + days)
-    const yyyy = base.getFullYear()
-    const mm = String(base.getMonth() + 1).padStart(2, '0')
-    const dd = String(base.getDate()).padStart(2, '0')
-    updateSearch({ date: `${yyyy}-${mm}-${dd}` })
+    const base = date ? new Date(date + "T00:00:00") : new Date();
+    base.setDate(base.getDate() + days);
+    const yyyy = base.getFullYear();
+    const mm = String(base.getMonth() + 1).padStart(2, "0");
+    const dd = String(base.getDate()).padStart(2, "0");
+    updateSearch({ date: `${yyyy}-${mm}-${dd}` });
   }
 
   function handleSelectEvent(event: Event) {
-    setSelectedEventId(event.ID)
+    setSelectedEventId(event.ID);
     mapInstanceRef.current?.flyTo({
       center: [event.Longitude, event.Latitude],
       zoom: 16.5,
@@ -122,8 +122,8 @@ export function FullscreenMap({
       bearing: -20,
       duration: 1200,
       essential: true,
-    })
-    if (sheetSnap === 'full') setSheetSnap('half')
+    });
+    if (sheetSnap === "full") setSheetSnap("half");
   }
 
   function handleRecenter() {
@@ -133,7 +133,7 @@ export function FullscreenMap({
       pitch: 0,
       bearing: 0,
       duration: 900,
-    })
+    });
   }
 
   const filtersNode = (
@@ -146,7 +146,7 @@ export function FullscreenMap({
       onCategoryChange={(v) => updateSearch({ category: v || undefined })}
       onRadiusChange={(v) => updateSearch({ radius: v })}
     />
-  )
+  );
 
   const listNode = (
     <EventList
@@ -157,19 +157,23 @@ export function FullscreenMap({
       selectedEventId={selectedEventId}
       onSelect={handleSelectEvent}
     />
-  )
+  );
 
   return (
     <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-(--bg-base)">
       <MapNavBar onShowList={handleShowList} />
       <div className="flex min-h-0 flex-1">
         <aside
-          className={`fullscreen-slide-up relative z-10 hidden shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg transition-[width] duration-200 md:flex ${sidebarCollapsed ? 'w-0' : 'w-[400px]'
-            }`}
+          className={`fullscreen-slide-up relative z-10 hidden shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg transition-[width] duration-200 md:flex ${
+            sidebarCollapsed ? "w-0" : "w-[400px]"
+          }`}
         >
           {!sidebarCollapsed && (
             <>
-              <SidebarHeader eventCount={events.length} shouldFetch={shouldFetch} />
+              <SidebarHeader
+                eventCount={events.length}
+                shouldFetch={shouldFetch}
+              />
               {filtersNode}
               <div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
             </>
@@ -178,10 +182,20 @@ export function FullscreenMap({
             type="button"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="absolute left-full top-12 z-10 flex h-14 w-6 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) shadow-lg backdrop-blur-lg hover:text-(--sea-ink)"
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={
+              sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            }
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d={sidebarCollapsed ? 'M4 2l4 4-4 4' : 'M8 2L4 6l4 4'} />
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d={sidebarCollapsed ? "M4 2l4 4-4 4" : "M8 2L4 6l4 4"} />
             </svg>
           </button>
         </aside>
@@ -193,7 +207,7 @@ export function FullscreenMap({
             radiusMiles={radius ?? 10}
             className="h-full w-full"
             onMapReady={(map) => {
-              mapInstanceRef.current = map
+              mapInstanceRef.current = map;
             }}
             onMapClick={handleMapClick}
             selectedEventId={selectedEventId}
@@ -205,14 +219,23 @@ export function FullscreenMap({
                 <button
                   type="button"
                   onClick={() => setSettingOrigin(!settingOrigin)}
-                  className={`flex h-10 w-10 cursor-pointer items-center justify-center ${settingOrigin
-                      ? 'bg-(--lagoon-deep) text-white'
-                      : 'text-(--sea-ink) hover:bg-(--link-bg-hover)'
-                    }`}
+                  className={`flex h-10 w-10 cursor-pointer items-center justify-center ${
+                    settingOrigin
+                      ? "bg-(--lagoon-deep) text-white"
+                      : "text-(--sea-ink) hover:bg-(--link-bg-hover)"
+                  }`}
                   aria-label="Set search center"
                   title="Click map to set new search center"
                 >
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
                     <circle cx="10" cy="10" r="3" />
                     <circle cx="10" cy="10" r="7" />
                     <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
@@ -226,7 +249,15 @@ export function FullscreenMap({
                   aria-label="Recenter map"
                   title="Recenter map"
                 >
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
                     <circle cx="10" cy="10" r="3" />
                     <path d="M10 1v3M10 16v3M1 10h3M16 10h3" />
                   </svg>
@@ -237,7 +268,10 @@ export function FullscreenMap({
             {settingOrigin && (
               <div
                 className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-(--lagoon) bg-(--surface-strong) px-4 py-2 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-(--lagoon) shadow-lg backdrop-blur-lg"
-                style={{ boxShadow: '0 0 0 1px var(--lagoon), 0 0 22px color-mix(in oklab, var(--lagoon) 40%, transparent)' }}
+                style={{
+                  boxShadow:
+                    "0 0 0 1px var(--lagoon), 0 0 22px color-mix(in oklab, var(--lagoon) 40%, transparent)",
+                }}
               >
                 Click anywhere to set search center
               </div>
@@ -256,15 +290,15 @@ export function FullscreenMap({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function SidebarHeader({
   eventCount,
   shouldFetch,
 }: {
-  eventCount: number
-  shouldFetch: boolean
+  eventCount: number;
+  shouldFetch: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
@@ -272,20 +306,20 @@ function SidebarHeader({
         <div className="island-kicker">Map</div>
         <div className="mt-0.5 text-lg font-bold tracking-tight text-(--sea-ink)">
           {shouldFetch
-            ? `${eventCount} event${eventCount !== 1 ? 's' : ''}`
-            : 'Pick a date'}
+            ? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
+            : "Pick a date"}
         </div>
       </div>
       <div
         className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
-        style={{ boxShadow: '0 0 10px var(--lagoon)' }}
+        style={{ boxShadow: "0 0 10px var(--lagoon)" }}
         aria-hidden
       />
     </div>
-  )
+  );
 }
 
-const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const
+const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const;
 
 function FiltersRow({
   date,
@@ -296,42 +330,58 @@ function FiltersRow({
   onCategoryChange,
   onRadiusChange,
 }: {
-  date?: string
-  category?: string
-  radius?: number
-  onShiftDate: (n: number) => void
-  onDateChange: (v: string) => void
-  onCategoryChange: (v: string) => void
-  onRadiusChange: (v: string) => void
+  date?: string;
+  category?: string;
+  radius?: number;
+  onShiftDate: (n: number) => void;
+  onDateChange: (v: string) => void;
+  onCategoryChange: (v: string) => void;
+  onRadiusChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-2 border-b border-(--line) p-3">
       <div className="flex items-center gap-1.5">
         <IconButton onClick={() => onShiftDate(-1)} label="Previous day">
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <path d="M8 3L4 7l4 4" />
           </svg>
         </IconButton>
         <label className="relative flex-1">
           <span className="flex h-9 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--chip-bg) px-3 text-sm font-semibold text-(--sea-ink) hover:border-(--lagoon)">
-            {date ? formatDateLabel(date) : 'Pick date'}
+            {date ? formatDateLabel(date) : "Pick date"}
           </span>
           <input
             type="date"
-            value={date ?? ''}
+            value={date ?? ""}
             onChange={(e) => onDateChange(e.target.value)}
             className="absolute inset-0 cursor-pointer opacity-0"
           />
         </label>
         <IconButton onClick={() => onShiftDate(1)} label="Next day">
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <path d="M6 3l4 4-4 4" />
           </svg>
         </IconButton>
       </div>
       <div className="flex items-center gap-1.5">
         <select
-          value={category ?? ''}
+          value={category ?? ""}
           onChange={(e) => onCategoryChange(e.target.value)}
           className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
         >
@@ -356,7 +406,7 @@ function FiltersRow({
         </select>
       </div>
     </div>
-  )
+  );
 }
 
 function IconButton({
@@ -364,9 +414,9 @@ function IconButton({
   onClick,
   label,
 }: {
-  children: React.ReactNode
-  onClick: () => void
-  label: string
+  children: React.ReactNode;
+  onClick: () => void;
+  label: string;
 }) {
   return (
     <button
@@ -377,7 +427,7 @@ function IconButton({
     >
       {children}
     </button>
-  )
+  );
 }
 
 function EventList({
@@ -388,12 +438,12 @@ function EventList({
   selectedEventId,
   onSelect,
 }: {
-  events: Event[]
-  shouldFetch: boolean
-  isLoading: boolean
-  center: { lat: number; lng: number }
-  selectedEventId: string | null
-  onSelect: (e: Event) => void
+  events: Event[];
+  shouldFetch: boolean;
+  isLoading: boolean;
+  center: { lat: number; lng: number };
+  selectedEventId: string | null;
+  onSelect: (e: Event) => void;
 }) {
   if (!shouldFetch) {
     return (
@@ -401,7 +451,7 @@ function EventList({
         title="Pick a date"
         subtitle="Select a date above to see events on the map."
       />
-    )
+    );
   }
   if (isLoading) {
     return (
@@ -421,7 +471,7 @@ function EventList({
           </div>
         ))}
       </div>
-    )
+    );
   }
   if (events.length === 0) {
     return (
@@ -429,7 +479,7 @@ function EventList({
         title="No events"
         subtitle="Try a different date, category, or radius."
       />
-    )
+    );
   }
   return (
     <ul className="divide-y divide-(--line)">
@@ -443,23 +493,17 @@ function EventList({
         />
       ))}
     </ul>
-  )
+  );
 }
 
-function EmptyState({
-  title,
-  subtitle,
-}: {
-  title: string
-  subtitle: string
-}) {
+function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 py-16 text-center">
       <div className="island-kicker">Nothing here yet</div>
       <div className="mt-2 text-sm font-bold text-(--sea-ink)">{title}</div>
       <div className="mt-1 text-xs text-(--sea-ink-soft)">{subtitle}</div>
     </div>
-  )
+  );
 }
 
 function EventCardRow({
@@ -468,35 +512,36 @@ function EventCardRow({
   selected,
   onClick,
 }: {
-  event: Event
-  center: { lat: number; lng: number }
-  selected: boolean
-  onClick: () => void
+  event: Event;
+  center: { lat: number; lng: number };
+  selected: boolean;
+  onClick: () => void;
 }) {
   const distance = haversineMiles(
     center.lat,
     center.lng,
     event.Latitude,
     event.Longitude,
-  )
+  );
   const time = isAllDay(event)
-    ? 'All day'
-    : new Date(event.StartTime).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  const price = formatPrice(event)
-  const category = event.Categories?.[0]
+    ? "All day"
+    : new Date(event.StartTime).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+  const price = formatPrice(event);
+  const category = event.Categories?.[0];
 
   return (
     <li>
       <button
         type="button"
         onClick={onClick}
-        className={`group flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors ${selected ? 'bg-(--link-bg-hover)' : 'hover:bg-(--link-bg-hover)'
-          }`}
+        className={`group flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors ${
+          selected ? "bg-(--link-bg-hover)" : "hover:bg-(--link-bg-hover)"
+        }`}
         style={
-          selected ? { boxShadow: 'inset 3px 0 0 var(--lagoon)' } : undefined
+          selected ? { boxShadow: "inset 3px 0 0 var(--lagoon)" } : undefined
         }
       >
         {event.ImageUrl ? (
@@ -511,7 +556,7 @@ function EventCardRow({
             className="h-16 w-16 shrink-0 rounded-md border border-(--line)"
             style={{
               background:
-                'linear-gradient(135deg, color-mix(in oklab, var(--lagoon) 40%, transparent), color-mix(in oklab, var(--palm) 40%, transparent))',
+                "linear-gradient(135deg, color-mix(in oklab, var(--lagoon) 40%, transparent), color-mix(in oklab, var(--palm) 40%, transparent))",
             }}
           />
         )}
@@ -521,7 +566,7 @@ function EventCardRow({
           </div>
           <div className="mt-0.5 truncate text-xs text-(--sea-ink-soft)">
             {time}
-            {event.VenueName ? ` · ${event.VenueName}` : ''}
+            {event.VenueName ? ` · ${event.VenueName}` : ""}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem]">
             {category && (
@@ -539,7 +584,7 @@ function EventCardRow({
         </div>
       </button>
     </li>
-  )
+  );
 }
 
 function MobileSheet({
@@ -549,103 +594,101 @@ function MobileSheet({
   shouldFetch,
   children,
 }: {
-  snap: SheetSnap
-  onSnapChange: (s: SheetSnap) => void
-  eventCount: number
-  shouldFetch: boolean
-  children: React.ReactNode
+  snap: SheetSnap;
+  onSnapChange: (s: SheetSnap) => void;
+  eventCount: number;
+  shouldFetch: boolean;
+  children: React.ReactNode;
 }) {
-  const [dragHeight, setDragHeight] = useState<number | null>(null)
-  const dragStartY = useRef(0)
-  const dragStartHeight = useRef(0)
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
 
   // Extra headroom (px) below the viewport top that the full snap must leave
   // clear, on top of safe-area-inset-top, so the iPhone status bar / notch
   // never overlaps the sheet.
-  const FULL_TOP_PADDING_PX = 24
+  const FULL_TOP_PADDING_PX = 24;
 
   function safeAreaInsetTop(): number {
-    if (typeof window === 'undefined') return 0
-    const probe = document.createElement('div')
+    if (typeof window === "undefined") return 0;
+    const probe = document.createElement("div");
     probe.style.cssText =
-      'position:fixed;top:0;height:env(safe-area-inset-top);width:0;'
-    document.body.appendChild(probe)
-    const px = probe.getBoundingClientRect().height
-    probe.remove()
-    return px
+      "position:fixed;top:0;height:env(safe-area-inset-top);width:0;";
+    document.body.appendChild(probe);
+    const px = probe.getBoundingClientRect().height;
+    probe.remove();
+    return px;
   }
 
   function fullSnapPx(): number {
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    return Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX)
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    return Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX);
   }
 
   function computeSnapPx(s: SheetSnap): number {
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    if (s === 'peek') return 120
-    if (s === 'half') return Math.round(vh * 0.5)
-    return fullSnapPx()
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    if (s === "peek") return 120;
+    if (s === "half") return Math.round(vh * 0.5);
+    return fullSnapPx();
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    dragStartY.current = e.clientY
-    dragStartHeight.current = computeSnapPx(snap)
-    setDragHeight(dragStartHeight.current)
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = computeSnapPx(snap);
+    setDragHeight(dragStartHeight.current);
     try {
-      e.currentTarget.setPointerCapture(e.pointerId)
-    } catch { }
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (dragHeight == null) return
-    const delta = dragStartY.current - e.clientY
+    if (dragHeight == null) return;
+    const delta = dragStartY.current - e.clientY;
     const h = Math.max(
       80,
       Math.min(fullSnapPx(), dragStartHeight.current + delta),
-    )
-    setDragHeight(h)
+    );
+    setDragHeight(h);
   }
 
   function onPointerUp(e: React.PointerEvent) {
-    if (dragHeight == null) return
-    const vh = window.innerHeight
+    if (dragHeight == null) return;
+    const vh = window.innerHeight;
     const snaps: Array<[SheetSnap, number]> = [
-      ['peek', 120],
-      ['half', Math.round(vh * 0.5)],
-      ['full', fullSnapPx()],
-    ]
-    let nearest: SheetSnap = 'peek'
-    let bestDist = Infinity
+      ["peek", 120],
+      ["half", Math.round(vh * 0.5)],
+      ["full", fullSnapPx()],
+    ];
+    let nearest: SheetSnap = "peek";
+    let bestDist = Infinity;
     for (const [s, h] of snaps) {
-      const d = Math.abs(dragHeight - h)
+      const d = Math.abs(dragHeight - h);
       if (d < bestDist) {
-        bestDist = d
-        nearest = s
+        bestDist = d;
+        nearest = s;
       }
     }
-    onSnapChange(nearest)
-    setDragHeight(null)
+    onSnapChange(nearest);
+    setDragHeight(null);
     try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch { }
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
   }
 
   const style: React.CSSProperties =
     dragHeight != null
-      ? { height: `${dragHeight}px`, transition: 'none' }
+      ? { height: `${dragHeight}px`, transition: "none" }
       : {
-        height:
-          snap === 'peek'
-            ? '120px'
-            : snap === 'half'
-              ? '50vh'
-              : `calc(100dvh - env(safe-area-inset-top) - ${FULL_TOP_PADDING_PX}px)`,
-      }
+          height:
+            snap === "peek"
+              ? "120px"
+              : snap === "half"
+                ? "50vh"
+                : `calc(100dvh - env(safe-area-inset-top) - ${FULL_TOP_PADDING_PX}px)`,
+        };
 
   function cycleSnap() {
-    onSnapChange(
-      snap === 'peek' ? 'half' : snap === 'half' ? 'full' : 'peek',
-    )
+    onSnapChange(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
   }
 
   return (
@@ -661,7 +704,7 @@ function MobileSheet({
         onPointerCancel={onPointerUp}
         role="slider"
         aria-label="Resize event list"
-        aria-valuenow={snap === 'peek' ? 0 : snap === 'half' ? 50 : 100}
+        aria-valuenow={snap === "peek" ? 0 : snap === "half" ? 50 : 100}
         aria-valuemin={0}
         aria-valuemax={100}
         tabIndex={0}
@@ -677,19 +720,19 @@ function MobileSheet({
           <div className="island-kicker">Map</div>
           <div className="mt-0.5 text-sm font-bold text-(--sea-ink)">
             {shouldFetch
-              ? `${eventCount} event${eventCount !== 1 ? 's' : ''}`
-              : 'Pick a date'}
+              ? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
+              : "Pick a date"}
           </div>
         </div>
         <div
           className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
-          style={{ boxShadow: '0 0 8px var(--lagoon)' }}
+          style={{ boxShadow: "0 0 8px var(--lagoon)" }}
           aria-hidden
         />
       </button>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
-  )
+  );
 }
 
 export function FullscreenMapSkeleton() {
@@ -738,15 +781,15 @@ export function FullscreenMapSkeleton() {
           className="relative min-w-0 flex-1 overflow-hidden"
           style={{
             backgroundImage:
-              'linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
+              "linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
           }}
         >
           <div
             className="absolute inset-0 animate-pulse opacity-40"
             style={{
               background:
-                'radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--lagoon) 22%, transparent), transparent 55%)',
+                "radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--lagoon) 22%, transparent), transparent 55%)",
             }}
           />
           <div className="pointer-events-none absolute top-3 right-3 flex flex-col items-end gap-2">
@@ -758,7 +801,7 @@ export function FullscreenMapSkeleton() {
           </div>
           <div
             className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg md:hidden"
-            style={{ height: '120px' }}
+            style={{ height: "120px" }}
           >
             <div className="flex h-7 items-center justify-center">
               <div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-30" />
@@ -774,54 +817,53 @@ export function FullscreenMapSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function MapNavBar({ onShowList }: { onShowList: () => void }) {
-  const { isSignedIn } = useAuth()
-  const { isUser, canCreateEvent, canManageAuthors } = useUserRole()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const navRef = useRef<HTMLElement | null>(null)
-  const [menuTop, setMenuTop] = useState(0)
+  const { isSignedIn } = useAuth();
+  const { isUser, canCreateEvent, canManageAuthors } = useUserRole();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
+  const [menuTop, setMenuTop] = useState(0);
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen) return;
     const update = () => {
       if (navRef.current) {
-        setMenuTop(navRef.current.getBoundingClientRect().bottom)
+        setMenuTop(navRef.current.getBoundingClientRect().bottom);
       }
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [menuOpen])
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [menuOpen]);
 
   const navLinks = (
     <>
       <Link
         to="/events"
         className="nav-link"
-        activeProps={{ className: 'nav-link is-active' }}
+        activeProps={{ className: "nav-link is-active" }}
         activeOptions={{ exact: true, includeSearch: false }}
         onClick={() => setMenuOpen(false)}
       >
         Events
       </Link>
-      {isSignedIn && canCreateEvent && (
-        <Link
-          to="/submit"
-          className="nav-link"
-          activeProps={{ className: 'nav-link is-active' }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Submit Event
-        </Link>
-      )}
+
+      <Link
+        to="/submit"
+        className="nav-link"
+        activeProps={{ className: "nav-link is-active" }}
+        onClick={() => setMenuOpen(false)}
+      >
+        Submit Event
+      </Link>
       {isSignedIn && canCreateEvent && (
         <Link
           to="/my-events"
           className="nav-link"
-          activeProps={{ className: 'nav-link is-active' }}
+          activeProps={{ className: "nav-link is-active" }}
           onClick={() => setMenuOpen(false)}
         >
           My Events
@@ -831,7 +873,7 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
         <Link
           to="/apply-author"
           className="nav-link"
-          activeProps={{ className: 'nav-link is-active' }}
+          activeProps={{ className: "nav-link is-active" }}
           onClick={() => setMenuOpen(false)}
         >
           Apply to be Author
@@ -841,7 +883,7 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
         <Link
           to="/admin"
           className="nav-link"
-          activeProps={{ className: 'nav-link is-active' }}
+          activeProps={{ className: "nav-link is-active" }}
           onClick={() => setMenuOpen(false)}
         >
           Admin
@@ -851,14 +893,14 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
         <Link
           to="/profile"
           className="nav-link"
-          activeProps={{ className: 'nav-link is-active' }}
+          activeProps={{ className: "nav-link is-active" }}
           onClick={() => setMenuOpen(false)}
         >
           Profile
         </Link>
       )}
     </>
-  )
+  );
 
   return (
     <nav
@@ -882,11 +924,25 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
           className="inline-flex items-center justify-center rounded-md p-1.5 text-(--sea-ink-soft) hover:bg-(--surface) sm:hidden"
           aria-label="Toggle navigation menu"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             {menuOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             )}
           </svg>
         </button>
@@ -901,7 +957,15 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
           className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover)"
           aria-label="Switch to list view"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <path d="M2 3.5h10M2 7h10M2 10.5h10" />
           </svg>
           List
@@ -912,7 +976,7 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
       </div>
 
       {menuOpen &&
-        typeof document !== 'undefined' &&
+        typeof document !== "undefined" &&
         createPortal(
           <div
             className="fixed left-0 right-0 z-[70] border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:hidden"
@@ -925,16 +989,16 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
           document.body,
         )}
     </nav>
-  )
+  );
 }
 
 function formatDateLabel(iso: string) {
-  const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function haversineMiles(
@@ -943,22 +1007,22 @@ function haversineMiles(
   lat2: number,
   lng2: number,
 ): number {
-  const R = 3958.8
-  const toRad = (x: number) => (x * Math.PI) / 180
-  const dLat = toRad(lat2 - lat1)
-  const dLng = toRad(lng2 - lng1)
+  const R = 3958.8;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(a))
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
 function formatPrice(event: Event): string | null {
-  const min = event.PriceMin
-  const max = event.PriceMax
-  if (min == null && max == null) return null
-  if ((min ?? 0) === 0 && (max ?? 0) === 0) return 'Free'
-  if (min != null && max != null && min !== max) return `$${min}–${max}`
-  const p = min ?? max
-  return p != null ? `$${p}` : null
+  const min = event.PriceMin;
+  const max = event.PriceMax;
+  if (min == null && max == null) return null;
+  if ((min ?? 0) === 0 && (max ?? 0) === 0) return "Free";
+  if (min != null && max != null && min !== max) return `$${min}–${max}`;
+  const p = min ?? max;
+  return p != null ? `$${p}` : null;
 }

@@ -15,6 +15,7 @@ import {
 	type CreateSeriesInstance,
 	useCreateEventSeries,
 } from "#/lib/hooks/useEvents";
+import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
 import type { CreateEventInput, Venue } from "#/lib/types";
 import { CATEGORIES } from "./EventFilters";
 
@@ -132,6 +133,9 @@ interface EventFormProps {
 		price_min?: number;
 		price_max?: number;
 	};
+	// "create" publishes directly (authors/admins). "suggest" submits a single
+	// event to the admin review queue (open to everyone, incl. unauthenticated).
+	mode?: "create" | "suggest";
 }
 
 function combineDateAndTime(date: Date, time: Date | null): Date {
@@ -206,12 +210,19 @@ function useAddressGeocode(form: {
 	return geocode;
 }
 
-export function EventForm({ initialValues }: EventFormProps = {}) {
+export function EventForm({
+	initialValues,
+	mode = "create",
+}: EventFormProps = {}) {
 	const navigate = useNavigate();
 	const router = useRouter();
 	const createSeries = useCreateEventSeries();
+	const createSuggestion = useCreateSuggestion();
 	const savedLocation = getSavedLocation();
+	const isSuggest = mode === "suggest";
 
+	const [honeypot, setHoneypot] = useState("");
+	const [submittedForReview, setSubmittedForReview] = useState(false);
 	const [dateMode, setDateMode] = useState<DateMode>("single");
 	const [singleDate, setSingleDate] = useState<Date | null>(null);
 	const [rangeStart, setRangeStart] = useState<Date | null>(null);
@@ -302,6 +313,39 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 			setSubmitting(true);
 
 			try {
+				if (isSuggest) {
+					const date = getEventDates()[0];
+					const changes: Record<string, unknown> = {
+						title: value.title as string,
+						latitude: Number(value.latitude),
+						longitude: Number(value.longitude),
+						start_time: combineDateAndTime(date, startTime).toISOString(),
+					};
+					if (endTime)
+						changes.end_time = combineDateAndTime(date, endTime).toISOString();
+					if (value.description) changes.description = value.description;
+					if (value.venue_name) changes.venue_name = value.venue_name;
+					if (value.address) changes.address = value.address;
+					if (value.city) changes.city = value.city;
+					if (value.state) changes.state = value.state;
+					if (value.zip) changes.zip = value.zip;
+					const suggestCats = value.categories as string[];
+					if (suggestCats.length > 0) changes.categories = suggestCats;
+					if (value.image_url) changes.image_url = value.image_url;
+					if (value.ticket_url) changes.ticket_url = value.ticket_url;
+					if (value.price_min) changes.price_min = Number(value.price_min);
+					if (value.price_max) changes.price_max = Number(value.price_max);
+
+					await createSuggestion.mutateAsync({
+						target_type: "event",
+						action: "create",
+						proposed_changes: changes,
+						hp: honeypot,
+					});
+					setSubmittedForReview(true);
+					return;
+				}
+
 				const base: Omit<CreateEventInput, "start_time" | "end_time"> = {
 					title: value.title as string,
 					latitude: Number(value.latitude),
@@ -398,6 +442,26 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 	const eventDates = getEventDates();
 	const eventCount = eventDates.length;
 
+	if (submittedForReview) {
+		return (
+			<div className="space-y-3 py-8 text-center">
+				<p className="text-lg font-semibold text-(--sea-ink)">
+					Event submitted for review
+				</p>
+				<p className="text-sm text-(--sea-ink-soft)">
+					Thanks! An admin will review your submission before it's published.
+				</p>
+				<button
+					type="button"
+					onClick={() => navigate({ to: "/events" })}
+					className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon)"
+				>
+					Browse Events
+				</button>
+			</div>
+		);
+	}
+
 	return (
 		<form
 			onSubmit={(e) => {
@@ -406,6 +470,18 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 			}}
 			className="space-y-6"
 		>
+			{isSuggest && (
+				<input
+					type="text"
+					name="website_url"
+					value={honeypot}
+					onChange={(e) => setHoneypot(e.target.value)}
+					tabIndex={-1}
+					autoComplete="off"
+					aria-hidden="true"
+					className="absolute left-[-9999px] h-0 w-0 opacity-0"
+				/>
+			)}
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div className="sm:col-span-2">
 					<form.Field
@@ -494,8 +570,8 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 						/>
 					</svg>
 					<p className="text-(--sea-ink)">
-						<span className="font-semibold">Tip:</span> Search for the venue
-						on the map below to autofill the address — or fill in the details
+						<span className="font-semibold">Tip:</span> Search for the venue on
+						the map below to autofill the address — or fill in the details
 						manually.
 					</p>
 				</div>
@@ -671,32 +747,36 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 
 				{/* Date & Time Section */}
 				<div className="sm:col-span-2 space-y-4 rounded-lg border border-(--line) bg-(--surface) p-4">
-					<div>
-						<label className={labelClass}>Date Selection *</label>
-						<div className="mt-1 flex rounded-md border border-(--line) w-fit">
-							{(["single", "range", "multiple"] as const).map((mode, i) => (
-								<button
-									key={mode}
-									type="button"
-									onClick={() => {
-										setDateMode(mode);
-										setDateError(null);
-									}}
-									className={`cursor-pointer px-3 py-1.5 text-sm font-medium ${
-										dateMode === mode
-											? "bg-(--lagoon-deep) text-white"
-											: "bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)"
-									} ${i === 0 ? "rounded-l-md" : ""} ${i === 2 ? "rounded-r-md" : ""}`}
-								>
-									{mode === "single"
-										? "Single Date"
-										: mode === "range"
-											? "Date Range"
-											: "Multiple Dates"}
-								</button>
-							))}
+					{!isSuggest && (
+						<div>
+							<label className={labelClass}>Date Selection *</label>
+							<div className="mt-1 flex rounded-md border border-(--line) w-fit">
+								{(["single", "range", "multiple"] as const).map(
+									(modeOption, i) => (
+										<button
+											key={modeOption}
+											type="button"
+											onClick={() => {
+												setDateMode(modeOption);
+												setDateError(null);
+											}}
+											className={`cursor-pointer px-3 py-1.5 text-sm font-medium ${
+												dateMode === modeOption
+													? "bg-(--lagoon-deep) text-white"
+													: "bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)"
+											} ${i === 0 ? "rounded-l-md" : ""} ${i === 2 ? "rounded-r-md" : ""}`}
+										>
+											{modeOption === "single"
+												? "Single Date"
+												: modeOption === "range"
+													? "Date Range"
+													: "Multiple Dates"}
+										</button>
+									),
+								)}
+							</div>
 						</div>
-					</div>
+					)}
 
 					<div className="flex flex-wrap items-end gap-4">
 						<div className="min-w-0 flex-1 basis-48">
@@ -979,9 +1059,11 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 				</form.Field>
 			</div>
 
-			{createSeries.isError && (
+			{(createSeries.isError || createSuggestion.isError) && (
 				<p className="text-sm text-red-600">
-					Failed to create event. Please try again.
+					{isSuggest
+						? "Failed to submit event. Please try again."
+						: "Failed to create event. Please try again."}
 				</p>
 			)}
 
@@ -998,13 +1080,17 @@ export function EventForm({ initialValues }: EventFormProps = {}) {
 					disabled={submitting}
 					className="cursor-pointer rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
 				>
-					{submitting
-						? eventCount > 1
-							? `Creating ${eventCount} Events...`
-							: "Submitting..."
-						: eventCount > 1
-							? `Submit ${eventCount} Events`
-							: "Submit Event"}
+					{isSuggest
+						? submitting
+							? "Submitting..."
+							: "Submit for Review"
+						: submitting
+							? eventCount > 1
+								? `Creating ${eventCount} Events...`
+								: "Submitting..."
+							: eventCount > 1
+								? `Submit ${eventCount} Events`
+								: "Submit Event"}
 				</button>
 			</div>
 		</form>

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -52,6 +53,9 @@ type createSuggestionRequest struct {
 	Action          string                 `json:"action,omitempty"`
 	Reason          string                 `json:"reason,omitempty"`
 	ProposedChanges map[string]interface{} `json:"proposed_changes"`
+	// Honeypot is a hidden form field that real users leave blank; bots tend to
+	// fill every field. A non-empty value silently drops the submission.
+	Honeypot string `json:"hp,omitempty"`
 }
 
 type suggestionResponse struct {
@@ -77,11 +81,13 @@ func suggestionToResponse(s store.EditSuggestion) suggestionResponse {
 	resp := suggestionResponse{
 		ID:              uuid.UUID(s.ID.Bytes).String(),
 		TargetType:      s.TargetType,
-		SubmittedBy:     uuid.UUID(s.SubmittedBy.Bytes).String(),
 		Action:          s.Action,
 		ProposedChanges: changes,
 		Status:          s.Status,
 		CreatedAt:       s.CreatedAt.Time,
+	}
+	if s.SubmittedBy.Valid {
+		resp.SubmittedBy = uuid.UUID(s.SubmittedBy.Bytes).String()
 	}
 	if s.TargetID.Valid {
 		resp.TargetID = uuid.UUID(s.TargetID.Bytes).String()
@@ -102,22 +108,27 @@ func suggestionToResponse(s store.EditSuggestion) suggestionResponse {
 }
 
 func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
-	clerkID := middleware.GetClerkUserID(r.Context())
-	if clerkID == "" {
-		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-		return
-	}
-
-	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
-	if err != nil {
-		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
-		return
-	}
-
 	var req createSuggestionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
+	}
+
+	// Honeypot tripped: pretend success so bots don't learn they were filtered.
+	if strings.TrimSpace(req.Honeypot) != "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "pending"})
+		return
+	}
+
+	// Attribute to the signed-in user when present; otherwise the submission is
+	// anonymous (submitted_by stays NULL) and still lands in the review queue.
+	var submittedBy pgtype.UUID
+	if clerkID := middleware.GetClerkUserID(r.Context()); clerkID != "" {
+		if user, err := h.queries.GetUserByClerkID(r.Context(), clerkID); err == nil {
+			submittedBy = user.ID
+		}
 	}
 
 	if req.TargetType != "event" && req.TargetType != "venue" && req.TargetType != "place" {
@@ -133,8 +144,12 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"action must be edit, create, or delete"}`, http.StatusBadRequest)
 		return
 	}
-	if (action == "create" || action == "delete") && req.TargetType != "place" {
-		http.Error(w, `{"error":"create and delete actions are only supported for places"}`, http.StatusBadRequest)
+	if action == "delete" && req.TargetType != "place" {
+		http.Error(w, `{"error":"delete actions are only supported for places"}`, http.StatusBadRequest)
+		return
+	}
+	if action == "create" && req.TargetType != "place" && req.TargetType != "event" {
+		http.Error(w, `{"error":"create actions are only supported for events and places"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -189,6 +204,34 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"proposed_changes must not be empty"}`, http.StatusBadRequest)
 			return
 		}
+		if req.TargetType == "event" {
+			for key := range req.ProposedChanges {
+				if !allowedEventFields[key] {
+					http.Error(w, `{"error":"unrecognized field: `+key+`"}`, http.StatusBadRequest)
+					return
+				}
+			}
+			if title, _ := req.ProposedChanges["title"].(string); title == "" {
+				http.Error(w, `{"error":"title is required"}`, http.StatusBadRequest)
+				return
+			}
+			startStr, _ := req.ProposedChanges["start_time"].(string)
+			if _, err := time.Parse(time.RFC3339, startStr); err != nil {
+				http.Error(w, `{"error":"start_time is required (RFC3339)"}`, http.StatusBadRequest)
+				return
+			}
+			if _, ok := req.ProposedChanges["latitude"].(float64); !ok {
+				http.Error(w, `{"error":"latitude is required"}`, http.StatusBadRequest)
+				return
+			}
+			if _, ok := req.ProposedChanges["longitude"].(float64); !ok {
+				http.Error(w, `{"error":"longitude is required"}`, http.StatusBadRequest)
+				return
+			}
+			break
+		}
+
+		// Place create
 		for key := range req.ProposedChanges {
 			if !allowedPlaceFields[key] {
 				http.Error(w, `{"error":"unrecognized field: `+key+`"}`, http.StatusBadRequest)
@@ -251,7 +294,7 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	suggestion, err := h.queries.CreateEditSuggestion(r.Context(), store.CreateEditSuggestionParams{
 		TargetType:      req.TargetType,
 		TargetID:        pgTargetID,
-		SubmittedBy:     user.ID,
+		SubmittedBy:     submittedBy,
 		ProposedChanges: changesJSON,
 		Action:          action,
 		Reason:          pgtype.Text{String: req.Reason, Valid: req.Reason != ""},
@@ -341,7 +384,7 @@ func (h *SuggestionHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if role != middleware.RoleAdmin {
-		if suggestion.TargetType != "event" {
+		if suggestion.Action != "edit" || suggestion.TargetType != "event" {
 			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 			return
 		}
@@ -388,12 +431,19 @@ func (h *SuggestionHandler) Approve(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	case "create":
-		if suggestion.TargetType != "place" {
-			http.Error(w, `{"error":"only place creates are supported"}`, http.StatusBadRequest)
-			return
-		}
-		if err := h.applyPlaceCreate(r, changes); err != nil {
-			http.Error(w, `{"error":"failed to create place: `+err.Error()+`"}`, http.StatusInternalServerError)
+		switch suggestion.TargetType {
+		case "place":
+			if err := h.applyPlaceCreate(r, changes); err != nil {
+				http.Error(w, `{"error":"failed to create place: `+err.Error()+`"}`, http.StatusInternalServerError)
+				return
+			}
+		case "event":
+			if err := h.applyEventCreate(r, clerkID, changes); err != nil {
+				http.Error(w, `{"error":"failed to create event: `+err.Error()+`"}`, http.StatusInternalServerError)
+				return
+			}
+		default:
+			http.Error(w, `{"error":"unsupported create target"}`, http.StatusBadRequest)
 			return
 		}
 	case "delete":
@@ -457,7 +507,7 @@ func (h *SuggestionHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if role != middleware.RoleAdmin {
-		if suggestion.TargetType != "event" {
+		if suggestion.Action != "edit" || suggestion.TargetType != "event" {
 			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 			return
 		}
@@ -832,5 +882,89 @@ func (h *SuggestionHandler) applyPlaceCreate(r *http.Request, changes map[string
 	}
 
 	_, err := h.queries.CreatePlace(r.Context(), params)
+	return err
+}
+
+// applyEventCreate creates a brand-new event from an approved create suggestion.
+// The approving admin (clerkID) becomes the event owner so they can edit it
+// afterward. A venue is upserted when a name + coordinates are supplied so the
+// event links to a venue page, mirroring the normal event-create flow.
+func (h *SuggestionHandler) applyEventCreate(r *http.Request, clerkID string, changes map[string]interface{}) error {
+	getStr := func(k string) string { s, _ := changes[k].(string); return s }
+	getText := func(k string) pgtype.Text {
+		s, _ := changes[k].(string)
+		return pgtype.Text{String: s, Valid: s != ""}
+	}
+
+	start, err := time.Parse(time.RFC3339, getStr("start_time"))
+	if err != nil {
+		return err
+	}
+	var endTime pgtype.Timestamptz
+	if endStr := getStr("end_time"); endStr != "" {
+		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			endTime = pgtype.Timestamptz{Time: t, Valid: true}
+		}
+	}
+
+	lat, _ := changes["latitude"].(float64)
+	lng, _ := changes["longitude"].(float64)
+
+	var submittedBy pgtype.UUID
+	if user, err := h.queries.GetUserByClerkID(r.Context(), clerkID); err == nil {
+		submittedBy = user.ID
+	}
+
+	var venueID pgtype.UUID
+	if venueName := getStr("venue_name"); venueName != "" && (lat != 0 || lng != 0) {
+		if venue, err := h.queries.UpsertVenue(r.Context(), store.UpsertVenueParams{
+			Name:      venueName,
+			Address:   getText("address"),
+			City:      getText("city"),
+			State:     getText("state"),
+			Zip:       getText("zip"),
+			Latitude:  lat,
+			Longitude: lng,
+		}); err == nil {
+			venueID = venue.ID
+		}
+	}
+
+	params := store.CreateEventParams{
+		Source:      "user",
+		Title:       getStr("title"),
+		Description: getText("description"),
+		VenueName:   getText("venue_name"),
+		Address:     getText("address"),
+		City:        getText("city"),
+		State:       getText("state"),
+		Zip:         getText("zip"),
+		Latitude:    lat,
+		Longitude:   lng,
+		StartTime:   pgtype.Timestamptz{Time: start, Valid: true},
+		EndTime:     endTime,
+		ImageUrl:    getText("image_url"),
+		TicketUrl:   getText("ticket_url"),
+		SubmittedBy: submittedBy,
+		VenueID:     venueID,
+	}
+
+	if arr, ok := changes["categories"].([]interface{}); ok {
+		cats := make([]string, 0, len(arr))
+		for _, v := range arr {
+			if s, ok := v.(string); ok {
+				cats = append(cats, s)
+			}
+		}
+		params.Categories = cats
+	}
+	if f, ok := changes["price_min"].(float64); ok {
+		params.PriceMin = pgtype.Numeric{Int: big.NewInt(int64(f * 100)), Exp: -2, Valid: true}
+	}
+	if f, ok := changes["price_max"].(float64); ok {
+		params.PriceMax = pgtype.Numeric{Int: big.NewInt(int64(f * 100)), Exp: -2, Valid: true}
+	}
+
+	_, err = h.queries.CreateEvent(r.Context(), params)
 	return err
 }

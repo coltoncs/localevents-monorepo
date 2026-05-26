@@ -33,6 +33,7 @@ export function SuggestEventEditModal({
 	const [ticketUrl, setTicketUrl] = useState(event.TicketUrl ?? "");
 	const [startTime, setStartTime] = useState(toLocalInput(event.StartTime));
 	const [endTime, setEndTime] = useState(toLocalInput(event.EndTime));
+	const [honeypot, setHoneypot] = useState("");
 	const [submitted, setSubmitted] = useState(false);
 
 	async function handleSubmit(e: React.FormEvent) {
@@ -62,6 +63,7 @@ export function SuggestEventEditModal({
 			target_type: "event",
 			target_id: event.ID,
 			proposed_changes: changes,
+			hp: honeypot,
 		});
 		setSubmitted(true);
 	}
@@ -94,6 +96,16 @@ export function SuggestEventEditModal({
 				onSubmit={handleSubmit}
 				className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-(--line) bg-(--surface-strong) p-6 shadow-xl space-y-4"
 			>
+				<input
+					type="text"
+					name="website_url"
+					value={honeypot}
+					onChange={(e) => setHoneypot(e.target.value)}
+					tabIndex={-1}
+					autoComplete="off"
+					aria-hidden="true"
+					className="absolute left-[-9999px] h-0 w-0 opacity-0"
+				/>
 				<h2 className="text-lg font-semibold text-(--sea-ink)">Suggest Edit</h2>
 				<p className="text-sm text-(--sea-ink-soft)">
 					Change the fields you think need updating. Only modified fields will

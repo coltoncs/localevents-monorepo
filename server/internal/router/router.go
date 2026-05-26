@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -80,6 +81,9 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Get("/places", placeHandler.List)
 			r.Get("/places/{id}", placeHandler.Get)
 			r.Get("/places/{id}/checkin-counts", placeHandler.CheckInCounts)
+			// Anyone may submit a suggestion; unauthenticated submissions are
+			// rate-limited per IP to blunt spam and still land in the review queue.
+			r.With(middleware.RateLimit(10, time.Hour)).Post("/suggestions", suggestionHandler.Create)
 		})
 
 		// Legacy /foods and /beverages paths -> 301 redirects to /places
@@ -111,7 +115,6 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)
 			r.Delete("/images/{id}", imageHandler.Delete)
-			r.Post("/suggestions", suggestionHandler.Create)
 			r.Post("/places/{id}/checkins", placeHandler.CheckIn)
 			r.Get("/places/{id}/my-checkin-status", placeHandler.MyCheckInStatus)
 		})

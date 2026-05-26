@@ -47,6 +47,12 @@ function AdminContent() {
 		suggestions: stats?.pending_suggestions,
 	};
 
+	if (!stats) {
+		<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+			Error fetching admin details, <a href="https://status.clerk.com/">check Clerk's system status</a> or consult a developer.
+		</div>
+	}
+
 	return (
 		<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
 			<div className="flex flex-wrap items-center justify-between gap-4">

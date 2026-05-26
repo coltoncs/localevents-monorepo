@@ -1,4 +1,4 @@
-import { useAuth, useClerk } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { AddToCalendarButton } from "#/components/AddToCalendarButton";
@@ -107,7 +107,6 @@ function EventDetailPage() {
   const { eventId } = Route.useParams();
   const { data: event, isLoading } = useEvent(eventId);
   const { isSignedIn } = useAuth();
-  const { openSignIn } = useClerk();
   const { isAdmin, isAuthor } = useUserRole();
   const router = useRouter();
   const deleteEvent = useDeleteEvent();
@@ -186,9 +185,7 @@ function EventDetailPage() {
           {!canEdit && (
             <button
               type="button"
-              onClick={() =>
-                isSignedIn ? setShowSuggestEdit(true) : openSignIn()
-              }
+              onClick={() => setShowSuggestEdit(true)}
               className="text-nowrap cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface)"
             >
               Suggest Edit

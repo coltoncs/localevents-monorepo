@@ -72,7 +72,7 @@ export function SuggestionCard({ suggestion }: { suggestion: EditSuggestion }) {
 	const action = suggestion.Action ?? "edit";
 	const title =
 		action === "create"
-			? (changes.name as string) || "New listing"
+			? (changes.title as string) || (changes.name as string) || "New listing"
 			: suggestion.TargetName || suggestion.TargetID || "(unknown)";
 
 	const approveLabel =

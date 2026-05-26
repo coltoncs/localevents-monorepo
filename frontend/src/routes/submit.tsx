@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { RoleProtectedRoute } from '#/components/auth/RoleProtectedRoute'
 import { EventForm } from '#/components/events/EventForm'
 import { eventDetailOptions, useEvent } from '#/lib/hooks/useEvents'
+import { useUserRole } from '#/lib/hooks/useUserRole'
 
 interface SubmitSearch {
   from?: string
@@ -23,6 +23,7 @@ export const Route = createFileRoute('/submit')({
 function SubmitPage() {
   const { from } = Route.useSearch()
   const { data: sourceEvent } = useEvent(from ?? '')
+  const { canCreateEvent, isLoaded } = useUserRole()
 
   const initialValues = sourceEvent && from
     ? {
@@ -44,16 +45,30 @@ function SubmitPage() {
       }
     : undefined
 
+  if (!isLoaded) {
+    return (
+      <div className="py-12 text-center text-(--sea-ink-soft)">Loading...</div>
+    )
+  }
+
+  const mode = canCreateEvent ? 'create' : 'suggest'
+
   return (
-    <RoleProtectedRoute roles={['author', 'admin']}>
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-6 text-2xl font-bold text-(--sea-ink)">
-          Submit an Event
-        </h1>
-        <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
-          <EventForm initialValues={initialValues} />
-        </div>
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <h1
+        className={`text-2xl font-bold text-(--sea-ink) ${mode === 'suggest' ? 'mb-2' : 'mb-6'}`}
+      >
+        {mode === 'create' ? 'Submit an Event' : 'Suggest an Event'}
+      </h1>
+      {mode === 'suggest' && (
+        <p className="mb-6 text-sm text-(--sea-ink-soft)">
+          Anyone can suggest an event. An admin will review your submission
+          before it's published.
+        </p>
+      )}
+      <div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
+        <EventForm initialValues={initialValues} mode={mode} />
       </div>
-    </RoleProtectedRoute>
+    </div>
   )
 }

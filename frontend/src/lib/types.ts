@@ -310,6 +310,8 @@ export interface CreateEditSuggestionInput {
 	action?: SuggestionAction;
 	reason?: string;
 	proposed_changes: Record<string, unknown>;
+	/** Hidden anti-spam field; real users leave it blank. */
+	hp?: string;
 }
 
 export interface AdminStats {
