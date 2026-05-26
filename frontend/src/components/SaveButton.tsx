@@ -6,8 +6,9 @@ import {
   useUnsaveEvent,
   useEventSaveCount,
 } from '#/lib/hooks/useSavedEvents'
+import { isPastEvent } from '#/lib/date-utils'
 
-export function SaveButton({ eventId }: { eventId: string }) {
+export function SaveButton({ eventId, disabled }: { eventId: string, disabled: boolean }) {
   const { isSignedIn } = useAuth()
   const { openSignIn } = useClerk()
   const { data: savedEvents } = useSavedEvents()
@@ -33,8 +34,8 @@ export function SaveButton({ eventId }: { eventId: string }) {
   return (
     <button
       onClick={handleToggle}
-      disabled={isPending}
-      className={`cursor-pointer inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-nowrap transition ${
+      disabled={isPending || disabled}
+      className={`${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium text-nowrap transition ${
         isSaved
           ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
           : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink-soft)] hover:bg-[var(--surface)]'

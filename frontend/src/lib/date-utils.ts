@@ -17,6 +17,14 @@ export function isAllDay(event: Event): boolean {
   )
 }
 
+/**
+ * Returns true if the event has fully ended. Uses EndTime when present,
+ * falling back to StartTime so events without an end still flag once started.
+ */
+export function isPastEvent(event: Event): boolean {
+  return new Date(event.EndTime ?? event.StartTime) < new Date()
+}
+
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
     weekday: 'short',
