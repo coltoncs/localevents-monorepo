@@ -1,1080 +1,1100 @@
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/clerk-react";
 import { useGSAP } from "@gsap/react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import gsap from "gsap";
 import { Draggable } from "gsap/Draggable";
 import { InertiaPlugin } from "gsap/InertiaPlugin";
 import type { Map as MapboxMap } from "mapbox-gl";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { EventMap } from "#/components/maps/EventMap";
+import ThemeToggle from "#/components/ThemeToggle";
+import ClerkHeader from "#/integrations/clerk/header-user";
+import { isAllDay } from "#/lib/date-utils";
 import { useMapEvents } from "#/lib/hooks/useEvents";
 import { useUserRole } from "#/lib/hooks/useUserRole";
-import { isAllDay } from "#/lib/date-utils";
 import type { Event } from "#/lib/types";
 import { CATEGORIES } from "../events/EventFilters";
-import ClerkHeader from "#/integrations/clerk/header-user";
-import ThemeToggle from "#/components/ThemeToggle";
 import { LocationSearch } from "./LocationSearch";
 
 gsap.registerPlugin(Draggable, InertiaPlugin);
 
+const SIDEBAR_WIDTH = 400;
+
 type SheetSnap = "peek" | "half" | "full";
 
 interface FullscreenMapProps {
-  lat: number;
-  lng: number;
-  radius?: number;
-  date?: string;
-  category?: string;
+	lat: number;
+	lng: number;
+	radius?: number;
+	date?: string;
+	category?: string;
 }
 
 export function FullscreenMap({
-  lat,
-  lng,
-  radius,
-  date,
-  category,
+	lat,
+	lng,
+	radius,
+	date,
+	category,
 }: FullscreenMapProps) {
-  const navigate = useNavigate();
-  const [settingOrigin, setSettingOrigin] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const mapInstanceRef = useRef<MapboxMap | null>(null);
+	const navigate = useNavigate();
+	const [settingOrigin, setSettingOrigin] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
+	const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+	const mapInstanceRef = useRef<MapboxMap | null>(null);
+	const sidebarRef = useRef<HTMLElement>(null);
+	const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+	// Skips the open/close animation on first mount (just set initial layout).
+	const sidebarAnimatedRef = useRef(false);
 
-  const filters = { lat, lng, radius, date, category };
-  const shouldFetch = !!date;
-  const { data, isLoading } = useMapEvents(filters, shouldFetch);
-  const events = shouldFetch ? (data?.events ?? []) : [];
+	const filters = { lat, lng, radius, date, category };
+	const shouldFetch = !!date;
+	const { data, isLoading } = useMapEvents(filters, shouldFetch);
+	const events = shouldFetch ? (data?.events ?? []) : [];
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+	useEffect(() => {
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.body.style.overflow = "";
+		};
+	}, []);
 
-  useEffect(() => {
-    const canvas = mapInstanceRef.current?.getCanvas();
-    if (!canvas) return;
-    canvas.style.cursor = settingOrigin ? "crosshair" : "";
-    return () => {
-      canvas.style.cursor = "";
-    };
-  }, [settingOrigin]);
+	useEffect(() => {
+		const canvas = mapInstanceRef.current?.getCanvas();
+		if (!canvas) return;
+		canvas.style.cursor = settingOrigin ? "crosshair" : "";
+		return () => {
+			canvas.style.cursor = "";
+		};
+	}, [settingOrigin]);
 
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (t: number) => {
-      map.resize();
-      if (t - start < 260) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [sidebarCollapsed]);
+	// Slide the sidebar open/closed with GSAP, resizing the map on every frame so
+	// the canvas tracks the changing width instead of snapping at the end.
+	useGSAP(
+		() => {
+			const sidebar = sidebarRef.current;
+			const toggle = sidebarToggleRef.current;
+			if (!sidebar) return;
+			const target = sidebarCollapsed ? 0 : SIDEBAR_WIDTH;
+			const resize = () => {
+				mapInstanceRef.current?.resize();
+			};
 
-  useEffect(() => {
-    setSelectedEventId(null);
-  }, [date, category, lat, lng]);
+			if (!sidebarAnimatedRef.current) {
+				sidebarAnimatedRef.current = true;
+				gsap.set(sidebar, { width: target });
+				if (toggle) gsap.set(toggle, { x: target });
+				return;
+			}
 
-  function handleMapClick(lngLat: { lng: number; lat: number }) {
-    if (!settingOrigin) return;
-    setSettingOrigin(false);
-    updateSearch({
-      lat: String(Math.round(lngLat.lat * 1_000_000) / 1_000_000),
-      lng: String(Math.round(lngLat.lng * 1_000_000) / 1_000_000),
-    });
-  }
+			const tl = gsap.timeline({
+				defaults: { duration: 0.35, ease: "power3.inOut" },
+				onComplete: resize, // one last resize once it settles
+			});
+			tl.to(sidebar, { width: target, onUpdate: resize }, 0);
+			if (toggle) tl.to(toggle, { x: target }, 0);
+		},
+		{ dependencies: [sidebarCollapsed] },
+	);
 
-  function updateSearch(updates: Record<string, string | undefined>) {
-    navigate({
-      to: "/events",
-      search: (prev) => ({ ...prev, lat, lng, view: undefined, ...updates }),
-      replace: true,
-    });
-  }
+	useEffect(() => {
+		setSelectedEventId(null);
+	}, [date, category, lat, lng]);
 
-  function handleShowList() {
-    navigate({
-      to: "/events",
-      search: (prev) => ({
-        ...prev,
-        view: "list" as const,
-        date: undefined,
-        endDate: undefined,
-        page: undefined,
-      }),
-    });
-  }
+	function handleMapClick(lngLat: { lng: number; lat: number }) {
+		if (!settingOrigin) return;
+		setSettingOrigin(false);
+		updateSearch({
+			lat: String(Math.round(lngLat.lat * 1_000_000) / 1_000_000),
+			lng: String(Math.round(lngLat.lng * 1_000_000) / 1_000_000),
+		});
+	}
 
-  function shiftDate(days: number) {
-    const base = date ? new Date(date + "T00:00:00") : new Date();
-    base.setDate(base.getDate() + days);
-    const yyyy = base.getFullYear();
-    const mm = String(base.getMonth() + 1).padStart(2, "0");
-    const dd = String(base.getDate()).padStart(2, "0");
-    updateSearch({ date: `${yyyy}-${mm}-${dd}` });
-  }
+	function updateSearch(updates: Record<string, string | undefined>) {
+		navigate({
+			to: "/events",
+			search: (prev) => ({ ...prev, lat, lng, view: undefined, ...updates }),
+			replace: true,
+		});
+	}
 
-  function handleSelectEvent(event: Event) {
-    setSelectedEventId(event.ID);
-    mapInstanceRef.current?.flyTo({
-      center: [event.Longitude, event.Latitude],
-      zoom: 16.5,
-      pitch: 60,
-      bearing: -20,
-      duration: 1200,
-      essential: true,
-    });
-    if (sheetSnap === "full") setSheetSnap("half");
-  }
+	function handleShowList() {
+		navigate({
+			to: "/events",
+			search: (prev) => ({
+				...prev,
+				view: "list" as const,
+				date: undefined,
+				endDate: undefined,
+				page: undefined,
+			}),
+		});
+	}
 
-  function handleRecenter() {
-    mapInstanceRef.current?.flyTo({
-      center: [lng, lat],
-      zoom: 11,
-      pitch: 0,
-      bearing: 0,
-      duration: 900,
-    });
-  }
+	function shiftDate(days: number) {
+		const base = date ? new Date(date + "T00:00:00") : new Date();
+		base.setDate(base.getDate() + days);
+		const yyyy = base.getFullYear();
+		const mm = String(base.getMonth() + 1).padStart(2, "0");
+		const dd = String(base.getDate()).padStart(2, "0");
+		updateSearch({ date: `${yyyy}-${mm}-${dd}` });
+	}
 
-  const filtersNode = (
-    <FiltersRow
-      date={date}
-      category={category}
-      radius={radius}
-      onShiftDate={shiftDate}
-      onDateChange={(v) => updateSearch({ date: v || undefined })}
-      onCategoryChange={(v) => updateSearch({ category: v || undefined })}
-      onRadiusChange={(v) => updateSearch({ radius: v })}
-    />
-  );
+	function handleSelectEvent(event: Event) {
+		setSelectedEventId(event.ID);
+		mapInstanceRef.current?.flyTo({
+			center: [event.Longitude, event.Latitude],
+			zoom: 16.5,
+			pitch: 60,
+			bearing: -20,
+			duration: 1200,
+			essential: true,
+		});
+		if (sheetSnap === "full") setSheetSnap("half");
+	}
 
-  const listNode = (
-    <EventList
-      events={events}
-      shouldFetch={shouldFetch}
-      isLoading={isLoading && shouldFetch}
-      center={{ lat, lng }}
-      selectedEventId={selectedEventId}
-      onSelect={handleSelectEvent}
-    />
-  );
+	function handleRecenter() {
+		mapInstanceRef.current?.flyTo({
+			center: [lng, lat],
+			zoom: 11,
+			pitch: 0,
+			bearing: 0,
+			duration: 900,
+		});
+	}
 
-  return (
-    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-(--bg-base)">
-      <MapNavBar onShowList={handleShowList} />
-      <div className="flex min-h-0 flex-1">
-        <aside
-          className={`fullscreen-slide-up relative z-10 hidden shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg transition-[width] duration-200 md:flex ${
-            sidebarCollapsed ? "w-0" : "w-[400px]"
-          }`}
-        >
-          {!sidebarCollapsed && (
-            <>
-              <SidebarHeader
-                eventCount={events.length}
-                shouldFetch={shouldFetch}
-              />
-              {filtersNode}
-              <div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="absolute left-full top-12 z-10 flex h-14 w-6 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) shadow-lg backdrop-blur-lg hover:text-(--sea-ink)"
-            aria-label={
-              sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
-            }
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d={sidebarCollapsed ? "M4 2l4 4-4 4" : "M8 2L4 6l4 4"} />
-            </svg>
-          </button>
-        </aside>
+	const filtersNode = (
+		<FiltersRow
+			date={date}
+			category={category}
+			radius={radius}
+			onShiftDate={shiftDate}
+			onDateChange={(v) => updateSearch({ date: v || undefined })}
+			onCategoryChange={(v) => updateSearch({ category: v || undefined })}
+			onRadiusChange={(v) => updateSearch({ radius: v })}
+		/>
+	);
 
-        <div className="relative min-w-0 flex-1">
-          <EventMap
-            events={events}
-            center={{ lat, lng }}
-            radiusMiles={radius ?? 10}
-            className="h-full w-full"
-            onMapReady={(map) => {
-              mapInstanceRef.current = map;
-            }}
-            onMapClick={handleMapClick}
-            selectedEventId={selectedEventId}
-          />
+	const listNode = (
+		<EventList
+			events={events}
+			shouldFetch={shouldFetch}
+			isLoading={isLoading && shouldFetch}
+			center={{ lat, lng }}
+			selectedEventId={selectedEventId}
+			onSelect={handleSelectEvent}
+		/>
+	);
 
-          <div className="pointer-events-none absolute inset-0">
-            <div className="pointer-events-auto absolute top-3 right-3 flex flex-col items-end gap-2">
-              <div className="flex flex-col overflow-hidden rounded-lg border border-(--line) bg-(--surface-strong) shadow-lg backdrop-blur-lg">
-                <button
-                  type="button"
-                  onClick={() => setSettingOrigin(!settingOrigin)}
-                  className={`flex h-10 w-10 cursor-pointer items-center justify-center ${
-                    settingOrigin
-                      ? "bg-(--lagoon-deep) text-white"
-                      : "text-(--sea-ink) hover:bg-(--link-bg-hover)"
-                  }`}
-                  aria-label="Set search center"
-                  title="Click map to set new search center"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <circle cx="10" cy="10" r="3" />
-                    <circle cx="10" cy="10" r="7" />
-                    <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
-                  </svg>
-                </button>
-                <div className="border-t border-(--line)" />
-                <button
-                  type="button"
-                  onClick={handleRecenter}
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center text-(--sea-ink) hover:bg-(--link-bg-hover)"
-                  aria-label="Recenter map"
-                  title="Recenter map"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <circle cx="10" cy="10" r="3" />
-                    <path d="M10 1v3M10 16v3M1 10h3M16 10h3" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+	return (
+		<div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-(--bg-base)">
+			<MapNavBar onShowList={handleShowList} />
+			<div className="relative flex min-h-0 flex-1">
+				<aside
+					ref={sidebarRef}
+					className="fullscreen-slide-up relative z-10 hidden shrink-0 flex-col overflow-hidden border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg md:flex"
+				>
+					{/* Fixed-width inner wrapper so content keeps its layout while the
+              aside's width animates and clips it. */}
+					<div className="flex h-full w-[400px] flex-col">
+						<SidebarHeader
+							eventCount={events.length}
+							shouldFetch={shouldFetch}
+						/>
+						{filtersNode}
+						<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
+					</div>
+				</aside>
+				<button
+					ref={sidebarToggleRef}
+					type="button"
+					onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+					className="absolute left-0 top-12 z-20 hidden h-14 w-6 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) shadow-lg backdrop-blur-lg hover:text-(--sea-ink) md:flex"
+					aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+				>
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 12 12"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+					>
+						<path d={sidebarCollapsed ? "M4 2l4 4-4 4" : "M8 2L4 6l4 4"} />
+					</svg>
+				</button>
 
-            {settingOrigin && (
-              <div
-                className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-(--lagoon) bg-(--surface-strong) px-4 py-2 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-(--lagoon) shadow-lg backdrop-blur-lg"
-                style={{
-                  boxShadow:
-                    "0 0 0 1px var(--lagoon), 0 0 22px color-mix(in oklab, var(--lagoon) 40%, transparent)",
-                }}
-              >
-                Click anywhere to set search center
-              </div>
-            )}
-          </div>
+				<div className="relative min-w-0 flex-1">
+					<EventMap
+						events={events}
+						center={{ lat, lng }}
+						radiusMiles={radius ?? 10}
+						className="h-full w-full"
+						onMapReady={(map) => {
+							mapInstanceRef.current = map;
+						}}
+						onMapClick={handleMapClick}
+						selectedEventId={selectedEventId}
+					/>
 
-          <MobileSheet
-            snap={sheetSnap}
-            onSnapChange={setSheetSnap}
-            eventCount={events.length}
-            shouldFetch={shouldFetch}
-          >
-            {filtersNode}
-            <div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
-          </MobileSheet>
-        </div>
-      </div>
-    </div>
-  );
+					<div className="pointer-events-none absolute inset-0">
+						<div className="pointer-events-auto absolute top-3 right-3 flex flex-col items-end gap-2">
+							<div className="flex flex-col overflow-hidden rounded-lg border border-(--line) bg-(--surface-strong) shadow-lg backdrop-blur-lg">
+								<button
+									type="button"
+									onClick={() => setSettingOrigin(!settingOrigin)}
+									className={`flex h-10 w-10 cursor-pointer items-center justify-center ${
+										settingOrigin
+											? "bg-(--lagoon-deep) text-white"
+											: "text-(--sea-ink) hover:bg-(--link-bg-hover)"
+									}`}
+									aria-label="Set search center"
+									title="Click map to set new search center"
+								>
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 20 20"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="1.5"
+										strokeLinecap="round"
+									>
+										<circle cx="10" cy="10" r="3" />
+										<circle cx="10" cy="10" r="7" />
+										<path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
+									</svg>
+								</button>
+								<div className="border-t border-(--line)" />
+								<button
+									type="button"
+									onClick={handleRecenter}
+									className="flex h-10 w-10 cursor-pointer items-center justify-center text-(--sea-ink) hover:bg-(--link-bg-hover)"
+									aria-label="Recenter map"
+									title="Recenter map"
+								>
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 20 20"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="1.5"
+										strokeLinecap="round"
+									>
+										<circle cx="10" cy="10" r="3" />
+										<path d="M10 1v3M10 16v3M1 10h3M16 10h3" />
+									</svg>
+								</button>
+							</div>
+						</div>
+
+						{settingOrigin && (
+							<div
+								className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-(--lagoon) bg-(--surface-strong) px-4 py-2 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-(--lagoon) shadow-lg backdrop-blur-lg"
+								style={{
+									boxShadow:
+										"0 0 0 1px var(--lagoon), 0 0 22px color-mix(in oklab, var(--lagoon) 40%, transparent)",
+								}}
+							>
+								Click anywhere to set search center
+							</div>
+						)}
+					</div>
+
+					<MobileSheet
+						snap={sheetSnap}
+						onSnapChange={setSheetSnap}
+						eventCount={events.length}
+						shouldFetch={shouldFetch}
+					>
+						{filtersNode}
+						<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
+					</MobileSheet>
+				</div>
+			</div>
+		</div>
+	);
 }
 
 function SidebarHeader({
-  eventCount,
-  shouldFetch,
+	eventCount,
+	shouldFetch,
 }: {
-  eventCount: number;
-  shouldFetch: boolean;
+	eventCount: number;
+	shouldFetch: boolean;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
-      <div>
-        <div className="island-kicker">Map</div>
-        <div className="mt-0.5 text-lg font-bold tracking-tight text-(--sea-ink)">
-          {shouldFetch
-            ? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
-            : "Pick a date"}
-        </div>
-      </div>
-      <div
-        className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
-        style={{ boxShadow: "0 0 10px var(--lagoon)" }}
-        aria-hidden
-      />
-    </div>
-  );
+	return (
+		<div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
+			<div>
+				<div className="island-kicker">Map</div>
+				<div className="mt-0.5 text-lg font-bold tracking-tight text-(--sea-ink)">
+					{shouldFetch
+						? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
+						: "Pick a date"}
+				</div>
+			</div>
+			<div
+				className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
+				style={{ boxShadow: "0 0 10px var(--lagoon)" }}
+				aria-hidden
+			/>
+		</div>
+	);
 }
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const;
 
 function FiltersRow({
-  date,
-  category,
-  radius,
-  onShiftDate,
-  onDateChange,
-  onCategoryChange,
-  onRadiusChange,
+	date,
+	category,
+	radius,
+	onShiftDate,
+	onDateChange,
+	onCategoryChange,
+	onRadiusChange,
 }: {
-  date?: string;
-  category?: string;
-  radius?: number;
-  onShiftDate: (n: number) => void;
-  onDateChange: (v: string) => void;
-  onCategoryChange: (v: string) => void;
-  onRadiusChange: (v: string) => void;
+	date?: string;
+	category?: string;
+	radius?: number;
+	onShiftDate: (n: number) => void;
+	onDateChange: (v: string) => void;
+	onCategoryChange: (v: string) => void;
+	onRadiusChange: (v: string) => void;
 }) {
-  return (
-    <div className="space-y-2 border-b border-(--line) p-3">
-      <LocationSearch navigateTo="/events" compact />
-      <div className="flex items-center gap-1.5">
-        <IconButton onClick={() => onShiftDate(-1)} label="Previous day">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M8 3L4 7l4 4" />
-          </svg>
-        </IconButton>
-        <label className="relative flex-1">
-          <span className="flex h-9 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--chip-bg) px-3 text-sm font-semibold text-(--sea-ink) hover:border-(--lagoon)">
-            {date ? formatDateLabel(date) : "Pick date"}
-          </span>
-          <input
-            type="date"
-            value={date ?? ""}
-            onChange={(e) => onDateChange(e.target.value)}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          />
-        </label>
-        <IconButton onClick={() => onShiftDate(1)} label="Next day">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M6 3l4 4-4 4" />
-          </svg>
-        </IconButton>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <select
-          value={category ?? ""}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
-        >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          value={radius ?? 10}
-          onChange={(e) => onRadiusChange(e.target.value)}
-          className="cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
-          aria-label="Search radius"
-        >
-          {RADIUS_OPTIONS.map((r) => (
-            <option key={r} value={r}>
-              {r} mi
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
+	return (
+		<div className="space-y-2 border-b border-(--line) p-3">
+			<LocationSearch navigateTo="/events" compact />
+			<div className="flex items-center gap-1.5">
+				<IconButton onClick={() => onShiftDate(-1)} label="Previous day">
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+					>
+						<path d="M8 3L4 7l4 4" />
+					</svg>
+				</IconButton>
+				<label className="relative flex-1">
+					<span className="flex h-9 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--chip-bg) px-3 text-sm font-semibold text-(--sea-ink) hover:border-(--lagoon)">
+						{date ? formatDateLabel(date) : "Pick date"}
+					</span>
+					<input
+						type="date"
+						value={date ?? ""}
+						onChange={(e) => onDateChange(e.target.value)}
+						className="absolute inset-0 cursor-pointer opacity-0"
+					/>
+				</label>
+				<IconButton onClick={() => onShiftDate(1)} label="Next day">
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+					>
+						<path d="M6 3l4 4-4 4" />
+					</svg>
+				</IconButton>
+			</div>
+			<div className="flex items-center gap-1.5">
+				<select
+					value={category ?? ""}
+					onChange={(e) => onCategoryChange(e.target.value)}
+					className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+				>
+					<option value="">All categories</option>
+					{CATEGORIES.map((c) => (
+						<option key={c} value={c}>
+							{c}
+						</option>
+					))}
+				</select>
+				<select
+					value={radius ?? 10}
+					onChange={(e) => onRadiusChange(e.target.value)}
+					className="cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+					aria-label="Search radius"
+				>
+					{RADIUS_OPTIONS.map((r) => (
+						<option key={r} value={r}>
+							{r} mi
+						</option>
+					))}
+				</select>
+			</div>
+		</div>
+	);
 }
 
 function IconButton({
-  children,
-  onClick,
-  label,
+	children,
+	onClick,
+	label,
 }: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
+	children: React.ReactNode;
+	onClick: () => void;
+	label: string;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--chip-bg) text-(--sea-ink) hover:border-(--lagoon) hover:bg-(--link-bg-hover)"
-      aria-label={label}
-    >
-      {children}
-    </button>
-  );
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-(--line) bg-(--chip-bg) text-(--sea-ink) hover:border-(--lagoon) hover:bg-(--link-bg-hover)"
+			aria-label={label}
+		>
+			{children}
+		</button>
+	);
 }
 
 function EventList({
-  events,
-  shouldFetch,
-  isLoading,
-  center,
-  selectedEventId,
-  onSelect,
+	events,
+	shouldFetch,
+	isLoading,
+	center,
+	selectedEventId,
+	onSelect,
 }: {
-  events: Event[];
-  shouldFetch: boolean;
-  isLoading: boolean;
-  center: { lat: number; lng: number };
-  selectedEventId: string | null;
-  onSelect: (e: Event) => void;
+	events: Event[];
+	shouldFetch: boolean;
+	isLoading: boolean;
+	center: { lat: number; lng: number };
+	selectedEventId: string | null;
+	onSelect: (e: Event) => void;
 }) {
-  if (!shouldFetch) {
-    return (
-      <EmptyState
-        title="Pick a date"
-        subtitle="Select a date above to see events on the map."
-      />
-    );
-  }
-  if (isLoading) {
-    return (
-      <div className="px-4 py-6">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="mb-3 flex animate-pulse gap-3"
-            style={{ animationDelay: `${i * 100}ms` }}
-          >
-            <div className="h-16 w-16 shrink-0 rounded-md bg-(--line)" />
-            <div className="flex-1 space-y-2 py-1">
-              <div className="h-3 w-3/4 rounded bg-(--line)" />
-              <div className="h-2.5 w-1/2 rounded bg-(--line)" />
-              <div className="h-2.5 w-1/3 rounded bg-(--line)" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (events.length === 0) {
-    return (
-      <EmptyState
-        title="No events"
-        subtitle="Try a different date, category, or radius."
-      />
-    );
-  }
-  return (
-    <ul className="divide-y divide-(--line)">
-      {events.map((event) => (
-        <EventCardRow
-          key={event.ID}
-          event={event}
-          center={center}
-          selected={selectedEventId === event.ID}
-          onClick={() => onSelect(event)}
-        />
-      ))}
-    </ul>
-  );
+	if (!shouldFetch) {
+		return (
+			<EmptyState
+				title="Pick a date"
+				subtitle="Select a date above to see events on the map."
+			/>
+		);
+	}
+	if (isLoading) {
+		return (
+			<div className="px-4 py-6">
+				{[0, 1, 2].map((i) => (
+					<div
+						key={i}
+						className="mb-3 flex animate-pulse gap-3"
+						style={{ animationDelay: `${i * 100}ms` }}
+					>
+						<div className="h-16 w-16 shrink-0 rounded-md bg-(--line)" />
+						<div className="flex-1 space-y-2 py-1">
+							<div className="h-3 w-3/4 rounded bg-(--line)" />
+							<div className="h-2.5 w-1/2 rounded bg-(--line)" />
+							<div className="h-2.5 w-1/3 rounded bg-(--line)" />
+						</div>
+					</div>
+				))}
+			</div>
+		);
+	}
+	if (events.length === 0) {
+		return (
+			<EmptyState
+				title="No events"
+				subtitle="Try a different date, category, or radius."
+			/>
+		);
+	}
+	return (
+		<ul className="divide-y divide-(--line)">
+			{events.map((event) => (
+				<EventCardRow
+					key={event.ID}
+					event={event}
+					center={center}
+					selected={selectedEventId === event.ID}
+					onClick={() => onSelect(event)}
+				/>
+			))}
+		</ul>
+	);
 }
 
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 py-16 text-center">
-      <div className="island-kicker">Nothing here yet</div>
-      <div className="mt-2 text-sm font-bold text-(--sea-ink)">{title}</div>
-      <div className="mt-1 text-xs text-(--sea-ink-soft)">{subtitle}</div>
-    </div>
-  );
+	return (
+		<div className="flex h-full flex-col items-center justify-center px-8 py-16 text-center">
+			<div className="island-kicker">Nothing here yet</div>
+			<div className="mt-2 text-sm font-bold text-(--sea-ink)">{title}</div>
+			<div className="mt-1 text-xs text-(--sea-ink-soft)">{subtitle}</div>
+		</div>
+	);
 }
 
 function EventCardRow({
-  event,
-  center,
-  selected,
-  onClick,
+	event,
+	center,
+	selected,
+	onClick,
 }: {
-  event: Event;
-  center: { lat: number; lng: number };
-  selected: boolean;
-  onClick: () => void;
+	event: Event;
+	center: { lat: number; lng: number };
+	selected: boolean;
+	onClick: () => void;
 }) {
-  const distance = haversineMiles(
-    center.lat,
-    center.lng,
-    event.Latitude,
-    event.Longitude,
-  );
-  const time = isAllDay(event)
-    ? "All day"
-    : new Date(event.StartTime).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-  const price = formatPrice(event);
-  const category = event.Categories?.[0];
+	const distance = haversineMiles(
+		center.lat,
+		center.lng,
+		event.Latitude,
+		event.Longitude,
+	);
+	const time = isAllDay(event)
+		? "All day"
+		: new Date(event.StartTime).toLocaleTimeString("en-US", {
+				hour: "numeric",
+				minute: "2-digit",
+			});
+	const price = formatPrice(event);
+	const category = event.Categories?.[0];
 
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        className={`group flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors ${
-          selected ? "bg-(--link-bg-hover)" : "hover:bg-(--link-bg-hover)"
-        }`}
-        style={
-          selected ? { boxShadow: "inset 3px 0 0 var(--lagoon)" } : undefined
-        }
-      >
-        {event.ImageUrl ? (
-          <img
-            src={event.ImageUrl}
-            alt=""
-            loading="lazy"
-            className="h-16 w-16 shrink-0 rounded-md border border-(--line) object-cover"
-          />
-        ) : (
-          <div
-            className="h-16 w-16 shrink-0 rounded-md border border-(--line)"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in oklab, var(--lagoon) 40%, transparent), color-mix(in oklab, var(--palm) 40%, transparent))",
-            }}
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-(--sea-ink)">
-            {event.Title}
-          </div>
-          <div className="mt-0.5 truncate text-xs text-(--sea-ink-soft)">
-            {time}
-            {event.VenueName ? ` · ${event.VenueName}` : ""}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem]">
-            {category && (
-              <span className="rounded-full border border-(--chip-line) bg-(--chip-bg) px-2 py-0.5 font-mono text-[0.6rem] font-medium uppercase tracking-wider text-(--lagoon-deep)">
-                {category}
-              </span>
-            )}
-            <span className="text-(--sea-ink-soft)">
-              {distance.toFixed(1)} mi
-            </span>
-            {price && (
-              <span className="font-semibold text-(--lime)">{price}</span>
-            )}
-          </div>
-        </div>
-      </button>
-    </li>
-  );
+	return (
+		<li>
+			<button
+				type="button"
+				onClick={onClick}
+				className={`group flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors ${
+					selected ? "bg-(--link-bg-hover)" : "hover:bg-(--link-bg-hover)"
+				}`}
+				style={
+					selected ? { boxShadow: "inset 3px 0 0 var(--lagoon)" } : undefined
+				}
+			>
+				{event.ImageUrl ? (
+					<img
+						src={event.ImageUrl}
+						alt=""
+						loading="lazy"
+						className="h-16 w-16 shrink-0 rounded-md border border-(--line) object-cover"
+					/>
+				) : (
+					<div
+						className="h-16 w-16 shrink-0 rounded-md border border-(--line)"
+						style={{
+							background:
+								"linear-gradient(135deg, color-mix(in oklab, var(--lagoon) 40%, transparent), color-mix(in oklab, var(--palm) 40%, transparent))",
+						}}
+					/>
+				)}
+				<div className="min-w-0 flex-1">
+					<div className="truncate text-sm font-bold text-(--sea-ink)">
+						{event.Title}
+					</div>
+					<div className="mt-0.5 truncate text-xs text-(--sea-ink-soft)">
+						{time}
+						{event.VenueName ? ` · ${event.VenueName}` : ""}
+					</div>
+					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem]">
+						{category && (
+							<span className="rounded-full border border-(--chip-line) bg-(--chip-bg) px-2 py-0.5 font-mono text-[0.6rem] font-medium uppercase tracking-wider text-(--lagoon-deep)">
+								{category}
+							</span>
+						)}
+						<span className="text-(--sea-ink-soft)">
+							{distance.toFixed(1)} mi
+						</span>
+						{price && (
+							<span className="font-semibold text-(--lime)">{price}</span>
+						)}
+					</div>
+				</div>
+			</button>
+		</li>
+	);
 }
 
 function MobileSheet({
-  snap,
-  onSnapChange,
-  eventCount,
-  shouldFetch,
-  children,
+	snap,
+	onSnapChange,
+	eventCount,
+	shouldFetch,
+	children,
 }: {
-  snap: SheetSnap;
-  onSnapChange: (s: SheetSnap) => void;
-  eventCount: number;
-  shouldFetch: boolean;
-  children: React.ReactNode;
+	snap: SheetSnap;
+	onSnapChange: (s: SheetSnap) => void;
+	eventCount: number;
+	shouldFetch: boolean;
+	children: React.ReactNode;
 }) {
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const handleRef = useRef<HTMLDivElement>(null);
-  // Snap pixel offsets (translateY) for each state, recomputed on resize.
-  const metricsRef = useRef({ fullPx: 0, peekY: 0, halfY: 0, fullY: 0 });
-  // Mirror of the current snap so Draggable callbacks read the latest value.
-  const snapRef = useRef<SheetSnap>(snap);
-  // Set when a snap change originates from a drag, so the controlled-prop
-  // effect doesn't re-animate a position GSAP's inertia already settled.
-  const internalChangeRef = useRef(false);
+	const sheetRef = useRef<HTMLDivElement>(null);
+	const handleRef = useRef<HTMLDivElement>(null);
+	// Snap pixel offsets (translateY) for each state, recomputed on resize.
+	const metricsRef = useRef({ fullPx: 0, peekY: 0, halfY: 0, fullY: 0 });
+	// Mirror of the current snap so Draggable callbacks read the latest value.
+	const snapRef = useRef<SheetSnap>(snap);
+	// Set when a snap change originates from a drag, so the controlled-prop
+	// effect doesn't re-animate a position GSAP's inertia already settled.
+	const internalChangeRef = useRef(false);
 
-  // Extra headroom (px) below the viewport top that the full snap must leave
-  // clear, on top of safe-area-inset-top, so the iPhone status bar / notch
-  // never overlaps the sheet.
-  const FULL_TOP_PADDING_PX = 24;
+	// Extra headroom (px) below the viewport top that the full snap must leave
+	// clear, on top of safe-area-inset-top, so the iPhone status bar / notch
+	// never overlaps the sheet.
+	const FULL_TOP_PADDING_PX = 24;
 
-  function safeAreaInsetTop(): number {
-    if (typeof window === "undefined") return 0;
-    const probe = document.createElement("div");
-    probe.style.cssText =
-      "position:fixed;top:0;height:env(safe-area-inset-top);width:0;";
-    document.body.appendChild(probe);
-    const px = probe.getBoundingClientRect().height;
-    probe.remove();
-    return px;
-  }
+	function safeAreaInsetTop(): number {
+		if (typeof window === "undefined") return 0;
+		const probe = document.createElement("div");
+		probe.style.cssText =
+			"position:fixed;top:0;height:env(safe-area-inset-top);width:0;";
+		document.body.appendChild(probe);
+		const px = probe.getBoundingClientRect().height;
+		probe.remove();
+		return px;
+	}
 
-  // The sheet is rendered at full height and pinned to the bottom; each snap is
-  // a translateY offset that slides it down to reveal less of it. y=0 is fully
-  // open, larger y peeks less.
-  function computeMetrics() {
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const fullPx = Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX);
-    metricsRef.current = {
-      fullPx,
-      fullY: 0,
-      halfY: Math.max(0, fullPx - Math.round(vh * 0.5)),
-      peekY: Math.max(0, fullPx - 120),
-    };
-    return metricsRef.current;
-  }
+	// The sheet is rendered at full height and pinned to the bottom; each snap is
+	// a translateY offset that slides it down to reveal less of it. y=0 is fully
+	// open, larger y peeks less.
+	function computeMetrics() {
+		const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+		const fullPx = Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX);
+		metricsRef.current = {
+			fullPx,
+			fullY: 0,
+			halfY: Math.max(0, fullPx - Math.round(vh * 0.5)),
+			peekY: Math.max(0, fullPx - 120),
+		};
+		return metricsRef.current;
+	}
 
-  function yForSnap(s: SheetSnap): number {
-    const m = metricsRef.current;
-    return s === "peek" ? m.peekY : s === "half" ? m.halfY : m.fullY;
-  }
+	function yForSnap(s: SheetSnap): number {
+		const m = metricsRef.current;
+		return s === "peek" ? m.peekY : s === "half" ? m.halfY : m.fullY;
+	}
 
-  function snapForY(y: number): SheetSnap {
-    const m = metricsRef.current;
-    const opts: Array<[SheetSnap, number]> = [
-      ["peek", m.peekY],
-      ["half", m.halfY],
-      ["full", m.fullY],
-    ];
-    let nearest: SheetSnap = "peek";
-    let bestDist = Infinity;
-    for (const [s, sy] of opts) {
-      const d = Math.abs(y - sy);
-      if (d < bestDist) {
-        bestDist = d;
-        nearest = s;
-      }
-    }
-    return nearest;
-  }
+	function snapForY(y: number): SheetSnap {
+		const m = metricsRef.current;
+		const opts: Array<[SheetSnap, number]> = [
+			["peek", m.peekY],
+			["half", m.halfY],
+			["full", m.fullY],
+		];
+		let nearest: SheetSnap = "peek";
+		let bestDist = Infinity;
+		for (const [s, sy] of opts) {
+			const d = Math.abs(y - sy);
+			if (d < bestDist) {
+				bestDist = d;
+				nearest = s;
+			}
+		}
+		return nearest;
+	}
 
-  // Create the Draggable once; drive resizing and external snap changes
-  // through it via the effects below.
-  useGSAP(
-    () => {
-      const sheet = sheetRef.current;
-      const handle = handleRef.current;
-      if (!sheet || !handle) return;
+	// Create the Draggable once; drive resizing and external snap changes
+	// through it via the effects below.
+	useGSAP(
+		() => {
+			const sheet = sheetRef.current;
+			const handle = handleRef.current;
+			if (!sheet || !handle) return;
 
-      const m = computeMetrics();
-      sheet.style.height = `${m.fullPx}px`;
-      gsap.set(sheet, { y: yForSnap(snapRef.current) });
+			const m = computeMetrics();
+			sheet.style.height = `${m.fullPx}px`;
+			gsap.set(sheet, { y: yForSnap(snapRef.current) });
 
-      const [draggable] = Draggable.create(sheet, {
-        type: "y",
-        trigger: handle,
-        inertia: true,
-        edgeResistance: 0.9,
-        dragResistance: 0.05,
-        bounds: { minY: m.fullY, maxY: m.peekY },
-        // Snap (including thrown momentum) to the nearest of the three stops.
-        snap: {
-          y: (value: number) => {
-            const { fullY, halfY, peekY } = metricsRef.current;
-            return [fullY, halfY, peekY].reduce((prev, cur) =>
-              Math.abs(cur - value) < Math.abs(prev - value) ? cur : prev,
-            );
-          },
-        },
-        onDragEnd() {
-          // this.endY is the projected resting position after inertia/snap.
-          const next = snapForY(this.endY);
-          if (next !== snapRef.current) {
-            internalChangeRef.current = true;
-            onSnapChange(next);
-          }
-        },
-      });
+			const [draggable] = Draggable.create(sheet, {
+				type: "y",
+				trigger: handle,
+				inertia: true,
+				edgeResistance: 0.9,
+				dragResistance: 0.05,
+				bounds: { minY: m.fullY, maxY: m.peekY },
+				// Snap (including thrown momentum) to the nearest of the three stops.
+				snap: {
+					y: (value: number) => {
+						const { fullY, halfY, peekY } = metricsRef.current;
+						return [fullY, halfY, peekY].reduce((prev, cur) =>
+							Math.abs(cur - value) < Math.abs(prev - value) ? cur : prev,
+						);
+					},
+				},
+				onDragEnd() {
+					// this.endY is the projected resting position after inertia/snap.
+					const next = snapForY(this.endY);
+					if (next !== snapRef.current) {
+						internalChangeRef.current = true;
+						onSnapChange(next);
+					}
+				},
+			});
 
-      const onResize = () => {
-        const m2 = computeMetrics();
-        sheet.style.height = `${m2.fullPx}px`;
-        draggable.applyBounds({ minY: m2.fullY, maxY: m2.peekY });
-        gsap.set(sheet, { y: yForSnap(snapRef.current) });
-      };
-      window.addEventListener("resize", onResize);
-      return () => {
-        window.removeEventListener("resize", onResize);
-        draggable.kill();
-      };
-    },
-    { scope: sheetRef },
-  );
+			const onResize = () => {
+				const m2 = computeMetrics();
+				sheet.style.height = `${m2.fullPx}px`;
+				draggable.applyBounds({ minY: m2.fullY, maxY: m2.peekY });
+				gsap.set(sheet, { y: yForSnap(snapRef.current) });
+			};
+			window.addEventListener("resize", onResize);
+			return () => {
+				window.removeEventListener("resize", onResize);
+				draggable.kill();
+			};
+		},
+		{ scope: sheetRef },
+	);
 
-  // Animate to the controlled snap when it changes from outside a drag
-  // (the header button, or selecting an event collapsing "full" → "half").
-  useGSAP(
-    () => {
-      snapRef.current = snap;
-      if (internalChangeRef.current) {
-        internalChangeRef.current = false;
-        return;
-      }
-      const sheet = sheetRef.current;
-      if (!sheet) return;
-      gsap.to(sheet, { y: yForSnap(snap), duration: 0.4, ease: "power3.out" });
-    },
-    { dependencies: [snap], scope: sheetRef },
-  );
+	// Animate to the controlled snap when it changes from outside a drag
+	// (the header button, or selecting an event collapsing "full" → "half").
+	useGSAP(
+		() => {
+			snapRef.current = snap;
+			if (internalChangeRef.current) {
+				internalChangeRef.current = false;
+				return;
+			}
+			const sheet = sheetRef.current;
+			if (!sheet) return;
+			gsap.to(sheet, { y: yForSnap(snap), duration: 0.4, ease: "power3.out" });
+		},
+		{ dependencies: [snap], scope: sheetRef },
+	);
 
-  function cycleSnap() {
-    onSnapChange(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
-  }
+	function cycleSnap() {
+		onSnapChange(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
+	}
 
-  return (
-    <div
-      ref={sheetRef}
-      className="fixed bottom-0 left-0 right-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg will-change-transform md:hidden"
-    >
-      <div
-        ref={handleRef}
-        className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-        role="slider"
-        aria-label="Resize event list"
-        aria-valuenow={snap === "peek" ? 0 : snap === "half" ? 50 : 100}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        tabIndex={0}
-      >
-        <div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-40" />
-      </div>
-      <button
-        type="button"
-        onClick={cycleSnap}
-        className="flex items-center justify-between gap-2 border-b border-(--line) px-4 pb-3 text-left"
-      >
-        <div>
-          <div className="island-kicker">Map</div>
-          <div className="mt-0.5 text-sm font-bold text-(--sea-ink)">
-            {shouldFetch
-              ? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
-              : "Pick a date"}
-          </div>
-        </div>
-        <div
-          className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
-          style={{ boxShadow: "0 0 8px var(--lagoon)" }}
-          aria-hidden
-        />
-      </button>
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-    </div>
-  );
+	return (
+		<div
+			ref={sheetRef}
+			className="fixed bottom-0 left-0 right-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg will-change-transform md:hidden"
+		>
+			<div
+				ref={handleRef}
+				className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+				role="slider"
+				aria-label="Resize event list"
+				aria-valuenow={snap === "peek" ? 0 : snap === "half" ? 50 : 100}
+				aria-valuemin={0}
+				aria-valuemax={100}
+				tabIndex={0}
+			>
+				<div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-40" />
+			</div>
+			<button
+				type="button"
+				onClick={cycleSnap}
+				className="flex items-center justify-between gap-2 border-b border-(--line) px-4 pb-3 text-left"
+			>
+				<div>
+					<div className="island-kicker">Map</div>
+					<div className="mt-0.5 text-sm font-bold text-(--sea-ink)">
+						{shouldFetch
+							? `${eventCount} event${eventCount !== 1 ? "s" : ""}`
+							: "Pick a date"}
+					</div>
+				</div>
+				<div
+					className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))]"
+					style={{ boxShadow: "0 0 8px var(--lagoon)" }}
+					aria-hidden
+				/>
+			</button>
+			<div className="flex min-h-0 flex-1 flex-col">{children}</div>
+		</div>
+	);
 }
 
 export function FullscreenMapSkeleton() {
-  return (
-    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-(--bg-base)">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-(--line) bg-(--header-bg) px-4 backdrop-blur-lg">
-        <div className="h-4 w-24 animate-pulse rounded bg-(--line)" />
-        <div className="ml-auto h-7 w-16 animate-pulse rounded-md bg-(--line)" />
-      </div>
-      <div className="flex min-h-0 flex-1">
-        <aside className="relative hidden w-[400px] shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg md:flex">
-          <div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
-            <div className="flex-1 space-y-1.5">
-              <div className="h-2 w-16 animate-pulse rounded bg-(--line)" />
-              <div className="h-4 w-28 animate-pulse rounded bg-(--line)" />
-            </div>
-            <div className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] opacity-60" />
-          </div>
-          <div className="space-y-2 border-b border-(--line) p-3">
-            <div className="flex items-center gap-1.5">
-              <div className="h-9 w-9 animate-pulse rounded-lg bg-(--line)" />
-              <div className="h-9 flex-1 animate-pulse rounded-lg bg-(--line)" />
-              <div className="h-9 w-9 animate-pulse rounded-lg bg-(--line)" />
-            </div>
-            <div className="h-9 w-full animate-pulse rounded-lg bg-(--line)" />
-          </div>
-          <div className="flex-1 overflow-hidden">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="flex animate-pulse gap-3 border-b border-(--line) px-4 py-3"
-                style={{ animationDelay: `${i * 90}ms` }}
-              >
-                <div className="h-16 w-16 shrink-0 rounded-md bg-(--line)" />
-                <div className="flex-1 space-y-2 py-1">
-                  <div className="h-3 w-3/4 rounded bg-(--line)" />
-                  <div className="h-2.5 w-1/2 rounded bg-(--line)" />
-                  <div className="h-2.5 w-1/3 rounded bg-(--line)" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
+	return (
+		<div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-(--bg-base)">
+			<div className="flex h-12 shrink-0 items-center gap-3 border-b border-(--line) bg-(--header-bg) px-4 backdrop-blur-lg">
+				<div className="h-4 w-24 animate-pulse rounded bg-(--line)" />
+				<div className="ml-auto h-7 w-16 animate-pulse rounded-md bg-(--line)" />
+			</div>
+			<div className="flex min-h-0 flex-1">
+				<aside className="relative hidden w-[400px] shrink-0 flex-col border-r border-(--line) bg-(--surface-strong) backdrop-blur-lg md:flex">
+					<div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 py-4">
+						<div className="flex-1 space-y-1.5">
+							<div className="h-2 w-16 animate-pulse rounded bg-(--line)" />
+							<div className="h-4 w-28 animate-pulse rounded bg-(--line)" />
+						</div>
+						<div className="h-2.5 w-2.5 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] opacity-60" />
+					</div>
+					<div className="space-y-2 border-b border-(--line) p-3">
+						<div className="flex items-center gap-1.5">
+							<div className="h-9 w-9 animate-pulse rounded-lg bg-(--line)" />
+							<div className="h-9 flex-1 animate-pulse rounded-lg bg-(--line)" />
+							<div className="h-9 w-9 animate-pulse rounded-lg bg-(--line)" />
+						</div>
+						<div className="h-9 w-full animate-pulse rounded-lg bg-(--line)" />
+					</div>
+					<div className="flex-1 overflow-hidden">
+						{[0, 1, 2, 3, 4].map((i) => (
+							<div
+								key={i}
+								className="flex animate-pulse gap-3 border-b border-(--line) px-4 py-3"
+								style={{ animationDelay: `${i * 90}ms` }}
+							>
+								<div className="h-16 w-16 shrink-0 rounded-md bg-(--line)" />
+								<div className="flex-1 space-y-2 py-1">
+									<div className="h-3 w-3/4 rounded bg-(--line)" />
+									<div className="h-2.5 w-1/2 rounded bg-(--line)" />
+									<div className="h-2.5 w-1/3 rounded bg-(--line)" />
+								</div>
+							</div>
+						))}
+					</div>
+				</aside>
 
-        <div
-          className="relative min-w-0 flex-1 overflow-hidden"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-          }}
-        >
-          <div
-            className="absolute inset-0 animate-pulse opacity-40"
-            style={{
-              background:
-                "radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--lagoon) 22%, transparent), transparent 55%)",
-            }}
-          />
-          <div className="pointer-events-none absolute top-3 right-3 flex flex-col items-end gap-2">
-            <div className="flex flex-col overflow-hidden rounded-lg border border-(--line) bg-(--surface-strong) shadow-lg backdrop-blur-lg">
-              <div className="h-10 w-10" />
-              <div className="border-t border-(--line)" />
-              <div className="h-10 w-10" />
-            </div>
-          </div>
-          <div
-            className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg md:hidden"
-            style={{ height: "120px" }}
-          >
-            <div className="flex h-7 items-center justify-center">
-              <div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-30" />
-            </div>
-            <div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 pb-3">
-              <div className="space-y-1.5">
-                <div className="h-2 w-16 animate-pulse rounded bg-(--line)" />
-                <div className="h-3 w-24 animate-pulse rounded bg-(--line)" />
-              </div>
-              <div className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] opacity-60" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+				<div
+					className="relative min-w-0 flex-1 overflow-hidden"
+					style={{
+						backgroundImage:
+							"linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px)",
+						backgroundSize: "44px 44px",
+					}}
+				>
+					<div
+						className="absolute inset-0 animate-pulse opacity-40"
+						style={{
+							background:
+								"radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--lagoon) 22%, transparent), transparent 55%)",
+						}}
+					/>
+					<div className="pointer-events-none absolute top-3 right-3 flex flex-col items-end gap-2">
+						<div className="flex flex-col overflow-hidden rounded-lg border border-(--line) bg-(--surface-strong) shadow-lg backdrop-blur-lg">
+							<div className="h-10 w-10" />
+							<div className="border-t border-(--line)" />
+							<div className="h-10 w-10" />
+						</div>
+					</div>
+					<div
+						className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg md:hidden"
+						style={{ height: "120px" }}
+					>
+						<div className="flex h-7 items-center justify-center">
+							<div className="h-1.5 w-10 rounded-full bg-(--sea-ink-soft) opacity-30" />
+						</div>
+						<div className="flex items-center justify-between gap-2 border-b border-(--line) px-4 pb-3">
+							<div className="space-y-1.5">
+								<div className="h-2 w-16 animate-pulse rounded bg-(--line)" />
+								<div className="h-3 w-24 animate-pulse rounded bg-(--line)" />
+							</div>
+							<div className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] opacity-60" />
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
 }
 
 function MapNavBar({ onShowList }: { onShowList: () => void }) {
-  const { isSignedIn } = useAuth();
-  const { isUser, canCreateEvent, canManageAuthors } = useUserRole();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const navRef = useRef<HTMLElement | null>(null);
-  const [menuTop, setMenuTop] = useState(0);
+	const { isSignedIn } = useAuth();
+	const { isUser, canCreateEvent, canManageAuthors } = useUserRole();
+	const [menuOpen, setMenuOpen] = useState(false);
+	const navRef = useRef<HTMLElement | null>(null);
+	const [menuTop, setMenuTop] = useState(0);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const update = () => {
-      if (navRef.current) {
-        setMenuTop(navRef.current.getBoundingClientRect().bottom);
-      }
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [menuOpen]);
+	useEffect(() => {
+		if (!menuOpen) return;
+		const update = () => {
+			if (navRef.current) {
+				setMenuTop(navRef.current.getBoundingClientRect().bottom);
+			}
+		};
+		update();
+		window.addEventListener("resize", update);
+		return () => window.removeEventListener("resize", update);
+	}, [menuOpen]);
 
-  const navLinks = (
-    <>
-      <Link
-        to="/events"
-        className="nav-link"
-        activeProps={{ className: "nav-link is-active" }}
-        activeOptions={{ exact: true, includeSearch: false }}
-        onClick={() => setMenuOpen(false)}
-      >
-        Events
-      </Link>
+	const navLinks = (
+		<>
+			<Link
+				to="/events"
+				className="nav-link"
+				activeProps={{ className: "nav-link is-active" }}
+				activeOptions={{ exact: true, includeSearch: false }}
+				onClick={() => setMenuOpen(false)}
+			>
+				Events
+			</Link>
 
-      <Link
-        to="/submit"
-        className="nav-link"
-        activeProps={{ className: "nav-link is-active" }}
-        onClick={() => setMenuOpen(false)}
-      >
-        Submit Event
-      </Link>
-      {isSignedIn && canCreateEvent && (
-        <Link
-          to="/my-events"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          My Events
-        </Link>
-      )}
-      {isSignedIn && isUser && (
-        <Link
-          to="/apply-author"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Apply to be Author
-        </Link>
-      )}
-      {isSignedIn && canManageAuthors && (
-        <Link
-          to="/admin"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Admin
-        </Link>
-      )}
-      {isSignedIn && (
-        <Link
-          to="/profile"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Profile
-        </Link>
-      )}
-    </>
-  );
+			<Link
+				to="/submit"
+				className="nav-link"
+				activeProps={{ className: "nav-link is-active" }}
+				onClick={() => setMenuOpen(false)}
+			>
+				Submit Event
+			</Link>
+			{isSignedIn && canCreateEvent && (
+				<Link
+					to="/my-events"
+					className="nav-link"
+					activeProps={{ className: "nav-link is-active" }}
+					onClick={() => setMenuOpen(false)}
+				>
+					My Events
+				</Link>
+			)}
+			{isSignedIn && isUser && (
+				<Link
+					to="/apply-author"
+					className="nav-link"
+					activeProps={{ className: "nav-link is-active" }}
+					onClick={() => setMenuOpen(false)}
+				>
+					Apply to be Author
+				</Link>
+			)}
+			{isSignedIn && canManageAuthors && (
+				<Link
+					to="/admin"
+					className="nav-link"
+					activeProps={{ className: "nav-link is-active" }}
+					onClick={() => setMenuOpen(false)}
+				>
+					Admin
+				</Link>
+			)}
+			{isSignedIn && (
+				<Link
+					to="/profile"
+					className="nav-link"
+					activeProps={{ className: "nav-link is-active" }}
+					onClick={() => setMenuOpen(false)}
+				>
+					Profile
+				</Link>
+			)}
+		</>
+	);
 
-  return (
-    <nav
-      ref={navRef}
-      className="relative z-30 shrink-0 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg"
-    >
-      <div className="flex items-center gap-x-3 px-4 py-2">
-        <Link
-          to="/"
-          className="shrink-0 text-sm font-bold tracking-tight text-(--sea-ink) no-underline"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] shadow-[0_0_10px_var(--lagoon)]" />
-            919Events
-          </span>
-        </Link>
+	return (
+		<nav
+			ref={navRef}
+			className="relative z-30 shrink-0 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg"
+		>
+			<div className="flex items-center gap-x-3 px-4 py-2">
+				<Link
+					to="/"
+					className="shrink-0 text-sm font-bold tracking-tight text-(--sea-ink) no-underline"
+				>
+					<span className="inline-flex items-center gap-1.5">
+						<span className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,var(--lagoon),var(--palm))] shadow-[0_0_10px_var(--lagoon)]" />
+						919Events
+					</span>
+				</Link>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          className="inline-flex items-center justify-center rounded-md p-1.5 text-(--sea-ink-soft) hover:bg-(--surface) sm:hidden"
-          aria-label="Toggle navigation menu"
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            {menuOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            )}
-          </svg>
-        </button>
+				<button
+					type="button"
+					onClick={() => setMenuOpen((o) => !o)}
+					className="inline-flex items-center justify-center rounded-md p-1.5 text-(--sea-ink-soft) hover:bg-(--surface) sm:hidden"
+					aria-label="Toggle navigation menu"
+				>
+					<svg
+						className="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						strokeWidth={2}
+					>
+						{menuOpen ? (
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						) : (
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M4 6h16M4 12h16M4 18h16"
+							/>
+						)}
+					</svg>
+				</button>
 
-        <div className="hidden items-center gap-x-3 text-sm font-semibold sm:flex">
-          {navLinks}
-        </div>
+				<div className="hidden items-center gap-x-3 text-sm font-semibold sm:flex">
+					{navLinks}
+				</div>
 
-        <button
-          type="button"
-          onClick={onShowList}
-          className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover)"
-          aria-label="Switch to list view"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M2 3.5h10M2 7h10M2 10.5h10" />
-          </svg>
-          List
-        </button>
+				<button
+					type="button"
+					onClick={onShowList}
+					className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover)"
+					aria-label="Switch to list view"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.5"
+						strokeLinecap="round"
+					>
+						<path d="M2 3.5h10M2 7h10M2 10.5h10" />
+					</svg>
+					List
+				</button>
 
-        <ThemeToggle />
-        <ClerkHeader />
-      </div>
+				<ThemeToggle />
+				<ClerkHeader />
+			</div>
 
-      {menuOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed left-0 right-0 z-[70] border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:hidden"
-            style={{ top: menuTop }}
-          >
-            <div className="flex flex-col px-4 py-2 text-sm font-semibold [&>a]:flex [&>a]:min-h-11 [&>a]:items-center">
-              {navLinks}
-            </div>
-          </div>,
-          document.body,
-        )}
-    </nav>
-  );
+			{menuOpen &&
+				typeof document !== "undefined" &&
+				createPortal(
+					<div
+						className="fixed left-0 right-0 z-[70] border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:hidden"
+						style={{ top: menuTop }}
+					>
+						<div className="flex flex-col px-4 py-2 text-sm font-semibold [&>a]:flex [&>a]:min-h-11 [&>a]:items-center">
+							{navLinks}
+						</div>
+					</div>,
+					document.body,
+				)}
+		</nav>
+	);
 }
 
 function formatDateLabel(iso: string) {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+	const d = new Date(iso + "T00:00:00");
+	return d.toLocaleDateString("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+	});
 }
 
 function haversineMiles(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
+	lat1: number,
+	lng1: number,
+	lat2: number,
+	lng2: number,
 ): number {
-  const R = 3958.8;
-  const toRad = (x: number) => (x * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+	const R = 3958.8;
+	const toRad = (x: number) => (x * Math.PI) / 180;
+	const dLat = toRad(lat2 - lat1);
+	const dLng = toRad(lng2 - lng1);
+	const a =
+		Math.sin(dLat / 2) ** 2 +
+		Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+	return 2 * R * Math.asin(Math.sqrt(a));
 }
 
 function formatPrice(event: Event): string | null {
-  const min = event.PriceMin;
-  const max = event.PriceMax;
-  if (min == null && max == null) return null;
-  if ((min ?? 0) === 0 && (max ?? 0) === 0) return "Free";
-  if (min != null && max != null && min !== max) return `$${min}–${max}`;
-  const p = min ?? max;
-  return p != null ? `$${p}` : null;
+	const min = event.PriceMin;
+	const max = event.PriceMax;
+	if (min == null && max == null) return null;
+	if ((min ?? 0) === 0 && (max ?? 0) === 0) return "Free";
+	if (min != null && max != null && min !== max) return `$${min}–${max}`;
+	const p = min ?? max;
+	return p != null ? `$${p}` : null;
 }
