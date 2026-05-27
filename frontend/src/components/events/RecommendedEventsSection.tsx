@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 import { EventCard } from "#/components/events/EventCard";
+import { EventCarousel } from "#/components/events/EventCarousel";
 import {
 	useRecommendations,
 	useRecordEventView,
@@ -20,6 +21,7 @@ export function RecommendedEventsSection({ lat, lng, radius }: Props) {
 		radius,
 		limit: 9,
 	});
+	const fired = useRef<Set<string>>(new Set());
 
 	if (isLoading || !data) return null;
 	if (data.events.length === 0) return null;
@@ -49,11 +51,11 @@ export function RecommendedEventsSection({ lat, lng, radius }: Props) {
 				</Link>
 			</div>
 
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{data.events.map((event) => (
-					<TrackedEventCard key={event.ID} event={event} />
-				))}
-			</div>
+			<EventCarousel
+				events={data.events}
+				reverse
+				renderItem={(event) => <TrackedEventCard event={event} fired={fired} />}
+			/>
 		</section>
 	);
 }
@@ -61,19 +63,24 @@ export function RecommendedEventsSection({ lat, lng, radius }: Props) {
 // TrackedEventCard fires a single impression when the card first becomes
 // 50%+ visible in the viewport. Used as a soft signal for the user's
 // preference vector.
-function TrackedEventCard({ event }: { event: Event }) {
+function TrackedEventCard({
+	event,
+	fired,
+}: {
+	event: Event;
+	fired: MutableRefObject<Set<string>>;
+}) {
 	const ref = useRef<HTMLDivElement>(null);
-	const fired = useRef(false);
 	const { mutate } = useRecordEventView();
 
 	useEffect(() => {
-		if (!ref.current) return;
+		if (!ref.current || fired.current.has(event.ID)) return;
 		const node = ref.current;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					if (entry.isIntersecting && !fired.current) {
-						fired.current = true;
+					if (entry.isIntersecting && !fired.current.has(event.ID)) {
+						fired.current.add(event.ID);
 						mutate(event.ID);
 						observer.disconnect();
 					}
@@ -83,11 +90,11 @@ function TrackedEventCard({ event }: { event: Event }) {
 		);
 		observer.observe(node);
 		return () => observer.disconnect();
-	}, [event.ID, mutate]);
+	}, [event.ID, mutate, fired]);
 
 	return (
 		<div ref={ref}>
-			<EventCard event={event} />
+			<EventCard event={event} animateOnScroll={false} />
 		</div>
 	);
 }

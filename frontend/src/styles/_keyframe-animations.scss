@@ -89,3 +89,17 @@
     transform: rotate(360deg);
   }
 }
+
+/* The carousel auto-scroll and drag are driven by GSAP (horizontalLoop);
+   this only clips the row and softens its edges. */
+.event-marquee__viewport {
+  overflow: hidden;
+  /* Fade the edges so cards slide in/out softly instead of clipping hard. */
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 4%,
+    black 96%,
+    transparent
+  );
+}

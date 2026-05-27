@@ -5,7 +5,7 @@ import gsap from 'gsap'
 import { SplitText } from 'gsap/SplitText'
 import { useGSAP } from '@gsap/react'
 import { LocationSearch } from '#/components/maps/LocationSearch'
-import { EventCard } from '#/components/events/EventCard'
+import { EventCarousel } from '#/components/events/EventCarousel'
 import { RecommendedEventsSection } from '#/components/events/RecommendedEventsSection'
 import { useSavedEvents } from '#/lib/hooks/useSavedEvents'
 import { useUser } from '#/lib/hooks/useUser'
@@ -122,11 +122,7 @@ function UpcomingSavedEvents() {
           View all
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {upcoming.map((event) => (
-          <EventCard key={event.ID} event={event} />
-        ))}
-      </div>
+      <EventCarousel events={upcoming} />
     </div>
   )
 }

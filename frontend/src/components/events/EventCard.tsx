@@ -19,11 +19,17 @@ function formatPrice(event: Event) {
   return usd.format((event.PriceMin ?? event.PriceMax)!);
 }
 
-export function EventCard({ event }: { event: Event }) {
+export function EventCard({
+  event,
+  animateOnScroll = true,
+}: {
+  event: Event;
+  animateOnScroll?: boolean;
+}) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
-    if (!cardRef.current) return;
+    if (!animateOnScroll || !cardRef.current) return;
     gsap.fromTo(
       cardRef.current,
       { y: 40, opacity: 0 },
@@ -40,10 +46,10 @@ export function EventCard({ event }: { event: Event }) {
         },
       },
     );
-  }, { scope: cardRef });
+  }, { scope: cardRef, dependencies: [animateOnScroll] });
 
   return (
-    <div ref={cardRef} style={{ opacity: 0 }}>
+    <div ref={cardRef} style={animateOnScroll ? { opacity: 0 } : undefined}>
     <Link
       to="/events/$eventId"
       params={{ eventId: event.ID }}
