@@ -182,7 +182,7 @@ function EventDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} disabled={isPastEvent(event)} />
           <AddToCalendarButton event={event} />
-          {!canEdit && (
+          {!canEdit && !isPastEvent(event) && (
             <button
               type="button"
               onClick={() => setShowSuggestEdit(true)}
