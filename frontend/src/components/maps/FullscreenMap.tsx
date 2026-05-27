@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/clerk-react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { Draggable } from "gsap/Draggable";
+import { InertiaPlugin } from "gsap/InertiaPlugin";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { EventMap } from "#/components/maps/EventMap";
 import { useMapEvents } from "#/lib/hooks/useEvents";
@@ -11,6 +15,9 @@ import type { Event } from "#/lib/types";
 import { CATEGORIES } from "../events/EventFilters";
 import ClerkHeader from "#/integrations/clerk/header-user";
 import ThemeToggle from "#/components/ThemeToggle";
+import { LocationSearch } from "./LocationSearch";
+
+gsap.registerPlugin(Draggable, InertiaPlugin);
 
 type SheetSnap = "peek" | "half" | "full";
 
@@ -340,6 +347,7 @@ function FiltersRow({
 }) {
   return (
     <div className="space-y-2 border-b border-(--line) p-3">
+      <LocationSearch navigateTo="/events" compact />
       <div className="flex items-center gap-1.5">
         <IconButton onClick={() => onShiftDate(-1)} label="Previous day">
           <svg
@@ -600,9 +608,15 @@ function MobileSheet({
   shouldFetch: boolean;
   children: React.ReactNode;
 }) {
-  const [dragHeight, setDragHeight] = useState<number | null>(null);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
+  // Snap pixel offsets (translateY) for each state, recomputed on resize.
+  const metricsRef = useRef({ fullPx: 0, peekY: 0, halfY: 0, fullY: 0 });
+  // Mirror of the current snap so Draggable callbacks read the latest value.
+  const snapRef = useRef<SheetSnap>(snap);
+  // Set when a snap change originates from a drag, so the controlled-prop
+  // effect doesn't re-animate a position GSAP's inertia already settled.
+  const internalChangeRef = useRef(false);
 
   // Extra headroom (px) below the viewport top that the full snap must leave
   // clear, on top of safe-area-inset-top, so the iPhone status bar / notch
@@ -620,72 +634,113 @@ function MobileSheet({
     return px;
   }
 
-  function fullSnapPx(): number {
+  // The sheet is rendered at full height and pinned to the bottom; each snap is
+  // a translateY offset that slides it down to reveal less of it. y=0 is fully
+  // open, larger y peeks less.
+  function computeMetrics() {
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    return Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX);
+    const fullPx = Math.max(200, vh - safeAreaInsetTop() - FULL_TOP_PADDING_PX);
+    metricsRef.current = {
+      fullPx,
+      fullY: 0,
+      halfY: Math.max(0, fullPx - Math.round(vh * 0.5)),
+      peekY: Math.max(0, fullPx - 120),
+    };
+    return metricsRef.current;
   }
 
-  function computeSnapPx(s: SheetSnap): number {
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    if (s === "peek") return 120;
-    if (s === "half") return Math.round(vh * 0.5);
-    return fullSnapPx();
+  function yForSnap(s: SheetSnap): number {
+    const m = metricsRef.current;
+    return s === "peek" ? m.peekY : s === "half" ? m.halfY : m.fullY;
   }
 
-  function onPointerDown(e: React.PointerEvent) {
-    dragStartY.current = e.clientY;
-    dragStartHeight.current = computeSnapPx(snap);
-    setDragHeight(dragStartHeight.current);
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    if (dragHeight == null) return;
-    const delta = dragStartY.current - e.clientY;
-    const h = Math.max(
-      80,
-      Math.min(fullSnapPx(), dragStartHeight.current + delta),
-    );
-    setDragHeight(h);
-  }
-
-  function onPointerUp(e: React.PointerEvent) {
-    if (dragHeight == null) return;
-    const vh = window.innerHeight;
-    const snaps: Array<[SheetSnap, number]> = [
-      ["peek", 120],
-      ["half", Math.round(vh * 0.5)],
-      ["full", fullSnapPx()],
+  function snapForY(y: number): SheetSnap {
+    const m = metricsRef.current;
+    const opts: Array<[SheetSnap, number]> = [
+      ["peek", m.peekY],
+      ["half", m.halfY],
+      ["full", m.fullY],
     ];
     let nearest: SheetSnap = "peek";
     let bestDist = Infinity;
-    for (const [s, h] of snaps) {
-      const d = Math.abs(dragHeight - h);
+    for (const [s, sy] of opts) {
+      const d = Math.abs(y - sy);
       if (d < bestDist) {
         bestDist = d;
         nearest = s;
       }
     }
-    onSnapChange(nearest);
-    setDragHeight(null);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
+    return nearest;
   }
 
-  const style: React.CSSProperties =
-    dragHeight != null
-      ? { height: `${dragHeight}px`, transition: "none" }
-      : {
-          height:
-            snap === "peek"
-              ? "120px"
-              : snap === "half"
-                ? "50vh"
-                : `calc(100dvh - env(safe-area-inset-top) - ${FULL_TOP_PADDING_PX}px)`,
-        };
+  // Create the Draggable once; drive resizing and external snap changes
+  // through it via the effects below.
+  useGSAP(
+    () => {
+      const sheet = sheetRef.current;
+      const handle = handleRef.current;
+      if (!sheet || !handle) return;
+
+      const m = computeMetrics();
+      sheet.style.height = `${m.fullPx}px`;
+      gsap.set(sheet, { y: yForSnap(snapRef.current) });
+
+      const [draggable] = Draggable.create(sheet, {
+        type: "y",
+        trigger: handle,
+        inertia: true,
+        edgeResistance: 0.9,
+        dragResistance: 0.05,
+        bounds: { minY: m.fullY, maxY: m.peekY },
+        // Snap (including thrown momentum) to the nearest of the three stops.
+        snap: {
+          y: (value: number) => {
+            const { fullY, halfY, peekY } = metricsRef.current;
+            return [fullY, halfY, peekY].reduce((prev, cur) =>
+              Math.abs(cur - value) < Math.abs(prev - value) ? cur : prev,
+            );
+          },
+        },
+        onDragEnd() {
+          // this.endY is the projected resting position after inertia/snap.
+          const next = snapForY(this.endY);
+          if (next !== snapRef.current) {
+            internalChangeRef.current = true;
+            onSnapChange(next);
+          }
+        },
+      });
+
+      const onResize = () => {
+        const m2 = computeMetrics();
+        sheet.style.height = `${m2.fullPx}px`;
+        draggable.applyBounds({ minY: m2.fullY, maxY: m2.peekY });
+        gsap.set(sheet, { y: yForSnap(snapRef.current) });
+      };
+      window.addEventListener("resize", onResize);
+      return () => {
+        window.removeEventListener("resize", onResize);
+        draggable.kill();
+      };
+    },
+    { scope: sheetRef },
+  );
+
+  // Animate to the controlled snap when it changes from outside a drag
+  // (the header button, or selecting an event collapsing "full" → "half").
+  useGSAP(
+    () => {
+      snapRef.current = snap;
+      if (internalChangeRef.current) {
+        internalChangeRef.current = false;
+        return;
+      }
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      gsap.to(sheet, { y: yForSnap(snap), duration: 0.4, ease: "power3.out" });
+    },
+    { dependencies: [snap], scope: sheetRef },
+  );
 
   function cycleSnap() {
     onSnapChange(snap === "peek" ? "half" : snap === "half" ? "full" : "peek");
@@ -693,15 +748,12 @@ function MobileSheet({
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg transition-[height] duration-200 md:hidden"
-      style={style}
+      ref={sheetRef}
+      className="fixed bottom-0 left-0 right-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-(--line) bg-(--surface-strong) shadow-2xl backdrop-blur-lg will-change-transform md:hidden"
     >
       <div
+        ref={handleRef}
         className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
         role="slider"
         aria-label="Resize event list"
         aria-valuenow={snap === "peek" ? 0 : snap === "half" ? 50 : 100}
