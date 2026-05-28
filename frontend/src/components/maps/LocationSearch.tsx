@@ -37,7 +37,7 @@ const ALL_CITIES: Record<string, { lat: number; lng: number }> = {
 	...SC_CITIES,
 };
 
-const STORAGE_KEY = "localevents_location";
+export const STORAGE_KEY = "localevents_location";
 
 export interface SavedLocation {
 	name: string;
@@ -209,7 +209,7 @@ export function LocationSearch({
 				<button
 					type="button"
 					onClick={() => go(saved.name, saved.lat, saved.lng)}
-					className="mt-2 text-sm text-[var(--lagoon-deep)] hover:text-[var(--lagoon)]"
+					className="mt-2 text-sm text-(--lagoon-deep) hover:text-(--lagoon)"
 				>
 					Use recent: {saved.name}
 				</button>

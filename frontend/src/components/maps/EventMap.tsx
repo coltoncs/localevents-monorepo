@@ -12,12 +12,23 @@ import {
   createGeoJSONCircle,
   escapeHtml,
 } from "#/lib/mapUtils";
+import { STORAGE_KEY, type SavedLocation } from "./LocationSearch";
+import { useNavigate } from "@tanstack/react-router";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN as string;
 
 const RADIUS_SOURCE = "radius-circle";
 const RADIUS_FILL_LAYER = "radius-fill";
 const RADIUS_LINE_LAYER = "radius-line";
+
+function saveLocation(location: SavedLocation) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
+  } catch {
+    // storage full or unavailable
+  }
+}
 
 interface EventMapProps {
   events: Event[];
@@ -40,6 +51,7 @@ export function EventMap({
   onMapClick,
   selectedEventId,
 }: EventMapProps) {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
@@ -127,14 +139,22 @@ export function EventMap({
       );
     });
 
-    mapRef.current.addControl(
-      new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: false,
-        showUserLocation: true,
-      }),
-      "top-left",
-    );
+    const geolocate = new mapboxgl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: false,
+      showUserLocation: true,
+    });
+
+    mapRef.current.addControl(geolocate, "top-left");
+
+    geolocate.on("geolocate", ({ coords }) => {
+      const { latitude, longitude } = coords;
+      saveLocation({ name: 'My Location', lat: latitude, lng: longitude });
+      navigate({
+        to: location.pathname,
+        search: (prev) => ({ ...prev, lat: latitude, lng: longitude }),
+      });
+    });
 
     mapRef.current.on("click", (e) => {
       onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
@@ -161,11 +181,7 @@ export function EventMap({
       if (newTheme === themeRef.current) return;
       themeRef.current = newTheme;
 
-      map.setConfigProperty(
-        "basemap",
-        "lightPreset",
-        getLightPreset(newTheme),
-      );
+      map.setConfigProperty("basemap", "lightPreset", getLightPreset(newTheme));
       updateCircleColors(map, newTheme);
 
       // Marker color is set via constructor; recreate each to update it.
