@@ -4,6 +4,7 @@ import { Spinner } from "#/components/Spinner";
 import { useMyPlaceCheckIns } from "#/lib/hooks/usePlaceCheckIns";
 import { useSavedEvents } from "#/lib/hooks/useSavedEvents";
 import { useUser } from "#/lib/hooks/useUser";
+import { useUserRole } from "#/lib/hooks/useUserRole";
 
 function formatMonthYear(iso: string) {
 	return new Date(iso).toLocaleDateString(undefined, {
@@ -17,6 +18,7 @@ export function ProfileOverviewTab() {
 	const { data: saved, isLoading: savedLoading } = useSavedEvents();
 	const { data: checkInsData, isLoading: checkInsLoading } =
 		useMyPlaceCheckIns();
+	const { isUser } = useUserRole();
 	const navigate = useNavigate();
 
 	if (userLoading || savedLoading || checkInsLoading) {
@@ -29,14 +31,24 @@ export function ProfileOverviewTab() {
 
 	return (
 		<div className="space-y-6">
-			<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-6">
-				<h2 className="text-lg font-semibold text-(--sea-ink)">
-					{user?.Username || user?.Email || "Welcome"}
-				</h2>
-				{user?.CreatedAt && (
-					<p className="mt-0.5 text-sm text-(--sea-ink-soft)">
-						Member since {formatMonthYear(user.CreatedAt)}
-					</p>
+			<div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-(--line) bg-(--surface-strong) p-6">
+				<div>
+					<h2 className="text-lg font-semibold text-(--sea-ink)">
+						{user?.Username || user?.Email || "Welcome"}
+					</h2>
+					{user?.CreatedAt && (
+						<p className="mt-0.5 text-sm text-(--sea-ink-soft)">
+							Member since {formatMonthYear(user.CreatedAt)}
+						</p>
+					)}
+				</div>
+				{isUser && (
+					<Link
+						to="/apply-author"
+						className="inline-flex items-center rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) no-underline hover:bg-(--surface-strong)"
+					>
+						Apply to be Author
+					</Link>
 				)}
 			</div>
 

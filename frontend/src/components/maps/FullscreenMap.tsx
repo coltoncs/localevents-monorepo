@@ -43,6 +43,7 @@ export function FullscreenMap({
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
 	const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+	const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(true);
 	const mapInstanceRef = useRef<MapboxMap | null>(null);
 	const sidebarRef = useRef<HTMLElement>(null);
 	const sidebarToggleRef = useRef<HTMLButtonElement>(null);
@@ -153,6 +154,7 @@ export function FullscreenMap({
 			essential: true,
 		});
 		if (sheetSnap === "full") setSheetSnap("half");
+		setMobileFiltersExpanded(false);
 	}
 
 	function handleRecenter() {
@@ -165,7 +167,7 @@ export function FullscreenMap({
 		});
 	}
 
-	const filtersNode = (
+	const desktopFiltersNode = (
 		<FiltersRow
 			date={date}
 			category={category}
@@ -174,6 +176,21 @@ export function FullscreenMap({
 			onDateChange={(v) => updateSearch({ date: v || undefined })}
 			onCategoryChange={(v) => updateSearch({ category: v || undefined })}
 			onRadiusChange={(v) => updateSearch({ radius: v })}
+		/>
+	);
+
+	const mobileFiltersNode = (
+		<FiltersRow
+			date={date}
+			category={category}
+			radius={radius}
+			onShiftDate={shiftDate}
+			onDateChange={(v) => updateSearch({ date: v || undefined })}
+			onCategoryChange={(v) => updateSearch({ category: v || undefined })}
+			onRadiusChange={(v) => updateSearch({ radius: v })}
+			collapsible
+			expanded={mobileFiltersExpanded}
+			onToggleExpanded={() => setMobileFiltersExpanded((v) => !v)}
 		/>
 	);
 
@@ -203,7 +220,7 @@ export function FullscreenMap({
 							eventCount={events.length}
 							shouldFetch={shouldFetch}
 						/>
-						{filtersNode}
+						{desktopFiltersNode}
 						<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
 					</div>
 				</aside>
@@ -311,7 +328,7 @@ export function FullscreenMap({
 						eventCount={events.length}
 						shouldFetch={shouldFetch}
 					>
-						{filtersNode}
+						{mobileFiltersNode}
 						<div className="min-h-0 flex-1 overflow-y-auto">{listNode}</div>
 					</MobileSheet>
 				</div>
@@ -356,6 +373,9 @@ function FiltersRow({
 	onDateChange,
 	onCategoryChange,
 	onRadiusChange,
+	collapsible = false,
+	expanded = true,
+	onToggleExpanded,
 }: {
 	date?: string;
 	category?: string;
@@ -364,10 +384,13 @@ function FiltersRow({
 	onDateChange: (v: string) => void;
 	onCategoryChange: (v: string) => void;
 	onRadiusChange: (v: string) => void;
+	collapsible?: boolean;
+	expanded?: boolean;
+	onToggleExpanded?: () => void;
 }) {
+	const showExpanded = !collapsible || expanded;
 	return (
 		<div className="space-y-2 border-b border-(--line) p-3">
-			<LocationSearch navigateTo="/events" compact />
 			<div className="flex items-center gap-1.5">
 				<IconButton onClick={() => onShiftDate(-1)} label="Previous day">
 					<svg
@@ -407,32 +430,62 @@ function FiltersRow({
 					</svg>
 				</IconButton>
 			</div>
-			<div className="flex items-center gap-1.5">
-				<select
-					value={category ?? ""}
-					onChange={(e) => onCategoryChange(e.target.value)}
-					className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+			{showExpanded && (
+				<>
+					<LocationSearch navigateTo="/events" compact />
+					<div className="flex items-center gap-1.5">
+						<select
+							value={category ?? ""}
+							onChange={(e) => onCategoryChange(e.target.value)}
+							className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+						>
+							<option value="">All categories</option>
+							{CATEGORIES.map((c) => (
+								<option key={c} value={c}>
+									{c}
+								</option>
+							))}
+						</select>
+						<select
+							value={radius ?? 10}
+							onChange={(e) => onRadiusChange(e.target.value)}
+							className="cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+							aria-label="Search radius"
+						>
+							{RADIUS_OPTIONS.map((r) => (
+								<option key={r} value={r}>
+									{r} mi
+								</option>
+							))}
+						</select>
+					</div>
+				</>
+			)}
+			{collapsible && (
+				<button
+					type="button"
+					onClick={onToggleExpanded}
+					className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-(--line) bg-(--chip-bg) py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-(--sea-ink-soft) hover:border-(--lagoon) hover:text-(--sea-ink)"
+					aria-expanded={expanded}
 				>
-					<option value="">All categories</option>
-					{CATEGORIES.map((c) => (
-						<option key={c} value={c}>
-							{c}
-						</option>
-					))}
-				</select>
-				<select
-					value={radius ?? 10}
-					onChange={(e) => onRadiusChange(e.target.value)}
-					className="cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
-					aria-label="Search radius"
-				>
-					{RADIUS_OPTIONS.map((r) => (
-						<option key={r} value={r}>
-							{r} mi
-						</option>
-					))}
-				</select>
-			</div>
+					{expanded ? "Hide filters" : "Show filters"}
+					<svg
+						width="10"
+						height="10"
+						viewBox="0 0 12 12"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						style={{
+							transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+							transition: "transform 0.2s",
+						}}
+					>
+						<path d="M3 4.5l3 3 3-3" />
+					</svg>
+				</button>
+			)}
 		</div>
 	);
 }
@@ -894,7 +947,7 @@ export function FullscreenMapSkeleton() {
 
 function MapNavBar({ onShowList }: { onShowList: () => void }) {
 	const { isSignedIn } = useAuth();
-	const { isUser, canCreateEvent, canManageAuthors } = useUserRole();
+	const { canCreateEvent, canManageAuthors } = useUserRole();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const navRef = useRef<HTMLElement | null>(null);
 	const [menuTop, setMenuTop] = useState(0);
@@ -939,16 +992,6 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
 					onClick={() => setMenuOpen(false)}
 				>
 					My Events
-				</Link>
-			)}
-			{isSignedIn && isUser && (
-				<Link
-					to="/apply-author"
-					className="nav-link"
-					activeProps={{ className: "nav-link is-active" }}
-					onClick={() => setMenuOpen(false)}
-				>
-					Apply to be Author
 				</Link>
 			)}
 			{isSignedIn && canManageAuthors && (

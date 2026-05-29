@@ -7,7 +7,7 @@ import ThemeToggle from "../ThemeToggle";
 
 export default function Header() {
   const { isSignedIn } = useAuth();
-  const { isUser, canCreateEvent, canManageAuthors } = useUserRole();
+  const { canCreateEvent, canManageAuthors } = useUserRole();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = (
@@ -46,16 +46,6 @@ export default function Header() {
           onClick={() => setMenuOpen(false)}
         >
           My Events
-        </Link>
-      )}
-      {isSignedIn && isUser && (
-        <Link
-          to="/apply-author"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Apply to be Author
         </Link>
       )}
       {isSignedIn && canManageAuthors && (
