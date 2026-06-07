@@ -6,6 +6,7 @@ import { SuggestEventEditModal } from "#/components/events/SuggestEventEditModal
 import { EventMap } from "#/components/maps/EventMap";
 import { NearbyPlaces } from "#/components/places/NearbyPlaces";
 import { SaveButton } from "#/components/SaveButton";
+import { ShareButton } from "#/components/ShareButton";
 import { Spinner } from "#/components/Spinner";
 import {
   formatDateLong,
@@ -182,6 +183,7 @@ function EventDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <SaveButton eventId={event.ID} disabled={isPastEvent(event)} />
           <AddToCalendarButton event={event} />
+          <ShareButton event={event} />
           {!canEdit && !isPastEvent(event) && (
             <button
               type="button"
