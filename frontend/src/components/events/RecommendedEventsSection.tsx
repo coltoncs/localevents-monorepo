@@ -53,7 +53,6 @@ export function RecommendedEventsSection({ lat, lng, radius }: Props) {
 
 			<EventCarousel
 				events={data.events}
-				reverse
 				renderItem={(event) => <TrackedEventCard event={event} fired={fired} />}
 			/>
 		</section>

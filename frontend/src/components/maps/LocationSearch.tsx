@@ -199,7 +199,7 @@ export function LocationSearch({
 					onClick={handleGeolocate}
 					disabled={geolocating}
 					title="Use my location"
-					className="rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm text-(--sea-ink-soft) hover:bg-(--surface) disabled:opacity-50"
+					className="rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm text-(--sea-ink-soft) disabled:opacity-50 cursor-pointe hover:border-(--lagoon) hover:bg-(--link-bg-hover)"
 				>
 					{geolocating ? "..." : "\u{1F4CD}"}
 				</button>

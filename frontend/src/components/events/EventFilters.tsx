@@ -14,6 +14,7 @@ export const CATEGORIES = [
   'Community',
   'Outdoors',
   'Nightlife',
+  'Canes',
 ]
 
 interface EventFiltersProps {

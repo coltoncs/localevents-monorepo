@@ -90,8 +90,8 @@
   }
 }
 
-/* The carousel auto-scroll and drag are driven by GSAP (horizontalLoop);
-   this only clips the row and softens its edges. */
+/* The carousel drag/inertia is driven by GSAP Draggable (transform on the
+   track); this clips the row and softens its edges. */
 .event-marquee__viewport {
   overflow: hidden;
   /* Fade the edges so cards slide in/out softly instead of clipping hard. */
