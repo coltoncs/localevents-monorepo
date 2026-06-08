@@ -356,6 +356,9 @@ export function EventMap({
 				} catch {
 					return;
 				}
+				// Only one popup at a time — drop any list-selection popup too.
+				selectionPopupRef.current?.remove();
+				selectionPopupRef.current = null;
 				pointPopupRef.current?.remove();
 				pointPopupRef.current = new mapboxgl.Popup({
 					offset: 16,
@@ -535,6 +538,9 @@ export function EventMap({
 	useEffect(() => {
 		selectionPopupRef.current?.remove();
 		selectionPopupRef.current = null;
+		// A list selection supersedes any popup opened by clicking the map.
+		pointPopupRef.current?.remove();
+		pointPopupRef.current = null;
 
 		const map = mapRef.current;
 		if (!map || !selectedEventId) return;
