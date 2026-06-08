@@ -370,7 +370,9 @@ function EventDetailPage() {
               </div>
             )}
 
-            {(event.PriceMin != null || event.PriceMax != null) && (
+            {(event.PriceMin != null ||
+              event.PriceMax != null ||
+              event.IsFree) && (
               <div>
                 <h3 className="text-sm font-medium text-(--sea-ink-soft)">
                   Price
@@ -381,6 +383,8 @@ function EventDetailPage() {
                       style: "currency",
                       currency: "USD",
                     });
+                    if (event.PriceMin == null && event.PriceMax == null)
+                      return "Free";
                     if (event.PriceMin != null && event.PriceMax != null)
                       return event.PriceMin === event.PriceMax
                         ? fmt.format(event.PriceMin)

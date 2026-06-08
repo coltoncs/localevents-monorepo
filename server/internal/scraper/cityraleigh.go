@@ -303,6 +303,9 @@ func mapCREvent(ev crEvent) (RawEvent, error) {
 		raw.TicketURL = ev.AbsoluteURL
 	}
 
+	// Price / free admission from the free-text "admission" field.
+	raw.PriceMin, raw.PriceMax, raw.IsFree = parseAdmission(ev.Admission)
+
 	return raw, nil
 }
 

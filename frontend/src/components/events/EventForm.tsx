@@ -132,6 +132,7 @@ interface EventFormProps {
 		ticket_url?: string;
 		price_min?: number;
 		price_max?: number;
+		is_free?: boolean;
 	};
 	// "create" publishes directly (authors/admins). "suggest" submits a single
 	// event to the admin review queue (open to everyone, incl. unauthenticated).
@@ -288,7 +289,8 @@ export function EventForm({
 				initialValues?.price_min != null ? String(initialValues.price_min) : "",
 			price_max:
 				initialValues?.price_max != null ? String(initialValues.price_max) : "",
-		} as Record<string, string | number | string[]>,
+			is_free: initialValues?.is_free ?? false,
+		} as Record<string, string | number | boolean | string[]>,
 		onSubmit: async ({ value }) => {
 			const eventDates = getEventDates();
 			if (eventDates.length === 0) {
@@ -335,6 +337,7 @@ export function EventForm({
 					if (value.ticket_url) changes.ticket_url = value.ticket_url;
 					if (value.price_min) changes.price_min = Number(value.price_min);
 					if (value.price_max) changes.price_max = Number(value.price_max);
+					if (value.is_free) changes.is_free = true;
 
 					await createSuggestion.mutateAsync({
 						target_type: "event",
@@ -363,6 +366,7 @@ export function EventForm({
 				if (value.ticket_url) base.ticket_url = value.ticket_url as string;
 				if (value.price_min) base.price_min = Number(value.price_min);
 				if (value.price_max) base.price_max = Number(value.price_max);
+				if (value.is_free) base.is_free = true;
 				if (value.venue_id) base.venue_id = value.venue_id as string;
 
 				const isRange = dateMode === "range" && eventDates.length > 1;
@@ -1058,6 +1062,20 @@ export function EventForm({
 					)}
 				</form.Field>
 			</div>
+
+			<form.Field name="is_free">
+				{(field) => (
+					<label className="flex items-center gap-2 text-sm text-(--sea-ink)">
+						<input
+							type="checkbox"
+							checked={field.state.value as boolean}
+							onChange={(e) => field.handleChange(e.target.checked)}
+							className="size-4 rounded border-(--line)"
+						/>
+						This event is free
+					</label>
+				)}
+			</form.Field>
 
 			{(createSeries.isError || createSuggestion.isError) && (
 				<p className="text-sm text-red-600">

@@ -58,7 +58,7 @@ func (q *Queries) GetUserCategoryAffinities(ctx context.Context, userID pgtype.U
 }
 
 const listSavedEvents = `-- name: ListSavedEvents :many
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free
 FROM events e
 JOIN saved_events se ON se.event_id = e.id
 WHERE se.user_id = $1
@@ -100,6 +100,7 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -112,7 +113,7 @@ func (q *Queries) ListSavedEvents(ctx context.Context, userID pgtype.UUID) ([]Ev
 }
 
 const listSavedEventsForDigest = `-- name: ListSavedEventsForDigest :many
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free
 FROM events e
 JOIN saved_events se ON se.event_id = e.id
 WHERE se.user_id = $1
@@ -162,6 +163,7 @@ func (q *Queries) ListSavedEventsForDigest(ctx context.Context, arg ListSavedEve
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}

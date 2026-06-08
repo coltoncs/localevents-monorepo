@@ -73,7 +73,8 @@ function EditEventContent() {
 			ticket_url: event?.TicketUrl ?? "",
 			price_min: event?.PriceMin != null ? String(event.PriceMin) : "",
 			price_max: event?.PriceMax != null ? String(event.PriceMax) : "",
-		} as Record<string, string | number | string[]>,
+			is_free: event?.IsFree ?? false,
+		} as Record<string, string | number | boolean | string[]>,
 		onSubmit: async ({ value }) => {
 			if (!startDate) {
 				setDateError("Start date & time is required");
@@ -102,6 +103,7 @@ function EditEventContent() {
 			if (value.ticket_url) data.ticket_url = value.ticket_url as string;
 			if (value.price_min) data.price_min = Number(value.price_min);
 			if (value.price_max) data.price_max = Number(value.price_max);
+			data.is_free = Boolean(value.is_free);
 
 			if (applyToSeries && event?.SeriesID) {
 				const { start_time: _st, end_time: _et, ...seriesData } = data;
@@ -493,6 +495,20 @@ function EditEventContent() {
 							)}
 						</form.Field>
 					</div>
+
+					<form.Field name="is_free">
+						{(field) => (
+							<label className="flex items-center gap-2 text-sm text-(--sea-ink)">
+								<input
+									type="checkbox"
+									checked={field.state.value as boolean}
+									onChange={(e) => field.handleChange(e.target.checked)}
+									className="size-4 rounded border-(--line)"
+								/>
+								This event is free
+							</label>
+						)}
+					</form.Field>
 
 					{event?.SeriesID && (
 						<div className="rounded-md border border-amber-200 bg-amber-50 p-3">

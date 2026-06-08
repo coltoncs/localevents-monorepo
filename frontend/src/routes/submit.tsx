@@ -42,6 +42,7 @@ function SubmitPage() {
         ticket_url: sourceEvent.TicketUrl,
         price_min: sourceEvent.PriceMin,
         price_max: sourceEvent.PriceMax,
+        is_free: sourceEvent.IsFree,
       }
     : undefined
 

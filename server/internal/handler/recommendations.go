@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
@@ -175,13 +177,18 @@ func (h *RecommendationHandler) RecordView(w http.ResponseWriter, r *http.Reques
 		UserID:  user.ID,
 		EventID: pgtype.UUID{Bytes: eventUUID, Valid: true},
 	}); err != nil {
-		log.Printf("record view: %s event=%s: %v", user.ID.Bytes, eventUUID, err)
+		// A 23503 (foreign key violation) just means the event was deleted
+		// between render and this impression ping — benign, so don't log it.
+		var pgErr *pgconn.PgError
+		if !(errors.As(err, &pgErr) && pgErr.Code == "23503") {
+			log.Printf("record view: user=%s event=%s: %v", clerkID, eventUUID, err)
+		}
 	}
 	if err := h.queries.EnsureUserPreferences(r.Context(), user.ID); err != nil {
-		log.Printf("record view: ensure user preferences %s: %v", user.ID.Bytes, err)
+		log.Printf("record view: ensure user preferences user=%s: %v", clerkID, err)
 	}
 	if err := h.queries.MarkUserPreferencesStale(r.Context(), user.ID); err != nil {
-		log.Printf("record view: mark user preferences stale %s: %v", user.ID.Bytes, err)
+		log.Printf("record view: mark user preferences stale user=%s: %v", clerkID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

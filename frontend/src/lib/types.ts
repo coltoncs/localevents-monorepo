@@ -18,6 +18,7 @@ export interface Event {
 	TicketUrl?: string;
 	PriceMin?: number;
 	PriceMax?: number;
+	IsFree?: boolean;
 	SubmittedBy?: string;
 	VenueID?: string;
 	SeriesID?: string;
@@ -96,6 +97,7 @@ export interface CreateEventInput {
 	ticket_url?: string;
 	price_min?: number;
 	price_max?: number;
+	is_free?: boolean;
 	venue_id?: string;
 	series_id?: string;
 }

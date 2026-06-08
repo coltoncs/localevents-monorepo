@@ -211,6 +211,11 @@ func mapDDEvent(data json.RawMessage, pageURL string, loc Location) (RawEvent, e
 
 	raw.ImageURL = ddImageURL(ev.Image)
 
+	// Price / free admission from schema.org offers, when present. Most
+	// Discover Durham listings carry only a ticket URL (no price), which
+	// correctly yields unknown price rather than "free".
+	raw.PriceMin, raw.PriceMax, raw.IsFree = parseOffers(ev.Offers)
+
 	return raw, nil
 }
 
@@ -244,6 +249,7 @@ type ddEvent struct {
 	EndDate     string          `json:"endDate"`
 	URL         string          `json:"url"`
 	Image       json.RawMessage `json:"image"`
+	Offers      json.RawMessage `json:"offers"`
 	Location    ddPlace         `json:"location"`
 }
 

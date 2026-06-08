@@ -10,13 +10,18 @@ gsap.registerPlugin(ScrollTrigger);
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
-function formatPrice(event: Event) {
-  if (event.PriceMin == null && event.PriceMax == null) return "Free";
-  if (event.PriceMin != null && event.PriceMax != null) {
-    if (event.PriceMin === event.PriceMax) return usd.format(event.PriceMin);
-    return `${usd.format(event.PriceMin)} - ${usd.format(event.PriceMax)}`;
+// Returns a display price, "Free" only when the event is explicitly free, or
+// null when the price is unknown (no price data and not tagged free).
+function formatPrice(event: Event): string | null {
+  if (event.PriceMin != null || event.PriceMax != null) {
+    if (event.PriceMin != null && event.PriceMax != null) {
+      if (event.PriceMin === event.PriceMax) return usd.format(event.PriceMin);
+      return `${usd.format(event.PriceMin)} - ${usd.format(event.PriceMax)}`;
+    }
+    return usd.format((event.PriceMin ?? event.PriceMax)!);
   }
-  return usd.format((event.PriceMin ?? event.PriceMax)!);
+  if (event.IsFree) return "Free";
+  return null;
 }
 
 export function EventCard({
@@ -90,9 +95,12 @@ export function EventCard({
             )}
           </p>
         )}
-        <p className="text-sm font-medium text-[var(--sea-ink)]">
-          {formatPrice(event)}
-        </p>
+        {(() => {
+          const price = formatPrice(event);
+          return price == null ? null : (
+            <p className="text-sm font-medium text-[var(--sea-ink)]">{price}</p>
+          );
+        })()}
       </div>
     </Link>
     </div>

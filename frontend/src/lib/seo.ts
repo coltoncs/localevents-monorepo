@@ -46,12 +46,14 @@ export function eventJsonLd(event: Event): object {
     ld.location = place
   }
 
-  if (event.PriceMin != null || event.PriceMax != null) {
+  if (event.PriceMin != null || event.PriceMax != null || event.IsFree) {
     const offer: Record<string, unknown> = {
       '@type': 'Offer',
       priceCurrency: 'USD',
     }
-    if (event.PriceMin != null && event.PriceMax != null && event.PriceMin !== event.PriceMax) {
+    if (event.PriceMin == null && event.PriceMax == null) {
+      offer.price = 0
+    } else if (event.PriceMin != null && event.PriceMax != null && event.PriceMin !== event.PriceMax) {
       offer.lowPrice = event.PriceMin
       offer.highPrice = event.PriceMax
     } else {

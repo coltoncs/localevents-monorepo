@@ -1132,12 +1132,19 @@ function haversineMiles(
 	return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+// Returns a display price, "Free" only when the event is explicitly free, or
+// null when the price is unknown (no price data and not tagged free).
 function formatPrice(event: Event): string | null {
+	// Whole numbers stay bare ($12); any fractional value gets two decimals so
+	// 12.5 shows as 12.50 rather than 12.5.
+	const fmt = (n: number) => (Number.isInteger(n) ? `${n}` : n.toFixed(2));
 	const min = event.PriceMin;
 	const max = event.PriceMax;
-	if (min == null && max == null) return null;
-	if ((min ?? 0) === 0 && (max ?? 0) === 0) return "Free";
-	if (min != null && max != null && min !== max) return `$${min}–${max}`;
-	const p = min ?? max;
-	return p != null ? `$${p}` : null;
+	if (min != null || max != null) {
+		if (min != null && max != null && min !== max)
+			return `$${fmt(min)}–${fmt(max)}`;
+		const p = min ?? max;
+		return p != null ? `$${fmt(p)}` : null;
+	}
+	return event.IsFree ? "Free" : null;
 }

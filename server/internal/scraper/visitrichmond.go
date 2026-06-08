@@ -81,7 +81,7 @@ func (v *VisitRichmond) FetchEvents(ctx context.Context, loc Location) ([]RawEve
 					"location": 1, "address1": 1, "city": 1, "state": 1, "zip": 1,
 					"latitude": 1, "longitude": 1,
 					"date": 1, "startDate": 1, "endDate": 1,
-					"categories": 1, "media_raw": 1,
+					"categories": 1, "media_raw": 1, "admission": 1,
 					"recid": 1, "url": 1, "absoluteUrl": 1, "linkUrl": 1,
 					"recurrence": 1, "recurType": 1,
 				},
@@ -232,6 +232,9 @@ func mapVREvent(ev vrEvent) (RawEvent, error) {
 		raw.TicketURL = vrSiteURL + ev.URL
 	}
 
+	// Price / free admission from the free-text "admission" field.
+	raw.PriceMin, raw.PriceMax, raw.IsFree = parseAdmission(ev.Admission)
+
 	return raw, nil
 }
 
@@ -291,6 +294,7 @@ type vrEvent struct {
 	Location    string       `json:"location"`
 	Categories  []crCategory `json:"categories"`
 	MediaRaw    []crMedia    `json:"media_raw"`
+	Admission   string       `json:"admission"`
 	URL         string       `json:"url"`
 	AbsoluteURL string       `json:"absoluteUrl"`
 	LinkURL     string       `json:"linkUrl"`

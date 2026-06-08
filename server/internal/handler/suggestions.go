@@ -29,7 +29,7 @@ var allowedEventFields = map[string]bool{
 	"latitude": true, "longitude": true,
 	"start_time": true, "end_time": true, "categories": true,
 	"image_url": true, "ticket_url": true,
-	"price_min": true, "price_max": true,
+	"price_min": true, "price_max": true, "is_free": true,
 }
 
 var allowedVenueFields = map[string]bool{
@@ -592,6 +592,7 @@ func (h *SuggestionHandler) applyEventChanges(r *http.Request, targetID pgtype.U
 		TicketUrl:   event.TicketUrl,
 		PriceMin:    event.PriceMin,
 		PriceMax:    event.PriceMax,
+		IsFree:      event.IsFree,
 		VenueID:     event.VenueID,
 	}
 
@@ -658,6 +659,10 @@ func (h *SuggestionHandler) applyEventChanges(r *http.Request, targetID pgtype.U
 				params.PriceMax = pgtype.Numeric{Int: big.NewInt(cents), Exp: -2, Valid: true}
 			} else if val == nil {
 				params.PriceMax = pgtype.Numeric{}
+			}
+		case "is_free":
+			if b, ok := val.(bool); ok {
+				params.IsFree = b
 			}
 		}
 	}
@@ -963,6 +968,9 @@ func (h *SuggestionHandler) applyEventCreate(r *http.Request, clerkID string, ch
 	}
 	if f, ok := changes["price_max"].(float64); ok {
 		params.PriceMax = pgtype.Numeric{Int: big.NewInt(int64(f * 100)), Exp: -2, Valid: true}
+	}
+	if b, ok := changes["is_free"].(bool); ok {
+		params.IsFree = b
 	}
 
 	_, err = h.queries.CreateEvent(r.Context(), params)

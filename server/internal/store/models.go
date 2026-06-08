@@ -78,6 +78,7 @@ type Event struct {
 	VenueID        pgtype.UUID
 	Categories     []string
 	SeriesID       pgtype.UUID
+	IsFree         bool
 }
 
 type EventEmbedding struct {

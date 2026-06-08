@@ -73,12 +73,12 @@ const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, submitted_by, venue_id, series_id
+    ticket_url, price_min, price_max, is_free, submitted_by, venue_id, series_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20
-) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+    $15, $16, $17, $18, $19, $20, $21
+) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 `
 
 type CreateEventParams struct {
@@ -99,6 +99,7 @@ type CreateEventParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	IsFree      bool
 	SubmittedBy pgtype.UUID
 	VenueID     pgtype.UUID
 	SeriesID    pgtype.UUID
@@ -123,6 +124,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.IsFree,
 		arg.SubmittedBy,
 		arg.VenueID,
 		arg.SeriesID,
@@ -154,6 +156,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.VenueID,
 		&i.Categories,
 		&i.SeriesID,
+		&i.IsFree,
 	)
 	return i, err
 }
@@ -181,7 +184,7 @@ func (q *Queries) DeletePastEvents(ctx context.Context) (int64, error) {
 }
 
 const getEvent = `-- name: GetEvent :one
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id FROM events WHERE id = $1
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events WHERE id = $1
 `
 
 func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
@@ -213,12 +216,13 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.VenueID,
 		&i.Categories,
 		&i.SeriesID,
+		&i.IsFree,
 	)
 	return i, err
 }
 
 const getEventsByIDs = `-- name: GetEventsByIDs :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id FROM events WHERE id = ANY($1::uuid[])
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events WHERE id = ANY($1::uuid[])
 `
 
 func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Event, error) {
@@ -256,6 +260,7 @@ func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -268,7 +273,7 @@ func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([
 }
 
 const listEventsByLocation = `-- name: ListEventsByLocation :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -349,6 +354,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -361,7 +367,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 }
 
 const listEventsByLocationDateSorted = `-- name: ListEventsByLocationDateSorted :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -444,6 +450,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -456,7 +463,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 }
 
 const listEventsBySeries = `-- name: ListEventsBySeries :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events
 WHERE series_id = $1
 ORDER BY start_time ASC
 `
@@ -496,6 +503,7 @@ func (q *Queries) ListEventsBySeries(ctx context.Context, seriesID pgtype.UUID) 
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -508,7 +516,7 @@ func (q *Queries) ListEventsBySeries(ctx context.Context, seriesID pgtype.UUID) 
 }
 
 const listEventsBySubmitter = `-- name: ListEventsBySubmitter :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events
 WHERE submitted_by = $1
 ORDER BY start_time ASC
 `
@@ -548,6 +556,7 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -626,11 +635,12 @@ UPDATE events SET
     ticket_url = $15,
     price_min = $16,
     price_max = $17,
-    venue_id = $18,
+    is_free = $18,
+    venue_id = $19,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 `
 
 type UpdateEventParams struct {
@@ -651,6 +661,7 @@ type UpdateEventParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	IsFree      bool
 	VenueID     pgtype.UUID
 }
 
@@ -673,6 +684,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.IsFree,
 		arg.VenueID,
 	)
 	var i Event
@@ -702,6 +714,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.VenueID,
 		&i.Categories,
 		&i.SeriesID,
+		&i.IsFree,
 	)
 	return i, err
 }
@@ -722,11 +735,12 @@ UPDATE events SET
     ticket_url = $13,
     price_min = $14,
     price_max = $15,
-    venue_id = $16,
+    is_free = $16,
+    venue_id = $17,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE series_id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 `
 
 type UpdateEventsBySeriesParams struct {
@@ -745,6 +759,7 @@ type UpdateEventsBySeriesParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	IsFree      bool
 	VenueID     pgtype.UUID
 }
 
@@ -765,6 +780,7 @@ func (q *Queries) UpdateEventsBySeries(ctx context.Context, arg UpdateEventsBySe
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.IsFree,
 		arg.VenueID,
 	)
 	if err != nil {
@@ -800,6 +816,7 @@ func (q *Queries) UpdateEventsBySeries(ctx context.Context, arg UpdateEventsBySe
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}
@@ -815,8 +832,8 @@ const upsertExternalEvent = `-- name: UpsertExternalEvent :one
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, venue_id
-) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+    ticket_url, price_min, price_max, is_free, venue_id
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
 WHERE NOT EXISTS (
     SELECT 1 FROM deleted_external_events d
     WHERE d.source = $2 AND d.external_id = $1
@@ -830,9 +847,10 @@ DO UPDATE SET
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
     categories=EXCLUDED.categories, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
-    price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
+    price_max=EXCLUDED.price_max, is_free=EXCLUDED.is_free,
+    venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 `
 
 type UpsertExternalEventParams struct {
@@ -854,6 +872,7 @@ type UpsertExternalEventParams struct {
 	TicketUrl   pgtype.Text
 	PriceMin    pgtype.Numeric
 	PriceMax    pgtype.Numeric
+	IsFree      bool
 	VenueID     pgtype.UUID
 }
 
@@ -877,6 +896,7 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		arg.TicketUrl,
 		arg.PriceMin,
 		arg.PriceMax,
+		arg.IsFree,
 		arg.VenueID,
 	)
 	var i Event
@@ -906,6 +926,7 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		&i.VenueID,
 		&i.Categories,
 		&i.SeriesID,
+		&i.IsFree,
 	)
 	return i, err
 }

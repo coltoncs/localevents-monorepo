@@ -361,6 +361,7 @@ type createEventRequest struct {
 	TicketURL   *string  `json:"ticket_url"`
 	PriceMin    *float64 `json:"price_min"`
 	PriceMax    *float64 `json:"price_max"`
+	IsFree      *bool    `json:"is_free"`
 	VenueID     *string  `json:"venue_id"`
 	SeriesID    *string  `json:"series_id"`
 }
@@ -459,6 +460,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
+		IsFree:      boolFromPtr(req.IsFree),
 		SubmittedBy: user.ID,
 		VenueID:     venueID,
 		SeriesID:    uuidFromPtr(req.SeriesID),
@@ -609,6 +611,7 @@ func (h *EventHandler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 			TicketUrl:   textFromPtr(req.Base.TicketURL),
 			PriceMin:    numericFromFloat(req.Base.PriceMin),
 			PriceMax:    numericFromFloat(req.Base.PriceMax),
+			IsFree:      boolFromPtr(req.Base.IsFree),
 			SubmittedBy: user.ID,
 			VenueID:     venueID,
 			SeriesID:    seriesID,
@@ -647,6 +650,10 @@ func numericFromFloat(f *float64) pgtype.Numeric {
 		Exp:   -2,
 		Valid: true,
 	}
+}
+
+func boolFromPtr(b *bool) bool {
+	return b != nil && *b
 }
 
 func uuidFromPtr(s *string) pgtype.UUID {
@@ -753,6 +760,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
+		IsFree:      boolFromPtr(req.IsFree),
 		VenueID:     uuidFromPtr(req.VenueID),
 	})
 	if err != nil {
@@ -936,6 +944,7 @@ func (h *EventHandler) UpdateSeries(w http.ResponseWriter, r *http.Request) {
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
 		PriceMax:    numericFromFloat(req.PriceMax),
+		IsFree:      boolFromPtr(req.IsFree),
 		VenueID:     uuidFromPtr(req.VenueID),
 	})
 	if err != nil {

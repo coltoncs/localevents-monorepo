@@ -495,6 +495,10 @@ func mapCHEvent(ev chEvent) (RawEvent, error) {
 		raw.TicketURL = ev.AbsoluteURL
 	}
 
+	// Price / free admission from the free-text "admission" field. Copied into
+	// every expanded recurrence instance via the base RawEvent.
+	raw.PriceMin, raw.PriceMax, raw.IsFree = parseAdmission(ev.Admission)
+
 	return raw, nil
 }
 

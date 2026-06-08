@@ -46,6 +46,9 @@ type RawEvent struct {
 	TicketURL   string
 	PriceMin    *float64
 	PriceMax    *float64
+	// IsFree is true only when a source explicitly indicates free admission.
+	// Absence of price data does NOT imply free.
+	IsFree bool
 }
 
 // EventSource is the interface that all event scrapers must implement.
@@ -226,6 +229,7 @@ func (r *Runner) Run(ctx context.Context) {
 			TicketUrl:   textFromStr(e.TicketURL),
 			PriceMin:    numericFromFloat(e.PriceMin),
 			PriceMax:    numericFromFloat(e.PriceMax),
+			IsFree:      e.IsFree,
 			VenueID:     venueID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -327,12 +331,15 @@ func enrichPriorityEvent(pe, ae *RawEvent) {
 	if ae.TicketURL != "" && pe.TicketURL == "" {
 		pe.TicketURL = ae.TicketURL
 	}
-	// Fill in price if missing
-	if ae.PriceMin != nil && pe.PriceMin == nil {
-		pe.PriceMin = ae.PriceMin
-	}
-	if ae.PriceMax != nil && pe.PriceMax == nil {
-		pe.PriceMax = ae.PriceMax
+	// Fill in price if missing, unless the local source explicitly marked the
+	// event free — in that case the community listing's "free" is authoritative.
+	if !pe.IsFree {
+		if ae.PriceMin != nil && pe.PriceMin == nil {
+			pe.PriceMin = ae.PriceMin
+		}
+		if ae.PriceMax != nil && pe.PriceMax == nil {
+			pe.PriceMax = ae.PriceMax
+		}
 	}
 	// Fill in categories if missing
 	if len(ae.Categories) > 0 && len(pe.Categories) == 0 {

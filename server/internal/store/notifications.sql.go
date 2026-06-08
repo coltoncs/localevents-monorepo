@@ -231,7 +231,7 @@ func (q *Queries) ListSMSSubscribers(ctx context.Context) ([]ListSMSSubscribersR
 }
 
 const listUpcomingEventsForDigest = `-- name: ListUpcomingEventsForDigest :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -295,6 +295,7 @@ func (q *Queries) ListUpcomingEventsForDigest(ctx context.Context, arg ListUpcom
 			&i.VenueID,
 			&i.Categories,
 			&i.SeriesID,
+			&i.IsFree,
 		); err != nil {
 			return nil, err
 		}

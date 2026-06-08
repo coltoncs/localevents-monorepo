@@ -65,11 +65,11 @@ LIMIT @event_limit OFFSET @event_offset;
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, submitted_by, venue_id, series_id
+    ticket_url, price_min, price_max, is_free, submitted_by, venue_id, series_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20
+    $15, $16, $17, $18, $19, $20, $21
 ) RETURNING *;
 
 -- name: ListEventsBySubmitter :many
@@ -95,7 +95,8 @@ UPDATE events SET
     ticket_url = $15,
     price_min = $16,
     price_max = $17,
-    venue_id = $18,
+    is_free = $18,
+    venue_id = $19,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
@@ -133,8 +134,8 @@ WHERE deleted_at < NOW() - INTERVAL '90 days';
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, venue_id
-) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+    ticket_url, price_min, price_max, is_free, venue_id
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
 WHERE NOT EXISTS (
     SELECT 1 FROM deleted_external_events d
     WHERE d.source = $2 AND d.external_id = $1
@@ -148,7 +149,8 @@ DO UPDATE SET
     start_time=EXCLUDED.start_time, end_time=EXCLUDED.end_time,
     categories=EXCLUDED.categories, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
-    price_max=EXCLUDED.price_max, venue_id=EXCLUDED.venue_id, updated_at=NOW()
+    price_max=EXCLUDED.price_max, is_free=EXCLUDED.is_free,
+    venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
 RETURNING *;
 
@@ -173,7 +175,8 @@ UPDATE events SET
     ticket_url = $13,
     price_min = $14,
     price_max = $15,
-    venue_id = $16,
+    is_free = $16,
+    venue_id = $17,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE series_id = $1
