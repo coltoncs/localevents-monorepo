@@ -1,7 +1,9 @@
-import { useAuth } from "@clerk/clerk-react";
+import { SignUpButton, useAuth } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { ApiError } from "#/lib/api";
 import { AddToCalendarButton } from "#/components/AddToCalendarButton";
+import { FeaturedBadge } from "#/components/events/FeaturedBadge";
 import { SuggestEventEditModal } from "#/components/events/SuggestEventEditModal";
 import { EventMap } from "#/components/maps/EventMap";
 import { NearbyPlaces } from "#/components/places/NearbyPlaces";
@@ -21,6 +23,7 @@ import {
   useEvent,
   useSeriesEvents,
 } from "#/lib/hooks/useEvents";
+import { useFeatureQuota, useSetFeatured } from "#/lib/hooks/useFeaturedEvents";
 import { useUser } from "#/lib/hooks/useUser";
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import { eventJsonLd, stripHtml, truncate } from "#/lib/seo";
@@ -107,12 +110,22 @@ function VenueName({ event }: { event: Event }) {
 function EventDetailPage() {
   const { eventId } = Route.useParams();
   const { data: event, isLoading } = useEvent(eventId);
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, has } = useAuth();
   const { isAdmin, isAuthor } = useUserRole();
   const router = useRouter();
   const deleteEvent = useDeleteEvent();
+  const setFeatured = useSetFeatured();
+  // Featuring is unlocked by the paid `feature_events` entitlement (admins
+  // exempt) and is open to any signed-in subscriber on any event.
+  const hasFeatureEntitlement =
+    isAdmin || (typeof has === "function" && has({ feature: "feature_events" }));
+  const canFeatureAction = isSignedIn === true && hasFeatureEntitlement;
+  const { data: featureQuota } = useFeatureQuota(canFeatureAction);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSuggestEdit, setShowSuggestEdit] = useState(false);
+  const [showFeatureLimit, setShowFeatureLimit] = useState(false);
+  const [showSubscribeCTA, setShowSubscribeCTA] = useState(false);
+  const [showSignUpCTA, setShowSignUpCTA] = useState(false);
   const { data: backendUser } = useUser();
   const { data: seriesEvents } = useSeriesEvents(event?.SeriesID);
   const [showAllSeriesDates, setShowAllSeriesDates] = useState(false);
@@ -147,6 +160,46 @@ function EventDetailPage() {
     (isAdmin ||
       (isAuthor && event.SubmittedBy && backendUser?.ID === event.SubmittedBy));
 
+  // The Feature button shows to everyone as a funnel. Any signed-in subscriber
+  // can feature any event; non-subscribers/visitors are routed to a subscribe or
+  // sign-up CTA. Only the user who featured an event (or an admin) can un-feature
+  // it. The subscription + monthly cap are enforced server-side.
+  const featuredByMe =
+    isAdmin || (!!event.FeaturedBy && backendUser?.ID === event.FeaturedBy);
+
+
+  const handleFeatureClick = () => {
+    if (event.IsFeatured) {
+      // Already featured: only the featurer (or an admin) can turn it off.
+      if (featuredByMe) {
+        setFeatured.mutate({ id: event.ID, featured: false },);
+      }
+      return;
+    }
+    if (!isSignedIn) {
+      setShowSignUpCTA(true);
+      return;
+    }
+    // Let the server decide why a signed-in user can't feature, so the correct
+    // message shows: 402 → not subscribed (subscribe CTA); 403 → over the
+    // monthly cap (limit popup). Relying on the client's entitlement view here
+    // would mis-route subscribers who are actually just at their limit.
+    setFeatured.mutate(
+      { id: event.ID, featured: true },
+      {
+        onError: (err) => {
+          if (err instanceof ApiError) {
+            if (err.message.includes("feature_limit_reached")) {
+              setShowFeatureLimit(true);
+            } else if (err.message.includes("subscription_required")) {
+              setShowSubscribeCTA(true);
+            }
+          }
+        },
+      },
+    );
+  };
+
   const handleDelete = async () => {
     await deleteEvent.mutateAsync(event.ID);
     router.history.back();
@@ -164,6 +217,7 @@ function EventDetailPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
+          {event.IsFeatured && <FeaturedBadge className="mb-2" />}
           {event.Categories && event.Categories.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {event.Categories.map((cat) => (
@@ -192,6 +246,31 @@ function EventDetailPage() {
             >
               Suggest Edit
             </button>
+          )}
+          {!isPastEvent(event) && (
+            <button
+              type="button"
+              onClick={handleFeatureClick}
+              disabled={setFeatured.isPending || (event.IsFeatured && !featuredByMe)}
+              className={`text-nowrap cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
+                event.IsFeatured
+                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  : "border border-(--line) bg-(--surface-strong) text-(--sea-ink) hover:bg-(--surface)"
+              }`}
+            >
+              {event.IsFeatured
+                ? featuredByMe
+                  ? "★ Featured — Unfeature"
+                  : "★ Featured"
+                : "★ Feature"}
+            </button>
+          )}
+          {canFeatureAction && featureQuota && !featureQuota.unlimited && (
+            <p className="w-half text-right text-xs text-(--sea-ink-soft)">
+              {featureQuota.remaining > 0
+                ? `${featureQuota.remaining} of ${featureQuota.limit} features left this month`
+                : `Monthly feature limit reached (${featureQuota.limit}/month)`}
+            </p>
           )}
           {canEdit && (
             <>
@@ -425,6 +504,89 @@ function EventDetailPage() {
           event={event}
           onClose={() => setShowSuggestEdit(false)}
         />
+      )}
+
+      {showFeatureLimit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-lg border border-(--line) bg-(--surface-strong) p-6 text-center shadow-xl">
+            <p className="text-lg font-semibold text-(--sea-ink)">
+              You've used all your features this month
+            </p>
+            <p className="mt-1 text-sm text-(--sea-ink-soft)">
+              Your plan includes {featureQuota?.limit ?? 3} featured events per
+              calendar month, and you've used them all. Un-feature one of your
+              events, or wait until next month to feature this one.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowFeatureLimit(false)}
+              className="mt-4 cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon)"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showSubscribeCTA && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-lg border border-(--line) bg-(--surface-strong) p-6 text-center shadow-xl">
+            <p className="text-lg font-semibold text-(--sea-ink)">
+              Feature your events
+            </p>
+            <p className="mt-1 text-sm text-(--sea-ink-soft)">
+              Featuring highlights your events across 919Events — on the home
+              page, in listings, and on the map. Subscribe to feature up to 3 of
+              your events each month.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <Link
+                to="/donate"
+                className="rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline hover:bg-(--lagoon)"
+              >
+                Subscribe
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowSubscribeCTA(false)}
+                className="cursor-pointer rounded-md border border-(--line) px-4 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSignUpCTA && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-lg border border-(--line) bg-(--surface-strong) p-6 text-center shadow-xl">
+            <p className="text-lg font-semibold text-(--sea-ink)">
+              Feature your events
+            </p>
+            <p className="mt-1 text-sm text-(--sea-ink-soft)">
+              Create an account and subscribe to feature your events across
+              919Events and reach more people.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <SignUpButton mode="modal">
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon)"
+                >
+                  Sign up
+                </button>
+              </SignUpButton>
+              <button
+                type="button"
+                onClick={() => setShowSignUpCTA(false)}
+                className="cursor-pointer rounded-md border border-(--line) px-4 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface)"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

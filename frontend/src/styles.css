@@ -362,6 +362,21 @@ a {
   margin: 8px 0;
 }
 
+/* Scoped under both popup containers so this outranks the generic
+   .map-popup-item-body span rule below. */
+.mapboxgl-popup .map-popup-featured {
+  /* Block-level so the pill sits on its own line above the event title. */
+  display: block;
+  width: fit-content;
+  margin-bottom: 4px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Multi-event popup: a scrollable list when several events share a location */
 .map-popup-list {
   padding: 0;

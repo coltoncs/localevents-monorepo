@@ -242,7 +242,14 @@ export function EventTable({ events }: { events: Event[] }) {
             </tr>
           ) : (
             table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-[var(--surface)]">
+              <tr
+                key={row.id}
+                className={
+                  row.original.IsFeatured
+                    ? "bg-amber-400/10 hover:bg-amber-400/20"
+                    : "hover:bg-[var(--sea-ink)]/[0.06]"
+                }
+              >
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as { hideOnMobile?: boolean; mobileOnly?: boolean; cellClassName?: string } | undefined
                   const visClass = meta?.mobileOnly ? ' sm:hidden' : meta?.hideOnMobile ? ' hidden sm:table-cell' : ''

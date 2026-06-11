@@ -79,6 +79,9 @@ type Event struct {
 	Categories     []string
 	SeriesID       pgtype.UUID
 	IsFree         bool
+	IsFeatured     bool
+	FeaturedAt     pgtype.Timestamptz
+	FeaturedBy     pgtype.UUID
 }
 
 type EventEmbedding struct {

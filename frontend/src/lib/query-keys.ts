@@ -1,4 +1,9 @@
-import type { EventFilters, MapEventFilters, PlaceFilters } from "./types";
+import type {
+	EventFilters,
+	FeaturedEventsFilters,
+	MapEventFilters,
+	PlaceFilters,
+} from "./types";
 
 interface VenueFilters {
 	lat: number;
@@ -18,6 +23,8 @@ export const queryKeys = {
 		map: (filters: MapEventFilters) => ["events", "map", filters] as const,
 		detail: (id: string) => ["events", "detail", id] as const,
 		series: (seriesId: string) => ["events", "series", seriesId] as const,
+		featured: (filters: FeaturedEventsFilters) =>
+			["events", "featured", filters] as const,
 	},
 	venues: {
 		all: ["venues"] as const,
@@ -27,6 +34,8 @@ export const queryKeys = {
 	user: {
 		me: ["user", "me"] as const,
 		myEvents: ["user", "myEvents"] as const,
+		featureQuota: ["user", "featureQuota"] as const,
+		myFeatured: ["user", "myFeatured"] as const,
 	},
 	savedEvents: {
 		all: ["savedEvents"] as const,

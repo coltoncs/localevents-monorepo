@@ -5,6 +5,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import type { Event } from "#/lib/types";
 import { formatEventTime } from "#/lib/date-utils";
+import { FeaturedBadge } from "#/components/events/FeaturedBadge";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -61,15 +62,21 @@ export function EventCard({
       className="block rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-4 shadow-sm transition hover:shadow-md"
     >
       {event.ImageUrl && (
-        <img
-          src={event.ImageUrl}
-          alt={event.Title}
-          loading="lazy"
-          decoding="async"
-          className="mb-3 h-40 w-full rounded-md object-cover"
-        />
+        <div className="relative mb-3">
+          <img
+            src={event.ImageUrl}
+            alt={event.Title}
+            loading="lazy"
+            decoding="async"
+            className="h-40 w-full rounded-md object-cover"
+          />
+          {event.IsFeatured && (
+            <FeaturedBadge className="absolute left-2 top-2 shadow-sm" />
+          )}
+        </div>
       )}
       <div className="space-y-1">
+        {event.IsFeatured && !event.ImageUrl && <FeaturedBadge />}
         {event.Categories && event.Categories.length > 0 && (
           <span className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-2 py-0.5 text-xs font-medium text-[var(--lagoon-deep)]">
             {event.Categories[0]}{event.Categories.length > 1 && ` +${event.Categories.length - 1}`}

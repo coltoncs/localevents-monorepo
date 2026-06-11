@@ -344,6 +344,64 @@ func (h *EventHandler) Get(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(event)
 }
 
+// ListFeatured returns upcoming featured events near a location, soonest
+// first. Public: drives the home page "Featured" section.
+func (h *EventHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
+	latStr := r.URL.Query().Get("lat")
+	lngStr := r.URL.Query().Get("lng")
+	if latStr == "" || lngStr == "" {
+		http.Error(w, `{"error":"lat and lng are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid lat"}`, http.StatusBadRequest)
+		return
+	}
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid lng"}`, http.StatusBadRequest)
+		return
+	}
+
+	radiusMiles := 25.0
+	if v := r.URL.Query().Get("radius"); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			radiusMiles = parsed
+		}
+	}
+
+	limit := int32(12)
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			if parsed > 50 {
+				parsed = 50
+			}
+			limit = int32(parsed)
+		}
+	}
+
+	events, err := h.queries.ListFeaturedEventsByLocation(r.Context(), store.ListFeaturedEventsByLocationParams{
+		Lng:          lng,
+		Lat:          lat,
+		RadiusMeters: radiusMiles * 1609.34,
+		EventLimit:   limit,
+	})
+	if err != nil {
+		http.Error(w, `{"error":"failed to query featured events"}`, http.StatusInternalServerError)
+		return
+	}
+	if events == nil {
+		events = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Events []store.Event `json:"events"`
+	}{Events: events})
+}
+
 type createEventRequest struct {
 	Title       string   `json:"title"`
 	Description *string  `json:"description"`
@@ -770,6 +828,207 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updated)
+}
+
+// monthlyFeatureLimit caps how many distinct events a user may feature per
+// calendar month. Admins are exempt. Consumed slots are not refunded when an
+// event is un-featured (featured_at/featured_by are retained).
+const monthlyFeatureLimit = 3
+
+// Feature marks an event as featured. Any subscriber (feature_events
+// entitlement) may feature any event, capped at monthlyFeatureLimit per
+// calendar month; admins are exempt from both the subscription and the cap.
+func (h *EventHandler) Feature(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, `{"error":"invalid event id"}`, http.StatusBadRequest)
+		return
+	}
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	role, err := middleware.GetUserRole(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Non-admins must hold the feature_events entitlement and stay under the
+	// monthly cap. Admins bypass both.
+	if role != middleware.RoleAdmin {
+		if !middleware.HasFeature(r.Context(), "feature_events") {
+			http.Error(w, `{"error":"subscription_required"}`, http.StatusPaymentRequired)
+			return
+		}
+
+		// Count this user's other events already featured this month; featuring
+		// this one would make the (count+1)th. Re-featuring an event they
+		// already featured this month is free (it's excluded by id).
+		count, err := h.queries.CountFeaturedThisMonth(r.Context(), store.CountFeaturedThisMonthParams{
+			FeaturedBy: user.ID,
+			ID:         pgID,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"failed to check feature limit"}`, http.StatusInternalServerError)
+			return
+		}
+		if count >= monthlyFeatureLimit {
+			http.Error(w, `{"error":"feature_limit_reached"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	updated, err := h.queries.FeatureEvent(r.Context(), store.FeatureEventParams{
+		ID:         pgID,
+		FeaturedBy: user.ID,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			http.Error(w, `{"error":"event not found"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error":"failed to update event"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updated)
+}
+
+// Unfeature clears the featured flag (featured_at/featured_by are retained as
+// an audit trail). Only the user who featured the event, or an admin, may
+// un-feature it.
+func (h *EventHandler) Unfeature(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, `{"error":"invalid event id"}`, http.StatusBadRequest)
+		return
+	}
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	event, err := h.queries.GetEvent(r.Context(), pgID)
+	if err != nil {
+		http.Error(w, `{"error":"event not found"}`, http.StatusNotFound)
+		return
+	}
+
+	role, err := middleware.GetUserRole(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if role != middleware.RoleAdmin {
+		user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+		if err != nil {
+			http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+			return
+		}
+		if !event.FeaturedBy.Valid || event.FeaturedBy.Bytes != user.ID.Bytes {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	updated, err := h.queries.UnfeatureEvent(r.Context(), pgID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to update event"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updated)
+}
+
+// ListMyFeatured returns the events the current user currently has featured.
+func (h *EventHandler) ListMyFeatured(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	events, err := h.queries.ListMyFeaturedEvents(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to list featured events"}`, http.StatusInternalServerError)
+		return
+	}
+	if events == nil {
+		events = []store.Event{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+// FeatureQuota reports how many events the current user has featured this
+// calendar month and how many remain before hitting monthlyFeatureLimit.
+// Admins are uncapped (Unlimited=true).
+func (h *EventHandler) FeatureQuota(w http.ResponseWriter, r *http.Request) {
+	clerkID := middleware.GetClerkUserID(r.Context())
+	if clerkID == "" {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	role, err := middleware.GetUserRole(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check role"}`, http.StatusInternalServerError)
+		return
+	}
+
+	user, err := h.queries.GetUserByClerkID(r.Context(), clerkID)
+	if err != nil {
+		http.Error(w, `{"error":"user not found"}`, http.StatusNotFound)
+		return
+	}
+
+	used, err := h.queries.CountMyFeaturedThisMonth(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, `{"error":"failed to check feature quota"}`, http.StatusInternalServerError)
+		return
+	}
+
+	remaining := int64(monthlyFeatureLimit) - used
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Used      int64 `json:"used"`
+		Limit     int   `json:"limit"`
+		Remaining int64 `json:"remaining"`
+		Unlimited bool  `json:"unlimited"`
+	}{
+		Used:      used,
+		Limit:     monthlyFeatureLimit,
+		Remaining: remaining,
+		Unlimited: role == middleware.RoleAdmin,
+	})
 }
 
 func (h *EventHandler) SaveCount(w http.ResponseWriter, r *http.Request) {

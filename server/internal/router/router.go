@@ -73,6 +73,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Use(middleware.OptionalAuth())
 			r.Get("/events", eventHandler.List)
 			r.Get("/events/map", eventHandler.ListMap)
+			r.Get("/events/featured", eventHandler.ListFeatured)
 			r.Get("/events/series/{seriesId}", eventHandler.ListSeriesEvents)
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
@@ -100,6 +101,12 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Get("/me", userHandler.GetMe)
 			r.Put("/me", userHandler.UpdateMe)
 			r.Get("/me/events", userHandler.ListMyEvents)
+			r.Get("/me/feature-quota", eventHandler.FeatureQuota)
+			r.Get("/me/featured-events", eventHandler.ListMyFeatured)
+			// Featuring is open to any signed-in user; the handler enforces the
+			// feature_events subscription entitlement and the monthly cap.
+			r.Post("/events/{id}/feature", eventHandler.Feature)
+			r.Delete("/events/{id}/feature", eventHandler.Unfeature)
 			r.Get("/me/saved", userHandler.ListSaved)
 			r.Get("/me/place-checkins", userHandler.ListMyPlaceCheckIns)
 			r.Post("/me/saved/{eventId}", userHandler.SaveEvent)

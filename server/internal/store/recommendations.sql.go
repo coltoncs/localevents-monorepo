@@ -48,7 +48,7 @@ func (q *Queries) GetUserPreferencesState(ctx context.Context, userID pgtype.UUI
 }
 
 const listTrendingFutureEvents = `-- name: ListTrendingFutureEvents :many
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free, COUNT(se.user_id) AS save_count
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free, e.is_featured, e.featured_at, e.featured_by, COUNT(se.user_id) AS save_count
 FROM events e
 LEFT JOIN saved_events se ON se.event_id = e.id
 WHERE e.start_time > NOW()
@@ -96,6 +96,9 @@ type ListTrendingFutureEventsRow struct {
 	Categories     []string
 	SeriesID       pgtype.UUID
 	IsFree         bool
+	IsFeatured     bool
+	FeaturedAt     pgtype.Timestamptz
+	FeaturedBy     pgtype.UUID
 	SaveCount      int64
 }
 
@@ -140,6 +143,9 @@ func (q *Queries) ListTrendingFutureEvents(ctx context.Context, arg ListTrending
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 			&i.SaveCount,
 		); err != nil {
 			return nil, err

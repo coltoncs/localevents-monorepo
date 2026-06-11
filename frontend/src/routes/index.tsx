@@ -8,7 +8,9 @@ import { LocationSearch } from '#/components/maps/LocationSearch'
 import { EventCarousel } from '#/components/events/EventCarousel'
 import { RecommendedEventsSection } from '#/components/events/RecommendedEventsSection'
 import { useSavedEvents } from '#/lib/hooks/useSavedEvents'
+import { useFeaturedEvents } from '#/lib/hooks/useFeaturedEvents'
 import { useUser } from '#/lib/hooks/useUser'
+import { DEFAULT_MAP_CENTER } from '#/lib/mapUtils'
 
 gsap.registerPlugin(SplitText)
 
@@ -117,6 +119,45 @@ function UpcomingSavedEvents() {
   )
 }
 
+// Featured events near a given location, rendered as a home page carousel.
+// Hidden entirely when there are no upcoming featured events.
+function FeaturedAtLocation({ lat, lng }: { lat: number; lng: number }) {
+  const { data } = useFeaturedEvents({ lat, lng, radius: 50, limit: 8 })
+  const events = data?.events
+  if (!events?.length) return null
+
+  return (
+    <div className="mt-12 w-full max-w-5xl text-left">
+      <h2 className="mb-4 text-lg font-bold text-(--sea-ink)">
+        ★ Featured Events
+      </h2>
+      <EventCarousel events={events} />
+    </div>
+  )
+}
+
+// Signed-in visitors get featured events near their saved location; falls back
+// to the default metro center until a location is set.
+function FeaturedForUser() {
+  const { data: user } = useUser()
+  return (
+    <FeaturedAtLocation
+      lat={user?.DefaultLatitude ?? DEFAULT_MAP_CENTER.lat}
+      lng={user?.DefaultLongitude ?? DEFAULT_MAP_CENTER.lng}
+    />
+  )
+}
+
+function FeaturedEventsSection() {
+  const { isSignedIn } = useAuth()
+  // Only signed-in users hit /api/me; everyone else sees the default region.
+  return isSignedIn ? (
+    <FeaturedForUser />
+  ) : (
+    <FeaturedAtLocation lat={DEFAULT_MAP_CENTER.lat} lng={DEFAULT_MAP_CENTER.lng} />
+  )
+}
+
 function HomePage() {
   const { isSignedIn } = useAuth()
 
@@ -135,6 +176,7 @@ function HomePage() {
       <div className="mt-8 flex justify-center">
         <LocationSearch navigateTo="/events" />
       </div>
+      <FeaturedEventsSection />
       {isSignedIn && (
         <div className="mt-6 flex gap-4">
           <Link

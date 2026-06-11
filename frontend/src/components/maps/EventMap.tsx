@@ -43,6 +43,7 @@ interface PopupEvent {
 	start: string;
 	venue: string;
 	image: string;
+	featured: boolean;
 }
 
 function toPopupEvent(e: Event): PopupEvent {
@@ -52,8 +53,11 @@ function toPopupEvent(e: Event): PopupEvent {
 		start: e.StartTime,
 		venue: e.VenueName ?? "",
 		image: e.ImageUrl ?? "",
+		featured: Boolean(e.IsFeatured),
 	};
 }
+
+const featuredTag = `<span class="map-popup-featured">★ Featured</span>`;
 
 // Group events by coordinate so co-located events become one feature carrying
 // the whole list. `count` feeds the cluster total; `events` feeds the popup.
@@ -97,6 +101,7 @@ const formatPopupTime = (iso: string) =>
 // Popup for a single event — keeps the original card layout.
 function singleEventHtml(e: PopupEvent): string {
 	return `<div class="map-popup-content">
+    ${e.featured ? featuredTag : ""}
     <strong>${escapeHtml(e.title)}</strong>
     ${e.image ? `<img src="${escapeHtml(e.image)}" alt="${escapeHtml(e.title)}" loading="lazy" decoding="async">` : ""}
     <p>${formatPopupTime(e.start)}</p>
@@ -119,6 +124,7 @@ function multiEventHtml(events: PopupEvent[]): string {
 						: `<span class="map-popup-item-thumb" aria-hidden="true"></span>`
 				}
         <span class="map-popup-item-body">
+          ${e.featured ? featuredTag : ""}
           <strong>${escapeHtml(e.title)}</strong>
           <span>${formatPopupTime(e.start)}</span>
           ${e.venue ? `<span>${escapeHtml(e.venue)}</span>` : ""}

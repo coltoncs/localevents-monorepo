@@ -69,6 +69,44 @@ func (q *Queries) CountEventsByLocation(ctx context.Context, arg CountEventsByLo
 	return count, err
 }
 
+const countFeaturedThisMonth = `-- name: CountFeaturedThisMonth :one
+SELECT COUNT(*) FROM events
+WHERE featured_by = $1
+  AND id <> $2
+  AND featured_at >= date_trunc('month', now())
+`
+
+type CountFeaturedThisMonthParams struct {
+	FeaturedBy pgtype.UUID
+	ID         pgtype.UUID
+}
+
+// Distinct events the user has featured this calendar month, excluding a given
+// event so re-featuring an already-counted event isn't double counted.
+// featured_at/featured_by are retained across un-feature, so consumed slots
+// aren't refunded.
+func (q *Queries) CountFeaturedThisMonth(ctx context.Context, arg CountFeaturedThisMonthParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFeaturedThisMonth, arg.FeaturedBy, arg.ID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countMyFeaturedThisMonth = `-- name: CountMyFeaturedThisMonth :one
+SELECT COUNT(*) FROM events
+WHERE featured_by = $1
+  AND featured_at >= date_trunc('month', now())
+`
+
+// Total distinct events the user has featured this calendar month (for the
+// quota display); same counting basis as CountFeaturedThisMonth, no exclusion.
+func (q *Queries) CountMyFeaturedThisMonth(ctx context.Context, featuredBy pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countMyFeaturedThisMonth, featuredBy)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
@@ -78,7 +116,7 @@ INSERT INTO events (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19, $20, $21
-) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+) RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 `
 
 type CreateEventParams struct {
@@ -157,6 +195,9 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.Categories,
 		&i.SeriesID,
 		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
 	)
 	return i, err
 }
@@ -183,8 +224,56 @@ func (q *Queries) DeletePastEvents(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const featureEvent = `-- name: FeatureEvent :one
+UPDATE events SET is_featured = TRUE, featured_at = NOW(), featured_by = $2
+WHERE id = $1
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
+`
+
+type FeatureEventParams struct {
+	ID         pgtype.UUID
+	FeaturedBy pgtype.UUID
+}
+
+func (q *Queries) FeatureEvent(ctx context.Context, arg FeatureEventParams) (Event, error) {
+	row := q.db.QueryRow(ctx, featureEvent, arg.ID, arg.FeaturedBy)
+	var i Event
+	err := row.Scan(
+		&i.ID,
+		&i.ExternalID,
+		&i.Source,
+		&i.Title,
+		&i.Description,
+		&i.VenueName,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.StartTime,
+		&i.EndTime,
+		&i.ImageUrl,
+		&i.TicketUrl,
+		&i.PriceMin,
+		&i.PriceMax,
+		&i.SubmittedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ManuallyEdited,
+		&i.VenueID,
+		&i.Categories,
+		&i.SeriesID,
+		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
+	)
+	return i, err
+}
+
 const getEvent = `-- name: GetEvent :one
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events WHERE id = $1
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by FROM events WHERE id = $1
 `
 
 func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
@@ -217,12 +306,15 @@ func (q *Queries) GetEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
 		&i.Categories,
 		&i.SeriesID,
 		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
 	)
 	return i, err
 }
 
 const getEventsByIDs = `-- name: GetEventsByIDs :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events WHERE id = ANY($1::uuid[])
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by FROM events WHERE id = ANY($1::uuid[])
 `
 
 func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Event, error) {
@@ -261,6 +353,9 @@ func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -273,7 +368,7 @@ func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([
 }
 
 const listEventsByLocation = `-- name: ListEventsByLocation :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -355,6 +450,9 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -367,7 +465,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 }
 
 const listEventsByLocationDateSorted = `-- name: ListEventsByLocationDateSorted :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 FROM events
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -451,6 +549,9 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -463,7 +564,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 }
 
 const listEventsBySeries = `-- name: ListEventsBySeries :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by FROM events
 WHERE series_id = $1
 ORDER BY start_time ASC
 `
@@ -504,6 +605,9 @@ func (q *Queries) ListEventsBySeries(ctx context.Context, seriesID pgtype.UUID) 
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -516,7 +620,7 @@ func (q *Queries) ListEventsBySeries(ctx context.Context, seriesID pgtype.UUID) 
 }
 
 const listEventsBySubmitter = `-- name: ListEventsBySubmitter :many
-SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free FROM events
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by FROM events
 WHERE submitted_by = $1
 ORDER BY start_time ASC
 `
@@ -557,6 +661,147 @@ func (q *Queries) ListEventsBySubmitter(ctx context.Context, submittedBy pgtype.
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFeaturedEventsByLocation = `-- name: ListFeaturedEventsByLocation :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
+FROM events
+WHERE is_featured = TRUE
+AND start_time >= NOW()
+AND ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+ORDER BY start_time ASC,
+    ST_Distance(
+        ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+        ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
+    ) ASC
+LIMIT $4
+`
+
+type ListFeaturedEventsByLocationParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+	EventLimit   int32
+}
+
+// Upcoming featured events near a location, soonest first.
+func (q *Queries) ListFeaturedEventsByLocation(ctx context.Context, arg ListFeaturedEventsByLocationParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listFeaturedEventsByLocation,
+		arg.Lng,
+		arg.Lat,
+		arg.RadiusMeters,
+		arg.EventLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+			&i.Categories,
+			&i.SeriesID,
+			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyFeaturedEvents = `-- name: ListMyFeaturedEvents :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by FROM events
+WHERE featured_by = $1 AND is_featured = TRUE
+ORDER BY start_time ASC
+`
+
+// Events the user currently has featured, soonest first.
+func (q *Queries) ListMyFeaturedEvents(ctx context.Context, featuredBy pgtype.UUID) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listMyFeaturedEvents, featuredBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+			&i.Categories,
+			&i.SeriesID,
+			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -617,6 +862,50 @@ func (q *Queries) TrackDeletedExternalEvent(ctx context.Context, arg TrackDelete
 	return err
 }
 
+const unfeatureEvent = `-- name: UnfeatureEvent :one
+UPDATE events SET is_featured = FALSE
+WHERE id = $1
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
+`
+
+// Keeps featured_at / featured_by as an audit trail.
+func (q *Queries) UnfeatureEvent(ctx context.Context, id pgtype.UUID) (Event, error) {
+	row := q.db.QueryRow(ctx, unfeatureEvent, id)
+	var i Event
+	err := row.Scan(
+		&i.ID,
+		&i.ExternalID,
+		&i.Source,
+		&i.Title,
+		&i.Description,
+		&i.VenueName,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.StartTime,
+		&i.EndTime,
+		&i.ImageUrl,
+		&i.TicketUrl,
+		&i.PriceMin,
+		&i.PriceMax,
+		&i.SubmittedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ManuallyEdited,
+		&i.VenueID,
+		&i.Categories,
+		&i.SeriesID,
+		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
+	)
+	return i, err
+}
+
 const updateEvent = `-- name: UpdateEvent :one
 UPDATE events SET
     title = $2,
@@ -640,7 +929,7 @@ UPDATE events SET
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 `
 
 type UpdateEventParams struct {
@@ -715,6 +1004,9 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event
 		&i.Categories,
 		&i.SeriesID,
 		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
 	)
 	return i, err
 }
@@ -740,7 +1032,7 @@ UPDATE events SET
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE series_id = $1
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 `
 
 type UpdateEventsBySeriesParams struct {
@@ -817,6 +1109,9 @@ func (q *Queries) UpdateEventsBySeries(ctx context.Context, arg UpdateEventsBySe
 			&i.Categories,
 			&i.SeriesID,
 			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -850,7 +1145,7 @@ DO UPDATE SET
     price_max=EXCLUDED.price_max, is_free=EXCLUDED.is_free,
     venue_id=EXCLUDED.venue_id, updated_at=NOW()
 WHERE NOT events.manually_edited
-RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free
+RETURNING id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by
 `
 
 type UpsertExternalEventParams struct {
@@ -927,6 +1222,9 @@ func (q *Queries) UpsertExternalEvent(ctx context.Context, arg UpsertExternalEve
 		&i.Categories,
 		&i.SeriesID,
 		&i.IsFree,
+		&i.IsFeatured,
+		&i.FeaturedAt,
+		&i.FeaturedBy,
 	)
 	return i, err
 }

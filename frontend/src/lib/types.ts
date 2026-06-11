@@ -19,6 +19,9 @@ export interface Event {
 	PriceMin?: number;
 	PriceMax?: number;
 	IsFree?: boolean;
+	IsFeatured?: boolean;
+	FeaturedAt?: string;
+	FeaturedBy?: string;
 	SubmittedBy?: string;
 	VenueID?: string;
 	SeriesID?: string;
@@ -52,6 +55,24 @@ export interface EventListResponse {
 
 export interface MapEventListResponse {
 	events: Event[];
+}
+
+export interface FeaturedEventsResponse {
+	events: Event[];
+}
+
+export interface FeaturedEventsFilters {
+	lat: number;
+	lng: number;
+	radius?: number;
+	limit?: number;
+}
+
+export interface FeatureQuota {
+	used: number;
+	limit: number;
+	remaining: number;
+	unlimited: boolean;
 }
 
 export interface MapEventFilters {

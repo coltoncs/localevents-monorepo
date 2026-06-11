@@ -61,6 +61,58 @@ ORDER BY (start_time AT TIME ZONE 'America/New_York')::date ASC,
     start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
 
+-- name: ListFeaturedEventsByLocation :many
+-- Upcoming featured events near a location, soonest first.
+SELECT *
+FROM events
+WHERE is_featured = TRUE
+AND start_time >= NOW()
+AND ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography,
+    @radius_meters::float
+)
+ORDER BY start_time ASC,
+    ST_Distance(
+        ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography
+    ) ASC
+LIMIT @event_limit;
+
+-- name: FeatureEvent :one
+UPDATE events SET is_featured = TRUE, featured_at = NOW(), featured_by = $2
+WHERE id = $1
+RETURNING *;
+
+-- name: UnfeatureEvent :one
+-- Keeps featured_at / featured_by as an audit trail.
+UPDATE events SET is_featured = FALSE
+WHERE id = $1
+RETURNING *;
+
+-- name: CountFeaturedThisMonth :one
+-- Distinct events the user has featured this calendar month, excluding a given
+-- event so re-featuring an already-counted event isn't double counted.
+-- featured_at/featured_by are retained across un-feature, so consumed slots
+-- aren't refunded.
+SELECT COUNT(*) FROM events
+WHERE featured_by = $1
+  AND id <> $2
+  AND featured_at >= date_trunc('month', now());
+
+-- name: CountMyFeaturedThisMonth :one
+-- Total distinct events the user has featured this calendar month (for the
+-- quota display); same counting basis as CountFeaturedThisMonth, no exclusion.
+SELECT COUNT(*) FROM events
+WHERE featured_by = $1
+  AND featured_at >= date_trunc('month', now());
+
+-- name: ListMyFeaturedEvents :many
+-- Events the user currently has featured, soonest first.
+SELECT * FROM events
+WHERE featured_by = $1 AND is_featured = TRUE
+ORDER BY start_time ASC;
+
 -- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,

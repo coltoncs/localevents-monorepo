@@ -619,7 +619,11 @@ function EventCardRow({
 				type="button"
 				onClick={onClick}
 				className={`group flex w-full cursor-pointer gap-3 px-4 py-3 text-left transition-colors ${
-					selected ? "bg-(--link-bg-hover)" : "hover:bg-(--link-bg-hover)"
+					selected
+						? "bg-(--link-bg-hover)"
+						: event.IsFeatured
+							? "bg-amber-400/10 hover:bg-amber-400/20"
+							: "hover:bg-(--link-bg-hover)"
 				}`}
 				style={
 					selected ? { boxShadow: "inset 3px 0 0 var(--lagoon)" } : undefined

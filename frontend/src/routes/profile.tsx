@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ProtectedRoute } from "#/components/auth/ProtectedRoute";
 import { ProfileCheckInsTab } from "#/components/profile/ProfileCheckInsTab";
+import { ProfileFeaturedEventsTab } from "#/components/profile/ProfileFeaturedEventsTab";
 import { ProfileOverviewTab } from "#/components/profile/ProfileOverviewTab";
 import { ProfileSavedTab } from "#/components/profile/ProfileSavedTab";
 import { ProfileSettingsTab } from "#/components/profile/ProfileSettingsTab";
@@ -9,7 +10,13 @@ import {
 	ProfileTabNav,
 } from "#/components/profile/ProfileTabNav";
 
-const VALID_TABS: ProfileTab[] = ["overview", "saved", "checkins", "settings"];
+const VALID_TABS: ProfileTab[] = [
+	"overview",
+	"saved",
+	"featured",
+	"checkins",
+	"settings",
+];
 
 interface ProfileSearch {
 	tab?: ProfileTab;
@@ -45,6 +52,7 @@ function ProfileContent() {
 
 			{active === "overview" && <ProfileOverviewTab />}
 			{active === "saved" && <ProfileSavedTab />}
+			{active === "featured" && <ProfileFeaturedEventsTab />}
 			{active === "checkins" && <ProfileCheckInsTab />}
 			{active === "settings" && <ProfileSettingsTab />}
 		</div>
