@@ -12,15 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
 type SuggestionHandler struct {
 	queries *store.Queries
+	alerter *notifier.AdminAlerter
 }
 
-func NewSuggestionHandler(q *store.Queries) *SuggestionHandler {
-	return &SuggestionHandler{queries: q}
+func NewSuggestionHandler(q *store.Queries, alerter *notifier.AdminAlerter) *SuggestionHandler {
+	return &SuggestionHandler{queries: q, alerter: alerter}
 }
 
 var allowedEventFields = map[string]bool{
@@ -125,9 +127,11 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Attribute to the signed-in user when present; otherwise the submission is
 	// anonymous (submitted_by stays NULL) and still lands in the review queue.
 	var submittedBy pgtype.UUID
+	var submitterEmail string
 	if clerkID := middleware.GetClerkUserID(r.Context()); clerkID != "" {
 		if user, err := h.queries.GetUserByClerkID(r.Context(), clerkID); err == nil {
 			submittedBy = user.ID
+			submitterEmail = user.Email.String
 		}
 	}
 
@@ -303,6 +307,17 @@ func (h *SuggestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to create suggestion"}`, http.StatusInternalServerError)
 		return
 	}
+
+	// A human-readable label for the alert: the proposed title/name on creates,
+	// otherwise the target id being edited/deleted.
+	name, _ := req.ProposedChanges["title"].(string)
+	if name == "" {
+		name, _ = req.ProposedChanges["name"].(string)
+	}
+	if name == "" && pgTargetID.Valid {
+		name = uuid.UUID(pgTargetID.Bytes).String()
+	}
+	h.alerter.NewSuggestion(req.TargetType, action, name, req.Reason, submitterEmail)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

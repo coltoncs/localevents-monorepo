@@ -9,15 +9,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
 type ApplicationHandler struct {
 	queries *store.Queries
+	alerter *notifier.AdminAlerter
 }
 
-func NewApplicationHandler(q *store.Queries) *ApplicationHandler {
-	return &ApplicationHandler{queries: q}
+func NewApplicationHandler(q *store.Queries, alerter *notifier.AdminAlerter) *ApplicationHandler {
+	return &ApplicationHandler{queries: q, alerter: alerter}
 }
 
 type submitApplicationRequest struct {
@@ -63,6 +65,8 @@ func (h *ApplicationHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to create application"}`, http.StatusInternalServerError)
 		return
 	}
+
+	h.alerter.NewAuthorApplication(req.FullName, req.Email, req.Bio, req.Experience)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

@@ -225,6 +225,19 @@ func main() {
 		log.Println("Twilio credentials not fully set, SMS digest disabled")
 	}
 
+	// Admin alerts for user-initiated actions that need review. Nil (no-op) when
+	// Resend or ADMIN_ALERT_EMAIL is unset.
+	var adminAlerter *notifier.AdminAlerter
+	if cfg.ResendAPIKey != "" {
+		alertSender := notifier.NewEmailSender(cfg.ResendAPIKey, "alerts@919events.com")
+		adminAlerter = notifier.NewAdminAlerter(alertSender, cfg.AdminAlertEmail, cfg.FrontendURL)
+	}
+	if adminAlerter == nil {
+		log.Println("Admin alerts disabled (set RESEND_API_KEY and ADMIN_ALERT_EMAIL to enable)")
+	} else {
+		log.Println("Admin alerts enabled")
+	}
+
 	// Nightly user-preference vector recompute. Lazy-invalidates when users
 	// save/view events; this drains the queue.
 	if recsService != nil {
@@ -264,7 +277,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, pool, cfg, digestRunner, r2, recsService)
+	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

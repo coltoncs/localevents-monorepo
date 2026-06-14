@@ -32,6 +32,7 @@ type Config struct {
 	FrontendURL         string
 	OpenAIAPIKey        string
 	RecsRecomputeCron   string
+	AdminAlertEmail     string
 }
 
 func Load() *Config {
@@ -67,6 +68,9 @@ func Load() *Config {
 		OpenAIAPIKey:        getEnv("OPENAI_API_KEY", ""),
 		// Nightly at 3 AM ET — quiet window for vector recomputes.
 		RecsRecomputeCron: getEnv("RECS_RECOMPUTE_CRON", "CRON_TZ=America/New_York 0 3 * * *"),
+		// Comma-separated recipients for admin alerts (new suggestions, author
+		// applications, event submissions). Empty disables admin alerts.
+		AdminAlertEmail: getEnv("ADMIN_ALERT_EMAIL", ""),
 	}
 }
 

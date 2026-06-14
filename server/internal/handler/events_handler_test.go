@@ -24,7 +24,7 @@ import (
 // the production router uses, so tests exercise URL params and routing.
 func newEventRouter(q *store.Queries) http.Handler {
 	r := chi.NewRouter()
-	h := handler.NewEventHandler(q, nil, nil)
+	h := handler.NewEventHandler(q, nil, nil, nil)
 	r.Get("/api/events", h.List)
 	r.Get("/api/events/{id}", h.Get)
 	r.Get("/api/events/{id}/save-count", h.SaveCount)
@@ -145,7 +145,7 @@ func TestEventsCreateSeries_CreatesAllInstancesWithSharedSeriesID(t *testing.T) 
 	})
 
 	r := chi.NewRouter()
-	h := handler.NewEventHandler(q, pool, nil)
+	h := handler.NewEventHandler(q, pool, nil, nil)
 	r.Post("/api/events/series", h.CreateSeries)
 
 	day1 := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Hour)
@@ -226,7 +226,7 @@ func TestEventsCreateSeries_SingleInstanceHasNoSeriesID(t *testing.T) {
 	})
 
 	r := chi.NewRouter()
-	h := handler.NewEventHandler(q, pool, nil)
+	h := handler.NewEventHandler(q, pool, nil, nil)
 	r.Post("/api/events/series", h.CreateSeries)
 
 	start := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Hour)
@@ -276,7 +276,7 @@ func TestEventsCreateSeries_ForbidsNonAuthor(t *testing.T) {
 	})
 
 	r := chi.NewRouter()
-	h := handler.NewEventHandler(q, pool, nil)
+	h := handler.NewEventHandler(q, pool, nil, nil)
 	r.Post("/api/events/series", h.CreateSeries)
 
 	body := map[string]any{
@@ -314,7 +314,7 @@ func TestEventsCreateSeries_RejectsBadInput(t *testing.T) {
 	})
 
 	r := chi.NewRouter()
-	h := handler.NewEventHandler(q, pool, nil)
+	h := handler.NewEventHandler(q, pool, nil, nil)
 	r.Post("/api/events/series", h.CreateSeries)
 
 	cases := []struct {

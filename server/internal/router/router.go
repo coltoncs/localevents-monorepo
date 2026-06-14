@@ -30,7 +30,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -41,15 +41,15 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 
 	r.Handle("/metrics", promhttp.Handler())
 
-	eventHandler := handler.NewEventHandler(queries, pool, r2)
+	eventHandler := handler.NewEventHandler(queries, pool, r2, alerter)
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
-	appHandler := handler.NewApplicationHandler(queries)
+	appHandler := handler.NewApplicationHandler(queries, alerter)
 	imageHandler := handler.NewImageHandler(queries, r2)
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
 	digestHandler := handler.NewDigestHandler(digestRunner)
-	suggestionHandler := handler.NewSuggestionHandler(queries)
+	suggestionHandler := handler.NewSuggestionHandler(queries, alerter)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 	placeHandler := handler.NewPlaceHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)

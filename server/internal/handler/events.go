@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
+	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
@@ -22,10 +23,11 @@ type EventHandler struct {
 	queries *store.Queries
 	pool    *pgxpool.Pool
 	r2      *storage.R2Client
+	alerter *notifier.AdminAlerter
 }
 
-func NewEventHandler(q *store.Queries, pool *pgxpool.Pool, r2 *storage.R2Client) *EventHandler {
-	return &EventHandler{queries: q, pool: pool, r2: r2}
+func NewEventHandler(q *store.Queries, pool *pgxpool.Pool, r2 *storage.R2Client, alerter *notifier.AdminAlerter) *EventHandler {
+	return &EventHandler{queries: q, pool: pool, r2: r2, alerter: alerter}
 }
 
 func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -527,6 +529,18 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to create event"}`, http.StatusInternalServerError)
 		return
 	}
+
+	location := event.VenueName.String
+	if event.City.Valid && event.City.String != "" {
+		if location != "" {
+			location += " · "
+		}
+		location += event.City.String
+		if event.State.Valid && event.State.String != "" {
+			location += ", " + event.State.String
+		}
+	}
+	h.alerter.NewEventSubmission(event.Title, location, user.Email.String)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

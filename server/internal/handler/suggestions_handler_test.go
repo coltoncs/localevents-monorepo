@@ -17,7 +17,7 @@ import (
 
 func newSuggestionRouter(q *store.Queries) http.Handler {
 	r := chi.NewRouter()
-	h := handler.NewSuggestionHandler(q)
+	h := handler.NewSuggestionHandler(q, nil)
 	r.Post("/api/suggestions", h.Create)
 	return r
 }
