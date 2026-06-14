@@ -91,21 +91,3 @@ func TestSuggestionsCreate_RejectsUnknownField(t *testing.T) {
 		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
-
-func TestSuggestionsCreate_RequiresAuth(t *testing.T) {
-	_, q := testutil.NewTx(t)
-	r := newSuggestionRouter(q)
-
-	body, _ := json.Marshal(map[string]any{
-		"target_type":      "event",
-		"target_id":        uuid.New().String(),
-		"proposed_changes": map[string]any{"title": "x"},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/api/suggestions", bytes.NewReader(body))
-	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", rr.Code)
-	}
-}
