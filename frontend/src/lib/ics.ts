@@ -149,11 +149,73 @@ function safeFilename(title: string): string {
 
 export function downloadEventIcs(event: Event) {
 	const ics = buildEventIcs(event);
+	triggerIcsDownload(ics, `${safeFilename(event.Title)}.ics`);
+}
+
+// IcsItem is the minimal set of fields needed for a calendar entry, used by
+// callers (e.g. a planner day) that don't have a full Event.
+export interface IcsItem {
+	uid: string;
+	title: string;
+	start: string; // ISO 8601
+	end?: string; // ISO 8601; defaults to start + 2h when omitted
+	location?: string;
+	url?: string;
+	description?: string;
+}
+
+// buildIcs assembles a VCALENDAR with one timed VEVENT per item. Suited to
+// multi-event exports where only minimal fields are known.
+export function buildIcs(items: IcsItem[]): string {
+	const now = formatUtc(new Date().toISOString());
+	const lines: string[] = [
+		"BEGIN:VCALENDAR",
+		"VERSION:2.0",
+		"PRODID:-//919Events//EN",
+		"CALSCALE:GREGORIAN",
+		"METHOD:PUBLISH",
+	];
+
+	for (const item of items) {
+		lines.push(
+			"BEGIN:VEVENT",
+			`UID:${item.uid}`,
+			`DTSTAMP:${now}`,
+			`DTSTART:${formatUtc(item.start)}`,
+		);
+		if (item.end) {
+			lines.push(`DTEND:${formatUtc(item.end)}`);
+		} else {
+			// Default to a 2-hour event if no end time is provided.
+			const fallbackEnd = new Date(item.start);
+			fallbackEnd.setHours(fallbackEnd.getHours() + 2);
+			lines.push(`DTEND:${formatUtc(fallbackEnd.toISOString())}`);
+		}
+		lines.push(`SUMMARY:${escapeText(item.title)}`);
+		if (item.description)
+			lines.push(`DESCRIPTION:${escapeText(item.description)}`);
+		if (item.location) lines.push(`LOCATION:${escapeText(item.location)}`);
+		if (item.url) lines.push(`URL:${item.url}`);
+		lines.push("END:VEVENT");
+	}
+
+	lines.push("END:VCALENDAR");
+	return lines.map(foldLine).join("\r\n");
+}
+
+export function downloadIcs(filename: string, items: IcsItem[]) {
+	if (items.length === 0) return;
+	const name = filename.endsWith(".ics") ? filename : `${filename}.ics`;
+	triggerIcsDownload(buildIcs(items), name);
+}
+
+// triggerIcsDownload writes an .ics blob to a temporary anchor and clicks it.
+function triggerIcsDownload(ics: string, filename: string) {
 	const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
 	const url = URL.createObjectURL(blob);
 	const link = document.createElement("a");
 	link.href = url;
-	link.download = `${safeFilename(event.Title)}.ics`;
+	link.download = filename;
 	document.body.appendChild(link);
 	link.click();
 	document.body.removeChild(link);

@@ -366,3 +366,39 @@ export interface AdminStats {
 		details?: Record<string, number>;
 	} | null;
 }
+
+// Weekly daily-planner itinerary (GET /api/me/planner).
+export interface PlanItem {
+	event_id: string;
+	title: string;
+	start_time: string; // RFC3339 (ET)
+	time_label: string; // e.g. "7:30 PM"
+	venue_name?: string;
+	category?: string;
+	image_url?: string;
+	event_url: string;
+	distance_miles: number;
+}
+
+export interface PlanDay {
+	date: string; // YYYY-MM-DD
+	weekday: string; // e.g. "Monday, January 2"
+	items: PlanItem[];
+}
+
+export interface WeeklyPlan {
+	week_of: string;
+	days: PlanDay[];
+}
+
+export interface PlannerResponse {
+	status: "ready" | "none";
+	week_of?: string;
+	generated_at?: string;
+	created_at?: string;
+	plan?: WeeklyPlan;
+}
+
+export interface CreateSharedPlanResponse {
+	token: string;
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/planner"
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
@@ -263,6 +264,16 @@ func main() {
 		log.Printf("Recs recompute enabled (schedule: %s)", cfg.RecsRecomputeCron)
 	}
 
+	// Weekly daily-planner generator. Shares the digest's EmailSender and the
+	// recs service (for fresh preference vectors); persists per-user itineraries
+	// to daily_plans and emails them best-effort.
+	plannerGen := &planner.Generator{
+		Queries:     queries,
+		Recs:        recsService,
+		Email:       digestRunner.Email,
+		FrontendURL: cfg.FrontendURL,
+	}
+
 	// Set up weekly digest cron job
 	if cfg.DigestEnabled {
 		c.AddFunc(cfg.DigestCronSchedule, func() {
@@ -272,6 +283,17 @@ func main() {
 			metrics.CronJobDuration.WithLabelValues("digest").Observe(time.Since(start).Seconds())
 		})
 		log.Printf("Digest enabled (schedule: %s)", cfg.DigestCronSchedule)
+	}
+
+	// Weekly planner cron job — runs on the digest schedule.
+	if cfg.PlannerEnabled {
+		c.AddFunc(cfg.DigestCronSchedule, func() {
+			start := time.Now()
+			plannerGen.Run(context.Background())
+			metrics.CronJobRunsTotal.WithLabelValues("planner", "success").Inc()
+			metrics.CronJobDuration.WithLabelValues("planner").Observe(time.Since(start).Seconds())
+		})
+		log.Printf("Planner enabled (schedule: %s)", cfg.DigestCronSchedule)
 	}
 
 	c.Start()

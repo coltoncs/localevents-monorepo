@@ -17,6 +17,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as MyEventsRouteImport } from './routes/my-events'
 import { Route as DonateRouteImport } from './routes/donate'
 import { Route as ApplyAuthorRouteImport } from './routes/apply-author'
@@ -27,6 +28,7 @@ import { Route as PlacesIndexRouteImport } from './routes/places/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
 import { Route as DrinksIndexRouteImport } from './routes/drinks/index'
 import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
+import { Route as PlanTokenRouteImport } from './routes/plan.$token'
 import { Route as PlacePlaceIdRouteImport } from './routes/place/$placeId'
 import { Route as FoodFoodIdRouteImport } from './routes/food/$foodId'
 import { Route as DrinksBeverageIdRouteImport } from './routes/drinks/$beverageId'
@@ -71,6 +73,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlannerRoute = PlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyEventsRoute = MyEventsRouteImport.update({
@@ -123,6 +130,11 @@ const VenuesVenueIdRoute = VenuesVenueIdRouteImport.update({
   path: '/venues/$venueId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlanTokenRoute = PlanTokenRouteImport.update({
+  id: '/plan/$token',
+  path: '/plan/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlacePlaceIdRoute = PlacePlaceIdRouteImport.update({
   id: '/place/$placeId',
   path: '/place/$placeId',
@@ -156,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/planner': typeof PlannerRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
@@ -167,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
+  '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -181,6 +195,7 @@ export interface FileRoutesByTo {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/planner': typeof PlannerRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
@@ -192,6 +207,7 @@ export interface FileRoutesByTo {
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
+  '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks': typeof DrinksIndexRoute
   '/events': typeof EventsIndexRoute
@@ -207,6 +223,7 @@ export interface FileRoutesById {
   '/apply-author': typeof ApplyAuthorRoute
   '/donate': typeof DonateRoute
   '/my-events': typeof MyEventsRoute
+  '/planner': typeof PlannerRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/saved': typeof SavedRoute
@@ -218,6 +235,7 @@ export interface FileRoutesById {
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
+  '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -234,6 +252,7 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/planner'
     | '/privacy'
     | '/profile'
     | '/saved'
@@ -245,6 +264,7 @@ export interface FileRouteTypes {
     | '/drinks/$beverageId'
     | '/food/$foodId'
     | '/place/$placeId'
+    | '/plan/$token'
     | '/venues/$venueId'
     | '/drinks/'
     | '/events/'
@@ -259,6 +279,7 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/planner'
     | '/privacy'
     | '/profile'
     | '/saved'
@@ -270,6 +291,7 @@ export interface FileRouteTypes {
     | '/drinks/$beverageId'
     | '/food/$foodId'
     | '/place/$placeId'
+    | '/plan/$token'
     | '/venues/$venueId'
     | '/drinks'
     | '/events'
@@ -284,6 +306,7 @@ export interface FileRouteTypes {
     | '/apply-author'
     | '/donate'
     | '/my-events'
+    | '/planner'
     | '/privacy'
     | '/profile'
     | '/saved'
@@ -295,6 +318,7 @@ export interface FileRouteTypes {
     | '/drinks/$beverageId'
     | '/food/$foodId'
     | '/place/$placeId'
+    | '/plan/$token'
     | '/venues/$venueId'
     | '/drinks/'
     | '/events/'
@@ -310,6 +334,7 @@ export interface RootRouteChildren {
   ApplyAuthorRoute: typeof ApplyAuthorRoute
   DonateRoute: typeof DonateRoute
   MyEventsRoute: typeof MyEventsRoute
+  PlannerRoute: typeof PlannerRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   SavedRoute: typeof SavedRoute
@@ -321,6 +346,7 @@ export interface RootRouteChildren {
   DrinksBeverageIdRoute: typeof DrinksBeverageIdRoute
   FoodFoodIdRoute: typeof FoodFoodIdRoute
   PlacePlaceIdRoute: typeof PlacePlaceIdRoute
+  PlanTokenRoute: typeof PlanTokenRoute
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
   DrinksIndexRoute: typeof DrinksIndexRoute
   EventsIndexRoute: typeof EventsIndexRoute
@@ -385,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planner': {
+      id: '/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof PlannerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-events': {
@@ -457,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VenuesVenueIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plan/$token': {
+      id: '/plan/$token'
+      path: '/plan/$token'
+      fullPath: '/plan/$token'
+      preLoaderRoute: typeof PlanTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/place/$placeId': {
       id: '/place/$placeId'
       path: '/place/$placeId'
@@ -502,6 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApplyAuthorRoute: ApplyAuthorRoute,
   DonateRoute: DonateRoute,
   MyEventsRoute: MyEventsRoute,
+  PlannerRoute: PlannerRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   SavedRoute: SavedRoute,
@@ -513,6 +554,7 @@ const rootRouteChildren: RootRouteChildren = {
   DrinksBeverageIdRoute: DrinksBeverageIdRoute,
   FoodFoodIdRoute: FoodFoodIdRoute,
   PlacePlaceIdRoute: PlacePlaceIdRoute,
+  PlanTokenRoute: PlanTokenRoute,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
   DrinksIndexRoute: DrinksIndexRoute,
   EventsIndexRoute: EventsIndexRoute,

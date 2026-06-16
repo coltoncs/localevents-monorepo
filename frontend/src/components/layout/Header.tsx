@@ -60,6 +60,16 @@ export default function Header() {
       )}
       {isSignedIn && (
         <Link
+          to="/planner"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          Planner
+        </Link>
+      )}
+      {isSignedIn && (
+        <Link
           to="/profile"
           className="nav-link"
           activeProps={{ className: "nav-link is-active" }}

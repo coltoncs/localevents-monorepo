@@ -78,4 +78,9 @@ export const queryKeys = {
 		list: (lat: number, lng: number, radius?: number) =>
 			["recommendations", "list", lat, lng, radius] as const,
 	},
+	planner: {
+		all: ["planner"] as const,
+		latest: ["planner", "latest"] as const,
+		shared: (token: string) => ["planner", "shared", token] as const,
+	},
 };

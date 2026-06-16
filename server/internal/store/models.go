@@ -31,6 +31,13 @@ type CronLog struct {
 	Details       []byte
 }
 
+type DailyPlan struct {
+	UserID      pgtype.UUID
+	WeekOf      pgtype.Date
+	Plan        []byte
+	GeneratedAt pgtype.Timestamptz
+}
+
 type DeletedExternalEvent struct {
 	Source     string
 	ExternalID string
@@ -170,6 +177,13 @@ type SavedEvent struct {
 	ID        pgtype.UUID
 	UserID    pgtype.UUID
 	EventID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
+type SharedPlan struct {
+	Token     pgtype.UUID
+	Plan      []byte
+	CreatedBy pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 }
 

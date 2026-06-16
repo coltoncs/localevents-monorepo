@@ -15,6 +15,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/planner"
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
@@ -54,6 +55,10 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	placeHandler := handler.NewPlaceHandler(queries)
 	adminHandler := handler.NewAdminHandler(queries)
 	recsHandler := handler.NewRecommendationHandler(queries, recs)
+	// Compute-only planner generator for the on-demand endpoint (no Email needed;
+	// the cron in main.go owns the email-sending generator).
+	plannerGen := &planner.Generator{Queries: queries, Recs: recs, FrontendURL: cfg.FrontendURL}
+	plannerHandler := handler.NewPlannerHandler(queries, plannerGen)
 
 	redirectFoods := func(w http.ResponseWriter, r *http.Request) {
 		redirectLegacyPath(w, r, "/api/foods", "/api/places")
@@ -67,6 +72,8 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
 		r.Get("/unsubscribe/{token}", notificationHandler.Unsubscribe)
 		r.Post("/sms/incoming", smsWebhookHandler.Incoming)
+		// Public read of a shared itinerary snapshot.
+		r.Get("/planner/shared/{token}", plannerHandler.GetShared)
 
 		// Public routes with optional auth
 		r.Group(func(r chi.Router) {
@@ -85,6 +92,12 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			// Anyone may submit a suggestion; unauthenticated submissions are
 			// rate-limited per IP to blunt spam and still land in the review queue.
 			r.With(middleware.RateLimit(10, time.Hour)).Post("/suggestions", suggestionHandler.Create)
+			// On-demand itinerary builder. Open to all (personalized when signed
+			// in); rate-limited since each call runs a geo + vector query.
+			r.With(middleware.RateLimit(30, time.Hour)).Get("/planner/compute", plannerHandler.Compute)
+			// Create a shareable snapshot of an itinerary. Open to all; rate-limited
+			// since it writes a row per call.
+			r.With(middleware.RateLimit(20, time.Hour)).Post("/planner/share", plannerHandler.Share)
 		})
 
 		// Legacy /foods and /beverages paths -> 301 redirects to /places
@@ -118,6 +131,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Post("/me/notifications/trigger-digest", notificationHandler.TriggerDigest)
 			r.Get("/me/recommendations", recsHandler.List)
 			r.Post("/me/event-views/{eventId}", recsHandler.RecordView)
+			r.Get("/me/planner", plannerHandler.GetMyPlan)
 			r.Post("/images/presign", imageHandler.Presign)
 			r.Post("/images/confirm", imageHandler.Confirm)
 			r.Get("/images", imageHandler.List)

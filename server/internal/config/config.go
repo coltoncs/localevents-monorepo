@@ -28,6 +28,7 @@ type Config struct {
 	TwilioFromNumber    string
 	DigestCronSchedule  string
 	DigestEnabled       bool
+	PlannerEnabled      bool
 	CleanupCronSchedule string
 	FrontendURL         string
 	OpenAIAPIKey        string
@@ -61,6 +62,9 @@ func Load() *Config {
 		TwilioFromNumber:    getEnv("TWILIO_FROM_NUMBER", ""),
 		DigestCronSchedule:  getEnv("DIGEST_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 9 * * 5"),
 		DigestEnabled:       getEnv("DIGEST_ENABLED", "false") == "true",
+		// Weekly daily-planner generation. Runs in the same Friday cron as the
+		// digest; defaults to the digest's enabled state.
+		PlannerEnabled: getEnv("PLANNER_ENABLED", getEnv("DIGEST_ENABLED", "false")) == "true",
 		// Runs one hour before the digest so digest emails only reference
 		// images that will survive until the following week's cleanup.
 		CleanupCronSchedule: getEnv("CLEANUP_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 8 * * 5"),
