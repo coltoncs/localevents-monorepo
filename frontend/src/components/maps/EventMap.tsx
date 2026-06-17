@@ -366,6 +366,16 @@ export function EventMap({
 				selectionPopupRef.current?.remove();
 				selectionPopupRef.current = null;
 				pointPopupRef.current?.remove();
+
+				// Gently center the marker. Only nudge the zoom in if we're zoomed
+				// well out, so clicking a point at street level doesn't jump.
+				map.flyTo({
+					center: coordinates,
+					zoom: Math.max(map.getZoom(), 13),
+					duration: 600,
+					essential: true,
+				});
+
 				pointPopupRef.current = new mapboxgl.Popup({
 					offset: 16,
 					className: "themed-popup",
@@ -499,7 +509,10 @@ export function EventMap({
 		if (map.isStyleLoaded()) {
 			updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
 		} else {
-			map.once("style.load", () => {
+			// `idle` re-fires whenever the map settles; `style.load` only fires on a
+			// fresh style load, so it would miss this update when isStyleLoaded()
+			// flakily reports false without a style actually reloading.
+			map.once("idle", () => {
 				updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
 			});
 		}
@@ -535,8 +548,13 @@ export function EventMap({
 			}
 		};
 
+		// `isStyleLoaded()` flakily returns false even when the style is usable
+		// (e.g. right after a setConfigProperty/theme change or mid camera move).
+		// Fall back to `idle` — which re-fires every time the map settles — rather
+		// than the one-shot `load` event, which only ever fires once per map and so
+		// would silently drop this update on every run after the first.
 		if (map.isStyleLoaded()) apply();
-		else map.once("load", apply);
+		else map.once("idle", apply);
 	}, [events, addEventLayers, center.lat, center.lng]);
 
 	// Respond to external selection: open a popup at the selected event's
