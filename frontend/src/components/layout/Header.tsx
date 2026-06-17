@@ -20,6 +20,16 @@ export default function Header() {
       >
         Events
       </Link>
+      {isSignedIn && (
+        <Link
+          to="/planner"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          Planner
+        </Link>
+      )}
       {/* <Link
 				to="/places"
 				search={{ tab: "food" }}
@@ -56,16 +66,6 @@ export default function Header() {
           onClick={() => setMenuOpen(false)}
         >
           Admin
-        </Link>
-      )}
-      {isSignedIn && (
-        <Link
-          to="/planner"
-          className="nav-link"
-          activeProps={{ className: "nav-link is-active" }}
-          onClick={() => setMenuOpen(false)}
-        >
-          Planner
         </Link>
       )}
       {isSignedIn && (
