@@ -30,9 +30,15 @@ import { Route as DrinksIndexRouteImport } from './routes/drinks/index'
 import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
 import { Route as PlanTokenRouteImport } from './routes/plan.$token'
 import { Route as PlacePlaceIdRouteImport } from './routes/place/$placeId'
+import { Route as MusicConcertsRouteImport } from './routes/music/concerts'
 import { Route as FoodFoodIdRouteImport } from './routes/food/$foodId'
 import { Route as DrinksBeverageIdRouteImport } from './routes/drinks/$beverageId'
+import { Route as MusicVenuesIndexRouteImport } from './routes/music/venues/index'
+import { Route as MusicArtistsIndexRouteImport } from './routes/music/artists/index'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events/$eventId/index'
+import { Route as MusicVenuesClaimRouteImport } from './routes/music/venues/claim'
+import { Route as MusicArtistsNewRouteImport } from './routes/music/artists/new'
+import { Route as MusicArtistsArtistIdRouteImport } from './routes/music/artists/$artistId'
 import { Route as EventsEventIdEditRouteImport } from './routes/events/$eventId/edit'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -140,6 +146,11 @@ const PlacePlaceIdRoute = PlacePlaceIdRouteImport.update({
   path: '/place/$placeId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MusicConcertsRoute = MusicConcertsRouteImport.update({
+  id: '/music/concerts',
+  path: '/music/concerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FoodFoodIdRoute = FoodFoodIdRouteImport.update({
   id: '/food/$foodId',
   path: '/food/$foodId',
@@ -150,9 +161,34 @@ const DrinksBeverageIdRoute = DrinksBeverageIdRouteImport.update({
   path: '/drinks/$beverageId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MusicVenuesIndexRoute = MusicVenuesIndexRouteImport.update({
+  id: '/music/venues/',
+  path: '/music/venues/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicArtistsIndexRoute = MusicArtistsIndexRouteImport.update({
+  id: '/music/artists/',
+  path: '/music/artists/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EventsEventIdIndexRoute = EventsEventIdIndexRouteImport.update({
   id: '/events/$eventId/',
   path: '/events/$eventId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicVenuesClaimRoute = MusicVenuesClaimRouteImport.update({
+  id: '/music/venues/claim',
+  path: '/music/venues/claim',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicArtistsNewRoute = MusicArtistsNewRouteImport.update({
+  id: '/music/artists/new',
+  path: '/music/artists/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicArtistsArtistIdRoute = MusicArtistsArtistIdRouteImport.update({
+  id: '/music/artists/$artistId',
+  path: '/music/artists/$artistId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsEventIdEditRoute = EventsEventIdEditRouteImport.update({
@@ -179,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
+  '/music/concerts': typeof MusicConcertsRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -186,7 +223,12 @@ export interface FileRoutesByFullPath {
   '/events/': typeof EventsIndexRoute
   '/places/': typeof PlacesIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
+  '/music/artists/$artistId': typeof MusicArtistsArtistIdRoute
+  '/music/artists/new': typeof MusicArtistsNewRoute
+  '/music/venues/claim': typeof MusicVenuesClaimRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
+  '/music/artists/': typeof MusicArtistsIndexRoute
+  '/music/venues/': typeof MusicVenuesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +248,7 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
+  '/music/concerts': typeof MusicConcertsRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -213,7 +256,12 @@ export interface FileRoutesByTo {
   '/events': typeof EventsIndexRoute
   '/places': typeof PlacesIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
+  '/music/artists/$artistId': typeof MusicArtistsArtistIdRoute
+  '/music/artists/new': typeof MusicArtistsNewRoute
+  '/music/venues/claim': typeof MusicVenuesClaimRoute
   '/events/$eventId': typeof EventsEventIdIndexRoute
+  '/music/artists': typeof MusicArtistsIndexRoute
+  '/music/venues': typeof MusicVenuesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -234,6 +282,7 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/drinks/$beverageId': typeof DrinksBeverageIdRoute
   '/food/$foodId': typeof FoodFoodIdRoute
+  '/music/concerts': typeof MusicConcertsRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
@@ -241,7 +290,12 @@ export interface FileRoutesById {
   '/events/': typeof EventsIndexRoute
   '/places/': typeof PlacesIndexRoute
   '/events/$eventId/edit': typeof EventsEventIdEditRoute
+  '/music/artists/$artistId': typeof MusicArtistsArtistIdRoute
+  '/music/artists/new': typeof MusicArtistsNewRoute
+  '/music/venues/claim': typeof MusicVenuesClaimRoute
   '/events/$eventId/': typeof EventsEventIdIndexRoute
+  '/music/artists/': typeof MusicArtistsIndexRoute
+  '/music/venues/': typeof MusicVenuesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -263,6 +317,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/drinks/$beverageId'
     | '/food/$foodId'
+    | '/music/concerts'
     | '/place/$placeId'
     | '/plan/$token'
     | '/venues/$venueId'
@@ -270,7 +325,12 @@ export interface FileRouteTypes {
     | '/events/'
     | '/places/'
     | '/events/$eventId/edit'
+    | '/music/artists/$artistId'
+    | '/music/artists/new'
+    | '/music/venues/claim'
     | '/events/$eventId/'
+    | '/music/artists/'
+    | '/music/venues/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -290,6 +350,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/drinks/$beverageId'
     | '/food/$foodId'
+    | '/music/concerts'
     | '/place/$placeId'
     | '/plan/$token'
     | '/venues/$venueId'
@@ -297,7 +358,12 @@ export interface FileRouteTypes {
     | '/events'
     | '/places'
     | '/events/$eventId/edit'
+    | '/music/artists/$artistId'
+    | '/music/artists/new'
+    | '/music/venues/claim'
     | '/events/$eventId'
+    | '/music/artists'
+    | '/music/venues'
   id:
     | '__root__'
     | '/'
@@ -317,6 +383,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/drinks/$beverageId'
     | '/food/$foodId'
+    | '/music/concerts'
     | '/place/$placeId'
     | '/plan/$token'
     | '/venues/$venueId'
@@ -324,7 +391,12 @@ export interface FileRouteTypes {
     | '/events/'
     | '/places/'
     | '/events/$eventId/edit'
+    | '/music/artists/$artistId'
+    | '/music/artists/new'
+    | '/music/venues/claim'
     | '/events/$eventId/'
+    | '/music/artists/'
+    | '/music/venues/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -345,6 +417,7 @@ export interface RootRouteChildren {
   WelcomeRoute: typeof WelcomeRoute
   DrinksBeverageIdRoute: typeof DrinksBeverageIdRoute
   FoodFoodIdRoute: typeof FoodFoodIdRoute
+  MusicConcertsRoute: typeof MusicConcertsRoute
   PlacePlaceIdRoute: typeof PlacePlaceIdRoute
   PlanTokenRoute: typeof PlanTokenRoute
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
@@ -352,7 +425,12 @@ export interface RootRouteChildren {
   EventsIndexRoute: typeof EventsIndexRoute
   PlacesIndexRoute: typeof PlacesIndexRoute
   EventsEventIdEditRoute: typeof EventsEventIdEditRoute
+  MusicArtistsArtistIdRoute: typeof MusicArtistsArtistIdRoute
+  MusicArtistsNewRoute: typeof MusicArtistsNewRoute
+  MusicVenuesClaimRoute: typeof MusicVenuesClaimRoute
   EventsEventIdIndexRoute: typeof EventsEventIdIndexRoute
+  MusicArtistsIndexRoute: typeof MusicArtistsIndexRoute
+  MusicVenuesIndexRoute: typeof MusicVenuesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -504,6 +582,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlacePlaceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/music/concerts': {
+      id: '/music/concerts'
+      path: '/music/concerts'
+      fullPath: '/music/concerts'
+      preLoaderRoute: typeof MusicConcertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/food/$foodId': {
       id: '/food/$foodId'
       path: '/food/$foodId'
@@ -518,11 +603,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DrinksBeverageIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/music/venues/': {
+      id: '/music/venues/'
+      path: '/music/venues'
+      fullPath: '/music/venues/'
+      preLoaderRoute: typeof MusicVenuesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music/artists/': {
+      id: '/music/artists/'
+      path: '/music/artists'
+      fullPath: '/music/artists/'
+      preLoaderRoute: typeof MusicArtistsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/events/$eventId/': {
       id: '/events/$eventId/'
       path: '/events/$eventId'
       fullPath: '/events/$eventId/'
       preLoaderRoute: typeof EventsEventIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music/venues/claim': {
+      id: '/music/venues/claim'
+      path: '/music/venues/claim'
+      fullPath: '/music/venues/claim'
+      preLoaderRoute: typeof MusicVenuesClaimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music/artists/new': {
+      id: '/music/artists/new'
+      path: '/music/artists/new'
+      fullPath: '/music/artists/new'
+      preLoaderRoute: typeof MusicArtistsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music/artists/$artistId': {
+      id: '/music/artists/$artistId'
+      path: '/music/artists/$artistId'
+      fullPath: '/music/artists/$artistId'
+      preLoaderRoute: typeof MusicArtistsArtistIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events/$eventId/edit': {
@@ -553,6 +673,7 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeRoute: WelcomeRoute,
   DrinksBeverageIdRoute: DrinksBeverageIdRoute,
   FoodFoodIdRoute: FoodFoodIdRoute,
+  MusicConcertsRoute: MusicConcertsRoute,
   PlacePlaceIdRoute: PlacePlaceIdRoute,
   PlanTokenRoute: PlanTokenRoute,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
@@ -560,7 +681,12 @@ const rootRouteChildren: RootRouteChildren = {
   EventsIndexRoute: EventsIndexRoute,
   PlacesIndexRoute: PlacesIndexRoute,
   EventsEventIdEditRoute: EventsEventIdEditRoute,
+  MusicArtistsArtistIdRoute: MusicArtistsArtistIdRoute,
+  MusicArtistsNewRoute: MusicArtistsNewRoute,
+  MusicVenuesClaimRoute: MusicVenuesClaimRoute,
   EventsEventIdIndexRoute: EventsEventIdIndexRoute,
+  MusicArtistsIndexRoute: MusicArtistsIndexRoute,
+  MusicVenuesIndexRoute: MusicVenuesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

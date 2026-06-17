@@ -5,12 +5,14 @@ import { AdminOpsTab } from "#/components/admin/AdminOpsTab";
 import { AdminPlacesTab } from "#/components/admin/AdminPlacesTab";
 import { AdminSuggestionsTab } from "#/components/admin/AdminSuggestionsTab";
 import { type AdminTab, AdminTabNav } from "#/components/admin/AdminTabNav";
+import { AdminVenueClaimsTab } from "#/components/admin/AdminVenueClaimsTab";
 import { RoleProtectedRoute } from "#/components/auth/RoleProtectedRoute";
 import { useAdminStats } from "#/lib/hooks/useAdminStats";
 
 const VALID_TABS: AdminTab[] = [
 	"dashboard",
 	"applications",
+	"venue-claims",
 	"suggestions",
 	"places",
 	"ops",
@@ -49,8 +51,10 @@ function AdminContent() {
 
 	if (!stats) {
 		<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-			Error fetching admin details, <a href="https://status.clerk.com/">check Clerk's system status</a> or consult a developer.
-		</div>
+			Error fetching admin details,{" "}
+			<a href="https://status.clerk.com/">check Clerk's system status</a> or
+			consult a developer.
+		</div>;
 	}
 
 	return (
@@ -62,6 +66,7 @@ function AdminContent() {
 
 			{active === "dashboard" && <AdminDashboardTab />}
 			{active === "applications" && <AdminApplicationsTab />}
+			{active === "venue-claims" && <AdminVenueClaimsTab />}
 			{active === "suggestions" && <AdminSuggestionsTab />}
 			{active === "places" && <AdminPlacesTab />}
 			{active === "ops" && <AdminOpsTab />}

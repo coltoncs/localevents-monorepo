@@ -69,7 +69,7 @@ const listPlannerEventsForUser = `-- name: ListPlannerEventsForUser :many
 WITH u AS (
     SELECT preference_vector FROM user_preferences WHERE user_id = $6
 )
-SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free, e.is_featured, e.featured_at, e.featured_by,
+SELECT e.id, e.external_id, e.source, e.title, e.description, e.venue_name, e.address, e.city, e.state, e.zip, e.latitude, e.longitude, e.start_time, e.end_time, e.image_url, e.ticket_url, e.price_min, e.price_max, e.submitted_by, e.created_at, e.updated_at, e.manually_edited, e.venue_id, e.categories, e.series_id, e.is_free, e.is_featured, e.featured_at, e.featured_by, e.genre,
        ST_Distance(
            ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography,
            ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography
@@ -128,6 +128,7 @@ type ListPlannerEventsForUserRow struct {
 	IsFeatured     bool
 	FeaturedAt     pgtype.Timestamptz
 	FeaturedBy     pgtype.UUID
+	Genre          []string
 	DistanceMeters float64
 	PrefScore      interface{}
 }
@@ -183,6 +184,7 @@ func (q *Queries) ListPlannerEventsForUser(ctx context.Context, arg ListPlannerE
 			&i.IsFeatured,
 			&i.FeaturedAt,
 			&i.FeaturedBy,
+			&i.Genre,
 			&i.DistanceMeters,
 			&i.PrefScore,
 		); err != nil {

@@ -119,6 +119,14 @@ func mapSGEvent(ev sgEvent) (RawEvent, error) {
 
 	if len(ev.Performers) > 0 {
 		raw.ImageURL = ev.Performers[0].Images.Huge
+		// Raw performer genres; normalized to canonical genres in the runner.
+		for _, p := range ev.Performers {
+			for _, g := range p.Genres {
+				if g.Name != "" {
+					raw.Genre = append(raw.Genre, g.Name)
+				}
+			}
+		}
 	}
 
 	if ev.Stats.LowestPrice > 0 {
@@ -145,23 +153,23 @@ type sgMeta struct {
 }
 
 type sgEvent struct {
-	ID          int            `json:"id"`
-	Title       string         `json:"title"`
-	Type        string         `json:"type"`
-	URL         string         `json:"url"`
-	DatetimeUTC string         `json:"datetime_utc"`
-	Venue       sgVenue        `json:"venue"`
-	Performers  []sgPerformer  `json:"performers"`
-	Stats       sgStats        `json:"stats"`
+	ID          int           `json:"id"`
+	Title       string        `json:"title"`
+	Type        string        `json:"type"`
+	URL         string        `json:"url"`
+	DatetimeUTC string        `json:"datetime_utc"`
+	Venue       sgVenue       `json:"venue"`
+	Performers  []sgPerformer `json:"performers"`
+	Stats       sgStats       `json:"stats"`
 }
 
 type sgVenue struct {
-	Name       string      `json:"name"`
-	Address    string      `json:"address"`
-	City       string      `json:"city"`
-	State      string      `json:"state"`
-	PostalCode string      `json:"postal_code"`
-	Location   sgLocation  `json:"location"`
+	Name       string     `json:"name"`
+	Address    string     `json:"address"`
+	City       string     `json:"city"`
+	State      string     `json:"state"`
+	PostalCode string     `json:"postal_code"`
+	Location   sgLocation `json:"location"`
 }
 
 type sgLocation struct {
@@ -170,7 +178,12 @@ type sgLocation struct {
 }
 
 type sgPerformer struct {
-	Images sgImages `json:"images"`
+	Images sgImages  `json:"images"`
+	Genres []sgGenre `json:"genres"`
+}
+
+type sgGenre struct {
+	Name string `json:"name"`
 }
 
 type sgImages struct {

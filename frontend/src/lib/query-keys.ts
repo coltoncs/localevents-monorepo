@@ -11,6 +11,13 @@ interface VenueFilters {
 	radius?: number;
 }
 
+interface ArtistFilters {
+	lat: number;
+	lng: number;
+	radius?: number;
+	genre?: string;
+}
+
 export const queryKeys = {
 	places: {
 		all: ["places"] as const,
@@ -29,7 +36,20 @@ export const queryKeys = {
 	venues: {
 		all: ["venues"] as const,
 		list: (filters: VenueFilters) => ["venues", "list", filters] as const,
+		music: (filters: VenueFilters) => ["venues", "music", filters] as const,
 		detail: (id: string) => ["venues", "detail", id] as const,
+	},
+	venueClaims: {
+		all: ["venueClaims"] as const,
+		pending: ["venueClaims", "pending"] as const,
+		mine: ["venueClaims", "mine"] as const,
+	},
+	artists: {
+		all: ["artists"] as const,
+		list: (filters: ArtistFilters) => ["artists", "list", filters] as const,
+		detail: (id: string) => ["artists", "detail", id] as const,
+		events: (id: string) => ["artists", "events", id] as const,
+		mine: ["artists", "mine"] as const,
 	},
 	user: {
 		me: ["user", "me"] as const,

@@ -14,6 +14,7 @@ export interface Event {
 	StartTime: string;
 	EndTime?: string;
 	Categories?: string[];
+	Genre?: string[];
 	ImageUrl?: string;
 	TicketUrl?: string;
 	PriceMin?: number;
@@ -82,6 +83,7 @@ export interface MapEventFilters {
 	date?: string;
 	endDate?: string;
 	category?: string;
+	genre?: string; // single music genre for filtering
 	venueName?: string;
 	venueId?: string;
 	search?: string;
@@ -94,6 +96,7 @@ export interface EventFilters {
 	date?: string;
 	endDate?: string;
 	category?: string; // single category for filtering
+	genre?: string; // single music genre for filtering
 	venueName?: string;
 	venueId?: string;
 	search?: string;
@@ -114,6 +117,7 @@ export interface CreateEventInput {
 	start_time: string;
 	end_time?: string;
 	categories?: string[];
+	genre?: string[];
 	image_url?: string;
 	ticket_url?: string;
 	price_min?: number;
@@ -134,6 +138,10 @@ export interface Venue {
 	Longitude: number;
 	Hours?: string;
 	Description?: string;
+	Genres?: string[];
+	BookingEmail?: string;
+	AcceptsBookingRequests?: boolean;
+	IsClaimed?: boolean;
 }
 
 export interface VenueListResponse {
@@ -150,6 +158,95 @@ export interface UpdateVenueInput {
 	longitude: number;
 	hours?: string;
 	description?: string;
+	genres?: string[];
+	booking_email?: string;
+	accepts_booking_requests?: boolean;
+}
+
+export interface VenueClaim {
+	ID: string;
+	ClerkID: string;
+	VenueID?: string;
+	VenueName: string;
+	Address?: string;
+	City?: string;
+	State?: string;
+	Zip?: string;
+	Latitude?: number;
+	Longitude?: number;
+	ContactName: string;
+	ContactEmail: string;
+	BookingEmail?: string;
+	Message?: string;
+	Status: "pending" | "approved" | "rejected";
+	SubmittedAt: string;
+	ReviewedAt?: string;
+	ReviewedBy?: string;
+	ReviewNotes?: string;
+}
+
+export interface SubmitVenueClaimInput {
+	/** Set when claiming an existing venue; omit to propose a new one. */
+	venue_id?: string;
+	venue_name: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	zip?: string;
+	latitude?: number;
+	longitude?: number;
+	contact_name: string;
+	contact_email: string;
+	booking_email?: string;
+	message?: string;
+}
+
+export interface BookingRequestInput {
+	name: string;
+	email: string;
+	message: string;
+}
+
+export interface Artist {
+	ID: string;
+	Name: string;
+	Bio?: string;
+	Genres?: string[];
+	ImageUrl?: string;
+	WebsiteUrl?: string;
+	SpotifyUrl?: string;
+	InstagramUrl?: string;
+	BandcampUrl?: string;
+	YoutubeUrl?: string;
+	HometownCity?: string;
+	HometownState?: string;
+	OwnerUserID?: string;
+	Source: string;
+	IsClaimed?: boolean;
+	CreatedAt: string;
+	UpdatedAt: string;
+}
+
+export interface ArtistListResponse {
+	artists: Artist[];
+}
+
+export interface ArtistEventsResponse {
+	events: Event[];
+}
+
+export interface CreateArtistInput {
+	name: string;
+	bio?: string;
+	genres?: string[];
+	image_url?: string;
+	website_url?: string;
+	spotify_url?: string;
+	instagram_url?: string;
+	bandcamp_url?: string;
+	youtube_url?: string;
+	hometown_city?: string;
+	hometown_state?: string;
 }
 
 export type Cuisine = string;

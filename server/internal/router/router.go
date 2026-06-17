@@ -31,7 +31,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter, venueNotifier *notifier.VenueNotifier) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -43,7 +43,9 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	r.Handle("/metrics", promhttp.Handler())
 
 	eventHandler := handler.NewEventHandler(queries, pool, r2, alerter)
-	venueHandler := handler.NewVenueHandler(queries)
+	venueHandler := handler.NewVenueHandler(queries, venueNotifier)
+	venueClaimHandler := handler.NewVenueClaimHandler(queries, alerter)
+	artistHandler := handler.NewArtistHandler(queries, r2)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries, alerter)
 	imageHandler := handler.NewImageHandler(queries, r2)
@@ -85,7 +87,11 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Get("/events/{id}/save-count", eventHandler.SaveCount)
 			r.Get("/venues", venueHandler.List)
+			r.Get("/venues/music", venueHandler.MusicList)
 			r.Get("/venues/{id}", venueHandler.Get)
+			r.Get("/artists", artistHandler.List)
+			r.Get("/artists/{id}", artistHandler.Get)
+			r.Get("/artists/{id}/events", artistHandler.GetEvents)
 			r.Get("/places", placeHandler.List)
 			r.Get("/places/{id}", placeHandler.Get)
 			r.Get("/places/{id}/checkin-counts", placeHandler.CheckInCounts)
@@ -126,6 +132,14 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Delete("/me/saved/{eventId}", userHandler.UnsaveEvent)
 			r.Post("/author-applications", appHandler.Submit)
 			r.Get("/me/application", appHandler.GetMyApplication)
+			r.Post("/venue-claims", venueClaimHandler.Submit)
+			r.Get("/me/venue-claims", venueClaimHandler.ListMine)
+			r.Post("/venues/{id}/booking-request", venueHandler.BookingRequest)
+			r.Get("/me/artists", artistHandler.ListMine)
+			r.Post("/artists", artistHandler.Create)
+			r.Put("/artists/{id}", artistHandler.Update)
+			r.Delete("/artists/{id}", artistHandler.Delete)
+			r.Post("/artists/{id}/events", artistHandler.CreateShow)
 			r.Get("/me/notifications", notificationHandler.GetPreferences)
 			r.Put("/me/notifications", notificationHandler.UpdatePreferences)
 			r.Post("/me/notifications/trigger-digest", notificationHandler.TriggerDigest)
@@ -166,6 +180,9 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Get("/admin/applications", appHandler.ListPending)
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)
+			r.Get("/admin/venue-claims", venueClaimHandler.ListPending)
+			r.Post("/admin/venue-claims/{id}/approve", venueClaimHandler.Approve)
+			r.Post("/admin/venue-claims/{id}/reject", venueClaimHandler.Reject)
 			r.Post("/admin/digest/trigger", digestHandler.Trigger)
 			r.Get("/admin/suggestions", suggestionHandler.ListPending)
 			r.Get("/admin/stats", adminHandler.GetStats)

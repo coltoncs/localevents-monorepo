@@ -7,6 +7,7 @@ import { InertiaPlugin } from "gsap/InertiaPlugin";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { MusicNavDropdown } from "#/components/layout/MusicNavDropdown";
 import { EventMap } from "#/components/maps/EventMap";
 import ThemeToggle from "#/components/ThemeToggle";
 import ClerkHeader from "#/integrations/clerk/header-user";
@@ -979,6 +980,8 @@ function MapNavBar({ onShowList }: { onShowList: () => void }) {
 			>
 				Events
 			</Link>
+
+			<MusicNavDropdown onNavigate={() => setMenuOpen(false)} />
 
 			<Link
 				to="/submit"

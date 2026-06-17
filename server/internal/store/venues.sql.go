@@ -11,35 +11,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createVenue = `-- name: CreateVenue :one
-INSERT INTO venues (name, address, city, state, zip, latitude, longitude, hours, description)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+const claimVenue = `-- name: ClaimVenue :one
+UPDATE venues SET
+    owner_user_id = $1,
+    is_claimed = TRUE,
+    booking_email = COALESCE(NULLIF($2::text, ''), booking_email),
+    accepts_booking_requests = $3,
+    updated_at = NOW()
+WHERE id = $4
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres
 `
 
-type CreateVenueParams struct {
-	Name        string
-	Address     pgtype.Text
-	City        pgtype.Text
-	State       pgtype.Text
-	Zip         pgtype.Text
-	Latitude    float64
-	Longitude   float64
-	Hours       pgtype.Text
-	Description pgtype.Text
+type ClaimVenueParams struct {
+	OwnerUserID            pgtype.UUID
+	NewBookingEmail        string
+	AcceptsBookingRequests bool
+	ID                     pgtype.UUID
 }
 
-func (q *Queries) CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue, error) {
-	row := q.db.QueryRow(ctx, createVenue,
-		arg.Name,
-		arg.Address,
-		arg.City,
-		arg.State,
-		arg.Zip,
-		arg.Latitude,
-		arg.Longitude,
-		arg.Hours,
-		arg.Description,
+// Links a venue to its owning user and marks it claimed. Used when a venue
+// claim is approved. Booking contact info comes from the claim.
+func (q *Queries) ClaimVenue(ctx context.Context, arg ClaimVenueParams) (Venue, error) {
+	row := q.db.QueryRow(ctx, claimVenue,
+		arg.OwnerUserID,
+		arg.NewBookingEmail,
+		arg.AcceptsBookingRequests,
+		arg.ID,
 	)
 	var i Venue
 	err := row.Scan(
@@ -55,12 +52,79 @@ func (q *Queries) CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.IsClaimed,
+		&i.BookingEmail,
+		&i.AcceptsBookingRequests,
+		&i.Genres,
+	)
+	return i, err
+}
+
+const createVenue = `-- name: CreateVenue :one
+INSERT INTO venues (
+    name, address, city, state, zip, latitude, longitude, hours, description,
+    genres, booking_email, accepts_booking_requests
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres
+`
+
+type CreateVenueParams struct {
+	Name                   string
+	Address                pgtype.Text
+	City                   pgtype.Text
+	State                  pgtype.Text
+	Zip                    pgtype.Text
+	Latitude               float64
+	Longitude              float64
+	Hours                  pgtype.Text
+	Description            pgtype.Text
+	Genres                 []string
+	BookingEmail           pgtype.Text
+	AcceptsBookingRequests bool
+}
+
+func (q *Queries) CreateVenue(ctx context.Context, arg CreateVenueParams) (Venue, error) {
+	row := q.db.QueryRow(ctx, createVenue,
+		arg.Name,
+		arg.Address,
+		arg.City,
+		arg.State,
+		arg.Zip,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Hours,
+		arg.Description,
+		arg.Genres,
+		arg.BookingEmail,
+		arg.AcceptsBookingRequests,
+	)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Address,
+		&i.City,
+		&i.State,
+		&i.Zip,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Hours,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.IsClaimed,
+		&i.BookingEmail,
+		&i.AcceptsBookingRequests,
+		&i.Genres,
 	)
 	return i, err
 }
 
 const getVenue = `-- name: GetVenue :one
-SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at FROM venues WHERE id = $1
+SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres FROM venues WHERE id = $1
 `
 
 func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
@@ -79,12 +143,86 @@ func (q *Queries) GetVenue(ctx context.Context, id pgtype.UUID) (Venue, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.IsClaimed,
+		&i.BookingEmail,
+		&i.AcceptsBookingRequests,
+		&i.Genres,
 	)
 	return i, err
 }
 
+const listMusicVenuesByLocation = `-- name: ListMusicVenuesByLocation :many
+SELECT v.id, v.name, v.address, v.city, v.state, v.zip, v.latitude, v.longitude, v.hours, v.description, v.created_at, v.updated_at, v.owner_user_id, v.is_claimed, v.booking_email, v.accepts_booking_requests, v.genres
+FROM venues v
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+AND (
+    v.is_claimed = TRUE
+    OR (v.genres IS NOT NULL AND array_length(v.genres, 1) > 0)
+    OR EXISTS (
+        SELECT 1 FROM events e
+        WHERE e.venue_id = v.id
+          AND 'Music' = ANY(e.categories)
+          AND e.start_time >= NOW()
+    )
+)
+ORDER BY v.is_claimed DESC, v.name ASC
+`
+
+type ListMusicVenuesByLocationParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+}
+
+// "Music venues" near a location: the union of venues explicitly tagged as
+// music venues (genre tags or a claimed profile) and venues that host upcoming
+// Music-category events (derived). Claimed venues sort first so managed
+// profiles surface above auto-discovered ones.
+func (q *Queries) ListMusicVenuesByLocation(ctx context.Context, arg ListMusicVenuesByLocationParams) ([]Venue, error) {
+	rows, err := q.db.Query(ctx, listMusicVenuesByLocation, arg.Lng, arg.Lat, arg.RadiusMeters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Venue
+	for rows.Next() {
+		var i Venue
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Hours,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OwnerUserID,
+			&i.IsClaimed,
+			&i.BookingEmail,
+			&i.AcceptsBookingRequests,
+			&i.Genres,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVenuesByLocation = `-- name: ListVenuesByLocation :many
-SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+SELECT id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres
 FROM venues
 WHERE ST_DWithin(
     ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
@@ -122,6 +260,11 @@ func (q *Queries) ListVenuesByLocation(ctx context.Context, arg ListVenuesByLoca
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerUserID,
+			&i.IsClaimed,
+			&i.BookingEmail,
+			&i.AcceptsBookingRequests,
+			&i.Genres,
 		); err != nil {
 			return nil, err
 		}
@@ -144,22 +287,28 @@ UPDATE venues SET
     longitude = $8,
     hours = $9,
     description = $10,
+    genres = $11,
+    booking_email = $12,
+    accepts_booking_requests = $13,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres
 `
 
 type UpdateVenueParams struct {
-	ID          pgtype.UUID
-	Name        string
-	Address     pgtype.Text
-	City        pgtype.Text
-	State       pgtype.Text
-	Zip         pgtype.Text
-	Latitude    float64
-	Longitude   float64
-	Hours       pgtype.Text
-	Description pgtype.Text
+	ID                     pgtype.UUID
+	Name                   string
+	Address                pgtype.Text
+	City                   pgtype.Text
+	State                  pgtype.Text
+	Zip                    pgtype.Text
+	Latitude               float64
+	Longitude              float64
+	Hours                  pgtype.Text
+	Description            pgtype.Text
+	Genres                 []string
+	BookingEmail           pgtype.Text
+	AcceptsBookingRequests bool
 }
 
 func (q *Queries) UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue, error) {
@@ -174,6 +323,9 @@ func (q *Queries) UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue
 		arg.Longitude,
 		arg.Hours,
 		arg.Description,
+		arg.Genres,
+		arg.BookingEmail,
+		arg.AcceptsBookingRequests,
 	)
 	var i Venue
 	err := row.Scan(
@@ -189,6 +341,11 @@ func (q *Queries) UpdateVenue(ctx context.Context, arg UpdateVenueParams) (Venue
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.IsClaimed,
+		&i.BookingEmail,
+		&i.AcceptsBookingRequests,
+		&i.Genres,
 	)
 	return i, err
 }
@@ -205,7 +362,7 @@ DO UPDATE SET
     latitude = EXCLUDED.latitude,
     longitude = EXCLUDED.longitude,
     updated_at = NOW()
-RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at
+RETURNING id, name, address, city, state, zip, latitude, longitude, hours, description, created_at, updated_at, owner_user_id, is_claimed, booking_email, accepts_booking_requests, genres
 `
 
 type UpsertVenueParams struct {
@@ -242,6 +399,11 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerUserID,
+		&i.IsClaimed,
+		&i.BookingEmail,
+		&i.AcceptsBookingRequests,
+		&i.Genres,
 	)
 	return i, err
 }

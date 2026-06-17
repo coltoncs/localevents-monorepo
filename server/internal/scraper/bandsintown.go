@@ -107,6 +107,7 @@ func mapBITEvent(ev bitEvent) (RawEvent, error) {
 		Title:      title,
 		StartTime:  t.UTC(),
 		Categories: []string{"Music"},
+		Artists:    ev.Lineup,
 		ImageURL:   ev.ImageURL,
 		TicketURL:  ticketURL,
 		VenueName:  ev.Venue.Name,
@@ -122,14 +123,14 @@ func mapBITEvent(ev bitEvent) (RawEvent, error) {
 // Bandsintown API response types
 
 type bitEvent struct {
-	ID       string      `json:"id"`
-	Title    string      `json:"title"`
-	Datetime string      `json:"datetime"`
-	URL      string      `json:"url"`
-	ImageURL string      `json:"image_url"`
-	Venue    bitVenue    `json:"venue"`
-	Offers   []bitOffer  `json:"offers"`
-	Lineup   []string    `json:"lineup"`
+	ID       string     `json:"id"`
+	Title    string     `json:"title"`
+	Datetime string     `json:"datetime"`
+	URL      string     `json:"url"`
+	ImageURL string     `json:"image_url"`
+	Venue    bitVenue   `json:"venue"`
+	Offers   []bitOffer `json:"offers"`
+	Lineup   []string   `json:"lineup"`
 }
 
 type bitVenue struct {

@@ -24,6 +24,7 @@ export function eventListOptions(filters: EventFilters) {
 	if (filters.date) params.set("date", filters.date);
 	if (filters.endDate) params.set("end_date", filters.endDate);
 	if (filters.category) params.set("category", filters.category);
+	if (filters.genre) params.set("genre", filters.genre);
 	if (filters.venueName) params.set("venue", filters.venueName);
 	if (filters.venueId) params.set("venue_id", filters.venueId);
 	if (filters.search) params.set("search", filters.search);
@@ -46,6 +47,7 @@ export function mapEventListOptions(filters: MapEventFilters) {
 	if (filters.date) params.set("date", filters.date);
 	if (filters.endDate) params.set("end_date", filters.endDate);
 	if (filters.category) params.set("category", filters.category);
+	if (filters.genre) params.set("genre", filters.genre);
 	if (filters.venueName) params.set("venue", filters.venueName);
 	if (filters.venueId) params.set("venue_id", filters.venueId);
 	if (filters.search) params.set("search", filters.search);

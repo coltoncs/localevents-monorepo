@@ -239,6 +239,17 @@ func main() {
 		log.Println("Admin alerts enabled")
 	}
 
+	// Venue booking-request emails (artist -> venue booking contact). Nil
+	// (no-op) when Resend is unset; the handler reports it as unavailable.
+	var venueNotifier *notifier.VenueNotifier
+	if cfg.ResendAPIKey != "" {
+		bookingSender := notifier.NewEmailSender(cfg.ResendAPIKey, "bookings@919events.com")
+		venueNotifier = notifier.NewVenueNotifier(bookingSender, cfg.FrontendURL)
+		log.Println("Venue booking requests enabled")
+	} else {
+		log.Println("Venue booking requests disabled (set RESEND_API_KEY to enable)")
+	}
+
 	// Nightly user-preference vector recompute. Lazy-invalidates when users
 	// save/view events; this drains the queue.
 	if recsService != nil {
@@ -299,7 +310,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter)
+	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter, venueNotifier)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

@@ -42,10 +42,14 @@ type RawEvent struct {
 	StartTime   time.Time
 	EndTime     *time.Time
 	Categories  []string
-	ImageURL    string
-	TicketURL   string
-	PriceMin    *float64
-	PriceMax    *float64
+	Genre       []string
+	// Artists is the performer lineup (headliner first), recovered from sources
+	// that expose it (e.g. Bandsintown). Linked to the event via event_artists.
+	Artists   []string
+	ImageURL  string
+	TicketURL string
+	PriceMin  *float64
+	PriceMax  *float64
 	// IsFree is true only when a source explicitly indicates free admission.
 	// Absence of price data does NOT imply free.
 	IsFree bool
@@ -62,9 +66,9 @@ type Runner struct {
 	Sources       []EventSource
 	Locations     []Location
 	Queries       *store.Queries
-	R2            *storage.R2Client    // optional; when set, images are mirrored to R2
-	Embedder      *embedding.Client    // optional; when set, new events are embedded after scrape
-	EmbeddedStore *embedding.Store     // required when Embedder is set
+	R2            *storage.R2Client // optional; when set, images are mirrored to R2
+	Embedder      *embedding.Client // optional; when set, new events are embedded after scrape
+	EmbeddedStore *embedding.Store  // required when Embedder is set
 }
 
 // prioritySources are local/community scrapers whose listings are preferred
@@ -180,6 +184,10 @@ func (r *Runner) Run(ctx context.Context) {
 			e.Categories = mapped
 		}
 
+		// Normalize raw source genre/subgenre strings to canonical music
+		// genres for the Music/Concerts genre filter.
+		e.Genre = NormalizeGenres(e.Genre)
+
 		// Mirror external image to R2 if configured.
 		if r.R2 != nil && e.ImageURL != "" {
 			if r2URL, err := r.R2.MirrorImage(ctx, e.ImageURL); err != nil {
@@ -210,7 +218,7 @@ func (r *Runner) Run(ctx context.Context) {
 			}
 		}
 
-		_, err := r.Queries.UpsertExternalEvent(ctx, store.UpsertExternalEventParams{
+		event, err := r.Queries.UpsertExternalEvent(ctx, store.UpsertExternalEventParams{
 			ExternalID:  textFromStr(e.ExternalID),
 			Source:      e.Source,
 			Title:       e.Title,
@@ -225,6 +233,7 @@ func (r *Runner) Run(ctx context.Context) {
 			StartTime:   pgtype.Timestamptz{Time: e.StartTime, Valid: true},
 			EndTime:     timestamptzFromPtr(e.EndTime),
 			Categories:  e.Categories,
+			Genre:       e.Genre,
 			ImageUrl:    textFromStr(e.ImageURL),
 			TicketUrl:   textFromStr(e.TicketURL),
 			PriceMin:    numericFromFloat(e.PriceMin),
@@ -241,6 +250,9 @@ func (r *Runner) Run(ctx context.Context) {
 			continue
 		}
 		total++
+
+		// Recover the performer lineup into artist stubs + event_artists links.
+		linkEventArtists(ctx, r.Queries, event.ID, e.Artists, e.Source)
 	}
 
 	log.Printf("Event scrape complete: %d total events upserted, %d images mirrored", total, mirrored)
@@ -318,6 +330,38 @@ func embedNewEvents(ctx context.Context, client *embedding.Client, store *embedd
 // enrichPriorityEvent fills in missing fields on a priority (local) event
 // using data from a matching aggregator event. Time info and ticket URL
 // from aggregators like Ticketmaster are typically more accurate.
+// linkEventArtists upserts each lineup name into an artist stub and links it to
+// the event. Idempotent (link insert is ON CONFLICT DO NOTHING), so it's safe
+// to re-run every scrape. The first name is treated as the headliner.
+func linkEventArtists(ctx context.Context, q *store.Queries, eventID pgtype.UUID, lineup []string, source string) {
+	pos := 0
+	for _, name := range lineup {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		artist, err := q.UpsertArtistStub(ctx, store.UpsertArtistStubParams{
+			Name:       name,
+			Source:     source,
+			ExternalID: textFromStr(name),
+		})
+		if err != nil {
+			log.Printf("artist stub upsert failed for %q: %v", name, err)
+			continue
+		}
+		if err := q.LinkEventArtist(ctx, store.LinkEventArtistParams{
+			EventID:     eventID,
+			ArtistID:    artist.ID,
+			Position:    int32(pos),
+			IsHeadliner: pos == 0,
+		}); err != nil {
+			log.Printf("event_artist link failed for %q: %v", name, err)
+			continue
+		}
+		pos++
+	}
+}
+
 func enrichPriorityEvent(pe, ae *RawEvent) {
 	// Take the aggregator's time if it has an actual time component
 	// (not midnight), since local sources often lack precise times.
@@ -344,6 +388,14 @@ func enrichPriorityEvent(pe, ae *RawEvent) {
 	// Fill in categories if missing
 	if len(ae.Categories) > 0 && len(pe.Categories) == 0 {
 		pe.Categories = ae.Categories
+	}
+	// Carry over a recovered lineup (e.g. Bandsintown) so the merged event keeps
+	// its artist links.
+	if len(ae.Artists) > 0 && len(pe.Artists) == 0 {
+		pe.Artists = ae.Artists
+	}
+	if len(ae.Genre) > 0 && len(pe.Genre) == 0 {
+		pe.Genre = ae.Genre
 	}
 }
 

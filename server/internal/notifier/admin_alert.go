@@ -116,6 +116,20 @@ func (a *AdminAlerter) NewSuggestion(targetType, action, name, reason, submitter
 	a.send(subject, body)
 }
 
+// NewVenueClaim alerts admins that a user has submitted a venue claim (to
+// manage an existing venue or list a new one) needing review. mode is
+// "claim existing" or "new venue".
+func (a *AdminAlerter) NewVenueClaim(venueName, mode, contactName, contactEmail, message string) {
+	subject := "New Venue Claim: " + venueName
+	body := "<h2>New Venue Claim</h2>" +
+		row("Venue", venueName) +
+		row("Type", mode) +
+		row("Contact", contactName) +
+		row("Email", contactEmail) +
+		row("Message", message)
+	a.send(subject, body)
+}
+
 // NewEventSubmission alerts admins that an author/admin has published a new event.
 func (a *AdminAlerter) NewEventSubmission(title, location, submitter string) {
 	subject := "New Event Submitted: " + title

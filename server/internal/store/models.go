@@ -9,6 +9,27 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type Artist struct {
+	ID            pgtype.UUID
+	Name          string
+	Bio           pgtype.Text
+	Genres        []string
+	ImageUrl      pgtype.Text
+	WebsiteUrl    pgtype.Text
+	SpotifyUrl    pgtype.Text
+	InstagramUrl  pgtype.Text
+	BandcampUrl   pgtype.Text
+	YoutubeUrl    pgtype.Text
+	HometownCity  pgtype.Text
+	HometownState pgtype.Text
+	OwnerUserID   pgtype.UUID
+	Source        string
+	ExternalID    pgtype.Text
+	IsClaimed     bool
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+}
+
 type AuthorApplication struct {
 	ID          pgtype.UUID
 	ClerkID     string
@@ -89,6 +110,14 @@ type Event struct {
 	IsFeatured     bool
 	FeaturedAt     pgtype.Timestamptz
 	FeaturedBy     pgtype.UUID
+	Genre          []string
+}
+
+type EventArtist struct {
+	EventID     pgtype.UUID
+	ArtistID    pgtype.UUID
+	Position    int32
+	IsHeadliner bool
 }
 
 type EventEmbedding struct {
@@ -209,16 +238,43 @@ type UserPreference struct {
 }
 
 type Venue struct {
-	ID          pgtype.UUID
-	Name        string
-	Address     pgtype.Text
-	City        pgtype.Text
-	State       pgtype.Text
-	Zip         pgtype.Text
-	Latitude    float64
-	Longitude   float64
-	Hours       pgtype.Text
-	Description pgtype.Text
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID                     pgtype.UUID
+	Name                   string
+	Address                pgtype.Text
+	City                   pgtype.Text
+	State                  pgtype.Text
+	Zip                    pgtype.Text
+	Latitude               float64
+	Longitude              float64
+	Hours                  pgtype.Text
+	Description            pgtype.Text
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+	OwnerUserID            pgtype.UUID
+	IsClaimed              bool
+	BookingEmail           pgtype.Text
+	AcceptsBookingRequests bool
+	Genres                 []string
+}
+
+type VenueClaim struct {
+	ID           pgtype.UUID
+	ClerkID      string
+	VenueID      pgtype.UUID
+	VenueName    string
+	Address      pgtype.Text
+	City         pgtype.Text
+	State        pgtype.Text
+	Zip          pgtype.Text
+	Latitude     pgtype.Float8
+	Longitude    pgtype.Float8
+	ContactName  string
+	ContactEmail string
+	BookingEmail pgtype.Text
+	Message      pgtype.Text
+	Status       string
+	SubmittedAt  pgtype.Timestamptz
+	ReviewedAt   pgtype.Timestamptz
+	ReviewedBy   pgtype.Text
+	ReviewNotes  pgtype.Text
 }

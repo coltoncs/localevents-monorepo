@@ -15,6 +15,7 @@ WHERE ST_DWithin(
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%');
@@ -30,6 +31,7 @@ WHERE ST_DWithin(
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
@@ -50,6 +52,7 @@ WHERE ST_DWithin(
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
 AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
 AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
@@ -117,11 +120,13 @@ ORDER BY start_time ASC;
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, is_free, submitted_by, venue_id, series_id
+    ticket_url, price_min, price_max, is_free, submitted_by, venue_id, series_id,
+    genre
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20, $21
+    $15, $16, $17, $18, $19, $20, $21,
+    $22
 ) RETURNING *;
 
 -- name: ListEventsBySubmitter :many
@@ -149,6 +154,7 @@ UPDATE events SET
     price_max = $17,
     is_free = $18,
     venue_id = $19,
+    genre = $20,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE id = $1
@@ -186,8 +192,8 @@ WHERE deleted_at < NOW() - INTERVAL '90 days';
 INSERT INTO events (
     external_id, source, title, description, venue_name, address, city, state, zip,
     latitude, longitude, start_time, end_time, categories, image_url,
-    ticket_url, price_min, price_max, is_free, venue_id
-) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+    ticket_url, price_min, price_max, is_free, venue_id, genre
+) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
 WHERE NOT EXISTS (
     SELECT 1 FROM deleted_external_events d
     WHERE d.source = $2 AND d.external_id = $1
@@ -202,7 +208,7 @@ DO UPDATE SET
     categories=EXCLUDED.categories, image_url=EXCLUDED.image_url,
     ticket_url=EXCLUDED.ticket_url, price_min=EXCLUDED.price_min,
     price_max=EXCLUDED.price_max, is_free=EXCLUDED.is_free,
-    venue_id=EXCLUDED.venue_id, updated_at=NOW()
+    venue_id=EXCLUDED.venue_id, genre=EXCLUDED.genre, updated_at=NOW()
 WHERE NOT events.manually_edited
 RETURNING *;
 
@@ -229,6 +235,7 @@ UPDATE events SET
     price_max = $15,
     is_free = $16,
     venue_id = $17,
+    genre = $18,
     manually_edited = TRUE,
     updated_at = NOW()
 WHERE series_id = $1

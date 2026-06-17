@@ -217,6 +217,13 @@ func mapTMEvent(ev tmEvent) (RawEvent, error) {
 		if c.Segment.Name != "" && c.Segment.Name != "Undefined" {
 			raw.Categories = []string{c.Segment.Name}
 		}
+		// Raw genre/subgenre; normalized to canonical genres in the runner.
+		if c.Genre.Name != "" {
+			raw.Genre = append(raw.Genre, c.Genre.Name)
+		}
+		if c.SubGenre.Name != "" {
+			raw.Genre = append(raw.Genre, c.SubGenre.Name)
+		}
 	}
 
 	// Image - pick the first with a reasonable ratio
@@ -279,8 +286,9 @@ type tmDateTime struct {
 }
 
 type tmClassification struct {
-	Segment tmNamedItem `json:"segment"`
-	Genre   tmNamedItem `json:"genre"`
+	Segment  tmNamedItem `json:"segment"`
+	Genre    tmNamedItem `json:"genre"`
+	SubGenre tmNamedItem `json:"subGenre"`
 }
 
 type tmNamedItem struct {

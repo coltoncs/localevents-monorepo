@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 export type AdminTab =
 	| "dashboard"
 	| "applications"
+	| "venue-claims"
 	| "suggestions"
 	| "places"
 	| "ops";
@@ -10,6 +11,7 @@ export type AdminTab =
 const TABS: { id: AdminTab; label: string }[] = [
 	{ id: "dashboard", label: "Dashboard" },
 	{ id: "applications", label: "Applications" },
+	{ id: "venue-claims", label: "Venue Claims" },
 	{ id: "suggestions", label: "Suggestions" },
 	{ id: "places", label: "Places" },
 	{ id: "ops", label: "Ops" },

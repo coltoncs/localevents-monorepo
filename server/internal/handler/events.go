@@ -96,6 +96,11 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		category = pgtype.Text{String: c, Valid: true}
 	}
 
+	var genre pgtype.Text
+	if g := r.URL.Query().Get("genre"); g != "" {
+		genre = pgtype.Text{String: g, Valid: true}
+	}
+
 	var venueName pgtype.Text
 	if v := r.URL.Query().Get("venue"); v != "" {
 		venueName = pgtype.Text{String: v, Valid: true}
@@ -137,6 +142,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
 		Category:     category,
+		Genre:        genre,
 		VenueName:    venueName,
 		VenueID:      venueID,
 		Search:       search,
@@ -155,6 +161,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		StartDate:    locParams.StartDate,
 		EndDate:      locParams.EndDate,
 		Category:     locParams.Category,
+		Genre:        locParams.Genre,
 		VenueName:    locParams.VenueName,
 		VenueID:      locParams.VenueID,
 		Search:       locParams.Search,
@@ -173,6 +180,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			StartDate:    listParams.StartDate,
 			EndDate:      listParams.EndDate,
 			Category:     listParams.Category,
+			Genre:        listParams.Genre,
 			VenueName:    listParams.VenueName,
 			VenueID:      listParams.VenueID,
 			Search:       listParams.Search,
@@ -262,6 +270,11 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 		category = pgtype.Text{String: c, Valid: true}
 	}
 
+	var genre pgtype.Text
+	if g := r.URL.Query().Get("genre"); g != "" {
+		genre = pgtype.Text{String: g, Valid: true}
+	}
+
 	var venueName pgtype.Text
 	if v := r.URL.Query().Get("venue"); v != "" {
 		venueName = pgtype.Text{String: v, Valid: true}
@@ -287,6 +300,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
 		Category:     category,
+		Genre:        genre,
 		VenueName:    venueName,
 		VenueID:      venueID,
 		Search:       search,
@@ -304,6 +318,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 			StartDate:    listParams.StartDate,
 			EndDate:      listParams.EndDate,
 			Category:     listParams.Category,
+			Genre:        listParams.Genre,
 			VenueName:    listParams.VenueName,
 			VenueID:      listParams.VenueID,
 			Search:       listParams.Search,
@@ -417,6 +432,7 @@ type createEventRequest struct {
 	StartTime   string   `json:"start_time"`
 	EndTime     *string  `json:"end_time"`
 	Categories  []string `json:"categories"`
+	Genre       []string `json:"genre"`
 	ImageURL    *string  `json:"image_url"`
 	TicketURL   *string  `json:"ticket_url"`
 	PriceMin    *float64 `json:"price_min"`
@@ -516,6 +532,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		StartTime:   pgtype.Timestamptz{Time: startTime, Valid: true},
 		EndTime:     endTime,
 		Categories:  req.Categories,
+		Genre:       req.Genre,
 		ImageUrl:    textFromPtr(req.ImageURL),
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
@@ -679,6 +696,7 @@ func (h *EventHandler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 			StartTime:   pgtype.Timestamptz{Time: inst.start, Valid: true},
 			EndTime:     inst.end,
 			Categories:  req.Base.Categories,
+			Genre:       req.Base.Genre,
 			ImageUrl:    textFromPtr(req.Base.ImageURL),
 			TicketUrl:   textFromPtr(req.Base.TicketURL),
 			PriceMin:    numericFromFloat(req.Base.PriceMin),
@@ -828,6 +846,7 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		StartTime:   pgtype.Timestamptz{Time: startTime, Valid: true},
 		EndTime:     endTime,
 		Categories:  req.Categories,
+		Genre:       req.Genre,
 		ImageUrl:    textFromPtr(req.ImageURL),
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),
@@ -1213,6 +1232,7 @@ func (h *EventHandler) UpdateSeries(w http.ResponseWriter, r *http.Request) {
 		Latitude:    req.Latitude,
 		Longitude:   req.Longitude,
 		Categories:  req.Categories,
+		Genre:       req.Genre,
 		ImageUrl:    textFromPtr(req.ImageURL),
 		TicketUrl:   textFromPtr(req.TicketURL),
 		PriceMin:    numericFromFloat(req.PriceMin),

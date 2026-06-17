@@ -142,17 +142,24 @@ body::after {
   mask-image: radial-gradient(circle at 50% 30%, black, transparent 80%);
 }
 
-:where(a) {
-  color: var(--lagoon-deep);
-  text-decoration-color: color-mix(in oklab, var(--lagoon-deep) 45%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  font-weight: 500;
-}
+/* Base link styling lives in @layer base so Tailwind text-color utilities
+   (in @layer utilities, which the cascade ranks above base) can override it.
+   Left unlayered, this rule would beat utilities regardless of specificity —
+   which previously made text-color classes on <a>/Link elements (e.g. filled
+   CTA buttons) silently render as link-blue. */
+@layer base {
+  :where(a) {
+    color: var(--lagoon-deep);
+    text-decoration-color: color-mix(in oklab, var(--lagoon-deep) 45%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    font-weight: 500;
+  }
 
-:where(a):hover {
-  color: var(--lagoon);
-  text-shadow: 0 0 12px color-mix(in oklab, var(--lagoon) 55%, transparent);
+  :where(a):hover {
+    color: var(--lagoon);
+    text-shadow: 0 0 12px color-mix(in oklab, var(--lagoon) 55%, transparent);
+  }
 }
 
 ::selection {
