@@ -180,6 +180,12 @@ export function EventMap({
 	const themeRef = useRef<"light" | "dark">(getResolvedTheme());
 	const eventsRef = useRef<Event[]>(events);
 	eventsRef.current = events;
+	// Mirrors of the current center/radius so the style-reload restore can
+	// rebuild the radius circle with up-to-date values.
+	const centerRef = useRef(center);
+	centerRef.current = center;
+	const radiusRef = useRef(radiusMiles);
+	radiusRef.current = radiusMiles;
 	// The popup opened when an event is selected from the list, tracked so it can
 	// be replaced/closed as the selection changes.
 	const selectionPopupRef = useRef<mapboxgl.Popup | null>(null);
@@ -245,8 +251,9 @@ export function EventMap({
 		[getCircleColors],
 	);
 
-	// Create the clustered events source, its layers, and the interaction
-	// handlers. Runs once per map (guarded by the source's existence).
+	// Create the clustered events source and its layers. Safe to call again
+	// after a style reload (which wipes user sources/layers); the caller guards
+	// on the source's existence so it's only ever added when missing.
 	const addEventLayers = useCallback(
 		(map: mapboxgl.Map, data: GeoJSON.FeatureCollection<GeoJSON.Point>) => {
 			// Read the theme fresh so the colors are correct even if the layers are
@@ -326,77 +333,82 @@ export function EventMap({
 				},
 				paint: { "text-color": style.text, "text-emissive-strength": 1 },
 			});
-
-			// Clicking a cluster zooms to the level where it breaks apart.
-			map.on("click", CLUSTER_LAYER, (e) => {
-				const feature = map.queryRenderedFeatures(e.point, {
-					layers: [CLUSTER_LAYER],
-				})[0];
-				if (!feature) return;
-				const clusterId = feature.properties?.cluster_id as number;
-				const source = map.getSource(EVENTS_SOURCE) as mapboxgl.GeoJSONSource;
-				source.getClusterExpansionZoom(clusterId, (err, expansionZoom) => {
-					if (err) return;
-					map.easeTo({
-						center: (feature.geometry as GeoJSON.Point).coordinates as [
-							number,
-							number,
-						],
-						zoom: expansionZoom ?? map.getZoom() + 2,
-						duration: 600,
-					});
-				});
-			});
-
-			// Clicking a point opens its popup — a single card or, when several
-			// events share the spot, a scrollable list of all of them.
-			map.on("click", POINT_LAYER, (e) => {
-				const feature = e.features?.[0];
-				if (!feature) return;
-				const coordinates = (
-					feature.geometry as GeoJSON.Point
-				).coordinates.slice() as [number, number];
-				let list: PopupEvent[];
-				try {
-					list = JSON.parse(feature.properties?.events as string);
-				} catch {
-					return;
-				}
-				// Only one popup at a time — drop any list-selection popup too.
-				selectionPopupRef.current?.remove();
-				selectionPopupRef.current = null;
-				pointPopupRef.current?.remove();
-
-				// Gently center the marker. Only nudge the zoom in if we're zoomed
-				// well out, so clicking a point at street level doesn't jump.
-				map.flyTo({
-					center: coordinates,
-					zoom: Math.max(map.getZoom(), 13),
-					duration: 600,
-					essential: true,
-				});
-
-				pointPopupRef.current = new mapboxgl.Popup({
-					offset: 16,
-					className: "themed-popup",
-					maxWidth: "280px",
-				})
-					.setLngLat(coordinates)
-					.setHTML(popupHtml(list))
-					.addTo(map);
-			});
-
-			for (const layer of [CLUSTER_LAYER, POINT_LAYER]) {
-				map.on("mouseenter", layer, () => {
-					map.getCanvas().style.cursor = "pointer";
-				});
-				map.on("mouseleave", layer, () => {
-					map.getCanvas().style.cursor = "";
-				});
-			}
 		},
 		[getEventMarkerStyle],
 	);
+
+	// Register the cluster/point interaction handlers. Done once per map (not
+	// per style reload): layer-scoped listeners are keyed by layer id and survive
+	// a layer being removed and re-added, so re-registering would duplicate them.
+	const registerEventInteractions = useCallback((map: mapboxgl.Map) => {
+		// Clicking a cluster zooms to the level where it breaks apart.
+		map.on("click", CLUSTER_LAYER, (e) => {
+			const feature = map.queryRenderedFeatures(e.point, {
+				layers: [CLUSTER_LAYER],
+			})[0];
+			if (!feature) return;
+			const clusterId = feature.properties?.cluster_id as number;
+			const source = map.getSource(EVENTS_SOURCE) as mapboxgl.GeoJSONSource;
+			source.getClusterExpansionZoom(clusterId, (err, expansionZoom) => {
+				if (err) return;
+				map.easeTo({
+					center: (feature.geometry as GeoJSON.Point).coordinates as [
+						number,
+						number,
+					],
+					zoom: expansionZoom ?? map.getZoom() + 2,
+					duration: 600,
+				});
+			});
+		});
+
+		// Clicking a point opens its popup — a single card or, when several
+		// events share the spot, a scrollable list of all of them.
+		map.on("click", POINT_LAYER, (e) => {
+			const feature = e.features?.[0];
+			if (!feature) return;
+			const coordinates = (
+				feature.geometry as GeoJSON.Point
+			).coordinates.slice() as [number, number];
+			let list: PopupEvent[];
+			try {
+				list = JSON.parse(feature.properties?.events as string);
+			} catch {
+				return;
+			}
+			// Only one popup at a time — drop any list-selection popup too.
+			selectionPopupRef.current?.remove();
+			selectionPopupRef.current = null;
+			pointPopupRef.current?.remove();
+
+			// Gently center the marker. Only nudge the zoom in if we're zoomed
+			// well out, so clicking a point at street level doesn't jump.
+			map.flyTo({
+				center: coordinates,
+				zoom: Math.max(map.getZoom(), 13),
+				duration: 600,
+				essential: true,
+			});
+
+			pointPopupRef.current = new mapboxgl.Popup({
+				offset: 16,
+				className: "themed-popup",
+				maxWidth: "280px",
+			})
+				.setLngLat(coordinates)
+				.setHTML(popupHtml(list))
+				.addTo(map);
+		});
+
+		for (const layer of [CLUSTER_LAYER, POINT_LAYER]) {
+			map.on("mouseenter", layer, () => {
+				map.getCanvas().style.cursor = "pointer";
+			});
+			map.on("mouseleave", layer, () => {
+				map.getCanvas().style.cursor = "";
+			});
+		}
+	}, []);
 
 	// Initialize map
 	useEffect(() => {
@@ -411,14 +423,36 @@ export function EventMap({
 			zoom,
 		});
 
-		const initialTheme = themeRef.current;
+		// The Standard style re-resolves its imported basemap whenever the
+		// `lightPreset` config is applied, and a re-resolution wipes every
+		// user-added source and layer. So rather than adding our markers/circle
+		// once, we (re)build them on *every* `style.load` — the initial load and
+		// any later reload — keeping them on the map instead of flashing in and
+		// vanishing when the basemap settles. Interaction handlers are registered
+		// separately (once) since they survive layer re-adds.
 		mapRef.current.on("style.load", () => {
-			mapRef.current?.setConfigProperty(
+			const map = mapRef.current;
+			if (!map) return;
+			map.setConfigProperty(
 				"basemap",
 				"lightPreset",
-				getLightPreset(initialTheme),
+				getLightPreset(themeRef.current),
 			);
+			updateRadiusCircle(
+				map,
+				centerRef.current.lng,
+				centerRef.current.lat,
+				radiusRef.current,
+			);
+			const data = buildEventFeatures(eventsRef.current);
+			const source = map.getSource(EVENTS_SOURCE) as
+				| mapboxgl.GeoJSONSource
+				| undefined;
+			if (source) source.setData(data);
+			else addEventLayers(map, data);
 		});
+
+		registerEventInteractions(mapRef.current);
 
 		const geolocate = new mapboxgl.GeolocateControl({
 			positionOptions: { enableHighAccuracy: true },
@@ -441,10 +475,11 @@ export function EventMap({
 			onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
 		});
 
-		// Add radius circle once the style is loaded
+		// The radius circle and event layers are built in the `style.load`
+		// handler above (which fires before `load`); here we just hand the ready
+		// map back to the parent.
 		mapRef.current.on("load", () => {
-			updateRadiusCircle(mapRef.current!, center.lng, center.lat, radiusMiles);
-			onMapReady?.(mapRef.current!);
+			if (mapRef.current) onMapReady?.(mapRef.current);
 		});
 
 		return () => {

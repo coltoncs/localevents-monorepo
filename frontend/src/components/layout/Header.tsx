@@ -21,6 +21,16 @@ export default function Header() {
 			>
 				Events
 			</Link>
+      {isSignedIn && (
+        <Link
+          to="/planner"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          Planner
+        </Link>
+      )}
 			<MusicNavDropdown onNavigate={() => setMenuOpen(false)} />
 			{/* <Link
 				to="/places"
@@ -32,56 +42,46 @@ export default function Header() {
 			>
 				Places
 			</Link> */}
-			<Link
-				to="/submit"
-				className="nav-link"
-				activeProps={{ className: "nav-link is-active" }}
-				onClick={() => setMenuOpen(false)}
-			>
-				Submit Event
-			</Link>
-			{isSignedIn && canCreateEvent && (
-				<Link
-					to="/my-events"
-					className="nav-link"
-					activeProps={{ className: "nav-link is-active" }}
-					onClick={() => setMenuOpen(false)}
-				>
-					My Events
-				</Link>
-			)}
-			{isSignedIn && canManageAuthors && (
-				<Link
-					to="/admin"
-					className="nav-link"
-					activeProps={{ className: "nav-link is-active" }}
-					onClick={() => setMenuOpen(false)}
-				>
-					Admin
-				</Link>
-			)}
-			{isSignedIn && (
-				<Link
-					to="/planner"
-					className="nav-link"
-					activeProps={{ className: "nav-link is-active" }}
-					onClick={() => setMenuOpen(false)}
-				>
-					Planner
-				</Link>
-			)}
-			{isSignedIn && (
-				<Link
-					to="/profile"
-					className="nav-link"
-					activeProps={{ className: "nav-link is-active" }}
-					onClick={() => setMenuOpen(false)}
-				>
-					Profile
-				</Link>
-			)}
-		</>
-	);
+      <Link
+        to="/submit"
+        className="nav-link"
+        activeProps={{ className: "nav-link is-active" }}
+        onClick={() => setMenuOpen(false)}
+      >
+        Submit Event
+      </Link>
+      {isSignedIn && canCreateEvent && (
+        <Link
+          to="/my-events"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          My Events
+        </Link>
+      )}
+      {isSignedIn && canManageAuthors && (
+        <Link
+          to="/admin"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          Admin
+        </Link>
+      )}
+      {isSignedIn && (
+        <Link
+          to="/profile"
+          className="nav-link"
+          activeProps={{ className: "nav-link is-active" }}
+          onClick={() => setMenuOpen(false)}
+        >
+          Profile
+        </Link>
+      )}
+    </>
+  );
 
 	return (
 		<header className="sticky top-0 z-50 border-b border-(--line) bg-(--header-bg) px-4 backdrop-blur-lg">
