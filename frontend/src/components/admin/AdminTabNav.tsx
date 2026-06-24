@@ -25,7 +25,7 @@ export function AdminTabNav({
 	const navigate = useNavigate();
 
 	return (
-		<div className="inline-flex flex-wrap rounded-lg border border-(--line) p-0.5">
+		<div className="inline-flex flex-wrap rounded-lg border border-(--line) bg-(--surface-strong) p-0.5">
 			{TABS.map((tab) => {
 				const isActive = tab.id === active;
 				const count = counts?.[tab.id];

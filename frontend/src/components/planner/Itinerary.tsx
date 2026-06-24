@@ -23,7 +23,7 @@ export function Itinerary({
 	plan: WeeklyPlan;
 	readOnly?: boolean;
 }) {
-	const days = plan.days.filter((d) => d.items.length > 0);
+	const days = plan.days.filter((d) => d.items.length > 0 && new Date(d.date) > new Date(new Date().setUTCHours(-32)));
 	if (days.length === 0) {
 		return (
 			<p className="rounded-lg border border-(--line) bg-(--surface-strong) p-6 text-center text-(--sea-ink-soft)">

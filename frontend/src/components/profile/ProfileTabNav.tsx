@@ -28,7 +28,7 @@ export function ProfileTabNav({ active }: { active: ProfileTab }) {
 	const tabs = TABS.filter((tab) => !tab.featureGated || canFeature);
 
 	return (
-		<div className="inline-flex flex-wrap rounded-lg border border-(--line) p-0.5">
+		<div className="inline-flex flex-wrap rounded-lg border border-(--line) bg-(--surface-strong) p-0.5">
 			{tabs.map((tab) => {
 				const isActive = tab.id === active;
 				return (
