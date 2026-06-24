@@ -8,6 +8,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ClerkTokenProvider } from "../components/auth/ClerkTokenProvider";
 import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
+import { PWARegister } from "../components/PWARegister";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
 import ClerkProvider from "../integrations/clerk/provider";
@@ -26,7 +27,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
-			{ name: "viewport", content: "width=device-width, initial-scale=1" },
+			{
+				name: "viewport",
+				content:
+					"width=device-width, initial-scale=1, viewport-fit=cover",
+			},
 			{ title: "919Events" },
 			{
 				name: "description",
@@ -36,10 +41,21 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			{ property: "og:site_name", content: "919Events" },
 			{ property: "og:type", content: "website" },
 			{ name: "twitter:card", content: "summary" },
+			// PWA / mobile install metadata
+			{ name: "theme-color", content: "#000000" },
+			{ name: "mobile-web-app-capable", content: "yes" },
+			{ name: "apple-mobile-web-app-capable", content: "yes" },
+			{ name: "apple-mobile-web-app-title", content: "919 Events" },
+			{
+				name: "apple-mobile-web-app-status-bar-style",
+				content: "black-translucent",
+			},
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
 			{ rel: "icon", href: "/favicon.png", type: "image/png" },
+			{ rel: "manifest", href: "/manifest.webmanifest" },
+			{ rel: "apple-touch-icon", href: "/apple-touch-icon-180x180.png" },
 		],
 		scripts: [
 			{
@@ -65,6 +81,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<ClerkProvider>
 					<ClerkTokenProvider>
 						<TanStackQueryProvider>
+							<PWARegister />
 							<Header />
 							<EmailNotifBanner />
 							{children}
