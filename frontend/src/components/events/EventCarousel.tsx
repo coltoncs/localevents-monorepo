@@ -1,58 +1,61 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { Draggable } from "gsap/Draggable";
-import { InertiaPlugin } from "gsap/InertiaPlugin";
 import { type ReactNode, useRef } from "react";
 import { EventCard } from "#/components/events/EventCard";
+import { horizontalLoop, type LoopTimeline } from "#/lib/horizontal-loop";
 import type { Event } from "#/lib/types";
 
-gsap.registerPlugin(useGSAP, Draggable, InertiaPlugin);
+gsap.registerPlugin(useGSAP);
 
 interface Props {
 	events: Event[];
 	// Override how each card renders.
 	renderItem?: (event: Event) => ReactNode;
+	// Roughly 100px/sec per unit (default 0.5 for a gentle drift).
+	speed?: number;
 }
 
-export function EventCarousel({ events, renderItem }: Props) {
+export function EventCarousel({ events, renderItem, speed = 0.5 }: Props) {
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const trackRef = useRef<HTMLDivElement>(null);
 
-	// Re-create the draggable when the cards change so bounds match content.
+	// Re-create the loop when the cards change so widths/bounds match content.
 	const depKey = events.map((e) => e.ID).join(",");
 
 	useGSAP(
 		() => {
-			const viewport = viewportRef.current;
 			const track = trackRef.current;
-			if (!viewport || !track) return;
+			if (!track) return;
 
-			// Clamp drag to the row: 0 (start) down to the overflow amount.
-			const getBounds = () => {
-				const overflow = track.scrollWidth - viewport.offsetWidth;
-				return { minX: overflow > 0 ? -overflow : 0, maxX: 0 };
-			};
+			const items = gsap.utils.toArray<HTMLElement>(track.children);
+			// Need enough items to fill the row, otherwise a loop has nothing to
+			// wrap and the gaps look broken.
+			if (items.length < 2) return;
 
-			const [draggable] = Draggable.create(track, {
-				type: "x",
-				// InertiaPlugin gives the throw/momentum glide after release.
-				inertia: true,
-				bounds: getBounds(),
-				// Soft pull-back when dragging past either edge.
-				edgeResistance: 0.85,
-				// Clicks on cards still fire on a tap; a real drag suppresses them.
-				dragClickables: true,
-				// Let vertical page scroll pass through on touch.
-				allowNativeTouchScrolling: true,
+			const loop: LoopTimeline = horizontalLoop(items, {
+				speed,
+				repeat: -1,
+				paddingRight: 16, // matches the pr-4 trailing gap between cards
+				draggable: true,
 			});
 
-			const onResize = () => draggable.applyBounds(getBounds());
-			window.addEventListener("resize", onResize);
+			// Pause the drift while the visitor hovers or focuses inside the row,
+			// so they can read/click without it sliding away. Drag pausing is
+			// handled inside the loop helper.
+			const pause = () => loop.pause();
+			const resume = () => loop.play();
+			const viewport = viewportRef.current;
+			viewport?.addEventListener("mouseenter", pause);
+			viewport?.addEventListener("mouseleave", resume);
+			viewport?.addEventListener("focusin", pause);
+			viewport?.addEventListener("focusout", resume);
 
 			return () => {
-				window.removeEventListener("resize", onResize);
-				draggable.kill();
-				gsap.set(track, { x: 0 });
+				viewport?.removeEventListener("mouseenter", pause);
+				viewport?.removeEventListener("mouseleave", resume);
+				viewport?.removeEventListener("focusin", pause);
+				viewport?.removeEventListener("focusout", resume);
+				loop.revertLoop();
 			};
 		},
 		{ scope: viewportRef, dependencies: [depKey] },
@@ -69,10 +72,13 @@ export function EventCarousel({ events, renderItem }: Props) {
 			ref={viewportRef}
 			className="event-marquee__viewport w-full cursor-grab touch-pan-y select-none active:cursor-grabbing"
 		>
-			<div ref={trackRef} className="flex w-max">
+			{/* Spacing lives in the flex `gap` (not item padding) so every item's
+			    content-box width and border-box width agree — a mismatch makes the
+			    loop helper's measurements drift and the cards overlap over time. */}
+			<div ref={trackRef} className="flex w-max gap-4">
 				{events.map((event) => (
-					<div key={event.ID} className="shrink-0 pr-4">
-						<div className="w-72">{render(event)}</div>
+					<div key={event.ID} className="w-72 shrink-0">
+						{render(event)}
 					</div>
 				))}
 			</div>
