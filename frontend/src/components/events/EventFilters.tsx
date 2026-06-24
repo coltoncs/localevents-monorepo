@@ -113,7 +113,7 @@ export function EventFilters({
           type="text"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search events..."
+          placeholder="Search events, venues..."
           className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-48"
         />
         {search && (
