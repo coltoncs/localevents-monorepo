@@ -28,6 +28,7 @@ import { Route as PlacesIndexRouteImport } from './routes/places/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
 import { Route as DrinksIndexRouteImport } from './routes/drinks/index'
 import { Route as VenuesVenueIdRouteImport } from './routes/venues/$venueId'
+import { Route as RenderSocialCardRouteImport } from './routes/render/social-card'
 import { Route as PlanTokenRouteImport } from './routes/plan.$token'
 import { Route as PlacePlaceIdRouteImport } from './routes/place/$placeId'
 import { Route as FoodFoodIdRouteImport } from './routes/food/$foodId'
@@ -130,6 +131,11 @@ const VenuesVenueIdRoute = VenuesVenueIdRouteImport.update({
   path: '/venues/$venueId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RenderSocialCardRoute = RenderSocialCardRouteImport.update({
+  id: '/render/social-card',
+  path: '/render/social-card',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlanTokenRoute = PlanTokenRouteImport.update({
   id: '/plan/$token',
   path: '/plan/$token',
@@ -181,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
+  '/render/social-card': typeof RenderSocialCardRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
+  '/render/social-card': typeof RenderSocialCardRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks': typeof DrinksIndexRoute
   '/events': typeof EventsIndexRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/food/$foodId': typeof FoodFoodIdRoute
   '/place/$placeId': typeof PlacePlaceIdRoute
   '/plan/$token': typeof PlanTokenRoute
+  '/render/social-card': typeof RenderSocialCardRoute
   '/venues/$venueId': typeof VenuesVenueIdRoute
   '/drinks/': typeof DrinksIndexRoute
   '/events/': typeof EventsIndexRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/food/$foodId'
     | '/place/$placeId'
     | '/plan/$token'
+    | '/render/social-card'
     | '/venues/$venueId'
     | '/drinks/'
     | '/events/'
@@ -292,6 +302,7 @@ export interface FileRouteTypes {
     | '/food/$foodId'
     | '/place/$placeId'
     | '/plan/$token'
+    | '/render/social-card'
     | '/venues/$venueId'
     | '/drinks'
     | '/events'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/food/$foodId'
     | '/place/$placeId'
     | '/plan/$token'
+    | '/render/social-card'
     | '/venues/$venueId'
     | '/drinks/'
     | '/events/'
@@ -347,6 +359,7 @@ export interface RootRouteChildren {
   FoodFoodIdRoute: typeof FoodFoodIdRoute
   PlacePlaceIdRoute: typeof PlacePlaceIdRoute
   PlanTokenRoute: typeof PlanTokenRoute
+  RenderSocialCardRoute: typeof RenderSocialCardRoute
   VenuesVenueIdRoute: typeof VenuesVenueIdRoute
   DrinksIndexRoute: typeof DrinksIndexRoute
   EventsIndexRoute: typeof EventsIndexRoute
@@ -490,6 +503,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VenuesVenueIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/render/social-card': {
+      id: '/render/social-card'
+      path: '/render/social-card'
+      fullPath: '/render/social-card'
+      preLoaderRoute: typeof RenderSocialCardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plan/$token': {
       id: '/plan/$token'
       path: '/plan/$token'
@@ -555,6 +575,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodFoodIdRoute: FoodFoodIdRoute,
   PlacePlaceIdRoute: PlacePlaceIdRoute,
   PlanTokenRoute: PlanTokenRoute,
+  RenderSocialCardRoute: RenderSocialCardRoute,
   VenuesVenueIdRoute: VenuesVenueIdRoute,
   DrinksIndexRoute: DrinksIndexRoute,
   EventsIndexRoute: EventsIndexRoute,

@@ -20,6 +20,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
+	"github.com/coltonsweeney/localevents/server/internal/social"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 	"github.com/robfig/cron/v3"
@@ -274,6 +275,22 @@ func main() {
 		FrontendURL: cfg.FrontendURL,
 	}
 
+	// Social event-card generator (always created when R2 is configured so the
+	// admin trigger works; the cron registration below is gated on SocialEnabled).
+	var socialGen *social.Generator
+	if r2 != nil {
+		socialGen = &social.Generator{
+			Queries:      queries,
+			R2:           r2,
+			Email:        digestRunner.Email, // reuse digest's Resend sender for the gallery
+			RenderURL:    cfg.SocialRenderURL,
+			RenderSecret: cfg.SocialRenderSecret,
+			Cities:       social.CitiesByName(cfg.SocialCities),
+			FrontendURL:  cfg.FrontendURL,
+			AdminEmail:   cfg.AdminAlertEmail,
+		}
+	}
+
 	// Set up weekly digest cron job
 	if cfg.DigestEnabled {
 		c.AddFunc(cfg.DigestCronSchedule, func() {
@@ -296,10 +313,30 @@ func main() {
 		log.Printf("Planner enabled (schedule: %s)", cfg.DigestCronSchedule)
 	}
 
+	// Bi-weekly social event-card generator (Mon = week, Fri = weekend).
+	if cfg.SocialEnabled {
+		if socialGen == nil {
+			log.Println("Social enabled but R2 not configured, social generation disabled")
+		} else {
+			runSocial := func() {
+				start := time.Now()
+				socialGen.Run(context.Background())
+				metrics.CronJobRunsTotal.WithLabelValues("social", "success").Inc()
+				metrics.CronJobDuration.WithLabelValues("social").Observe(time.Since(start).Seconds())
+				queries.InsertCronLog(context.Background(), store.InsertCronLogParams{
+					JobName: "social",
+				})
+			}
+			c.AddFunc(cfg.SocialMonCron, runSocial)
+			c.AddFunc(cfg.SocialFriCron, runSocial)
+			log.Printf("Social enabled (schedules: %s | %s)", cfg.SocialMonCron, cfg.SocialFriCron)
+		}
+	}
+
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter)
+	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter, socialGen)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

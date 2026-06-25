@@ -34,6 +34,12 @@ type Config struct {
 	OpenAIAPIKey        string
 	RecsRecomputeCron   string
 	AdminAlertEmail     string
+	SocialEnabled       bool
+	SocialMonCron       string
+	SocialFriCron       string
+	SocialRenderURL     string
+	SocialRenderSecret  string
+	SocialCities        string
 }
 
 func Load() *Config {
@@ -75,6 +81,16 @@ func Load() *Config {
 		// Comma-separated recipients for admin alerts (new suggestions, author
 		// applications, event submissions). Empty disables admin alerts.
 		AdminAlertEmail: getEnv("ADMIN_ALERT_EMAIL", ""),
+		// Bi-weekly social event-card image generator. Monday renders an "Events
+		// This Week" (Mon–Fri) card per city; Friday renders "Events This Weekend"
+		// (Fri–Sun). Cards are uploaded to R2 and emailed to AdminAlertEmail for
+		// manual posting. Disabled by default; needs R2 + Resend + a render URL.
+		SocialEnabled:      getEnv("SOCIAL_ENABLED", "false") == "true",
+		SocialMonCron:      getEnv("SOCIAL_MON_CRON", "CRON_TZ=America/New_York 0 9 * * 1"),
+		SocialFriCron:      getEnv("SOCIAL_FRI_CRON", "CRON_TZ=America/New_York 0 9 * * 5"),
+		SocialRenderURL:    getEnv("SOCIAL_RENDER_URL", getEnv("FRONTEND_URL", "http://localhost:3000")+"/render/social-card"),
+		SocialRenderSecret: getEnv("SOCIAL_RENDER_SECRET", ""),
+		SocialCities:       getEnv("SOCIAL_CITIES", "Raleigh,Durham,Chapel Hill"),
 	}
 }
 

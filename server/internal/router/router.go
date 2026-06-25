@@ -17,6 +17,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/planner"
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
+	"github.com/coltonsweeney/localevents/server/internal/social"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
@@ -31,7 +32,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter, socialGen *social.Generator) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -50,6 +51,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
 	digestHandler := handler.NewDigestHandler(digestRunner)
+	socialHandler := handler.NewSocialHandler(socialGen)
 	suggestionHandler := handler.NewSuggestionHandler(queries, alerter)
 	smsWebhookHandler := handler.NewSMSWebhookHandler(queries)
 	placeHandler := handler.NewPlaceHandler(queries)
@@ -167,6 +169,9 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Post("/admin/applications/{id}/approve", appHandler.Approve)
 			r.Post("/admin/applications/{id}/reject", appHandler.Reject)
 			r.Post("/admin/digest/trigger", digestHandler.Trigger)
+			r.Post("/admin/social/trigger", socialHandler.Trigger)
+			r.Get("/admin/social/cities", socialHandler.Cities)
+			r.Post("/admin/social/generate", socialHandler.GenerateRange)
 			r.Get("/admin/suggestions", suggestionHandler.ListPending)
 			r.Get("/admin/stats", adminHandler.GetStats)
 		})

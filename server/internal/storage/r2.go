@@ -122,6 +122,25 @@ func (r *R2Client) MirrorImage(ctx context.Context, sourceURL string) (string, e
 	return publicURL, nil
 }
 
+// PutBytes uploads raw bytes to R2 under the given key and returns the public
+// URL. Used for server-generated assets (e.g. social event cards) that aren't
+// mirrored from an external source.
+func (r *R2Client) PutBytes(ctx context.Context, key, contentType string, data []byte) (string, error) {
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	_, err := r.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      &r.bucket,
+		Key:         &key,
+		Body:        bytes.NewReader(data),
+		ContentType: &contentType,
+	})
+	if err != nil {
+		return "", fmt.Errorf("upload to R2: %w", err)
+	}
+	return fmt.Sprintf("%s/%s", r.publicURL, key), nil
+}
+
 // DeleteByPublicURL deletes an object from R2 given its full public URL.
 func (r *R2Client) DeleteByPublicURL(ctx context.Context, publicURL string) error {
 	key := strings.TrimPrefix(publicURL, r.publicURL+"/")
