@@ -173,9 +173,12 @@ func (g *Generator) generate(ctx context.Context, listType, heading, bgOverride 
 			continue
 		}
 
-		bg := bgOverride
-		if bg == "" {
-			bg = g.backgroundURL(city)
+		// A city's saved background wins; the per-run override (bgOverride) only
+		// fills cities that don't have one. Empty → the render route falls back to
+		// flat teal. The existence check runs only when an override is present.
+		bg := g.backgroundURL(city)
+		if bgOverride != "" && !g.R2.Exists(ctx, cityBackgroundKey(city.Name)) {
+			bg = bgOverride
 		}
 
 		payload := renderPayload{

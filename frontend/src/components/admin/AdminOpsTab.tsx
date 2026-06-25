@@ -256,7 +256,7 @@ function SocialCardGenerator() {
 				<span className="text-sm text-(--sea-ink)">
 					Background{" "}
 					<span className="text-(--sea-ink-soft)">
-						(optional; overrides per-city backgrounds for this run)
+						(optional; used only for cities without a saved background)
 					</span>
 				</span>
 				<div className="flex items-center gap-3">
