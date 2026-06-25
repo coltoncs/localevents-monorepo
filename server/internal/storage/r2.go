@@ -141,6 +141,15 @@ func (r *R2Client) PutBytes(ctx context.Context, key, contentType string, data [
 	return fmt.Sprintf("%s/%s", r.publicURL, key), nil
 }
 
+// Exists reports whether an object exists at the given key (cheap HeadObject).
+func (r *R2Client) Exists(ctx context.Context, key string) bool {
+	_, err := r.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: &r.bucket,
+		Key:    &key,
+	})
+	return err == nil
+}
+
 // DeleteByPublicURL deletes an object from R2 given its full public URL.
 func (r *R2Client) DeleteByPublicURL(ctx context.Context, publicURL string) error {
 	key := strings.TrimPrefix(publicURL, r.publicURL+"/")

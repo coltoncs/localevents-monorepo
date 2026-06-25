@@ -3,8 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/coltonsweeney/localevents/server/internal/social"
 )
@@ -50,6 +54,7 @@ type generateRangeRequest struct {
 	Cities  []string `json:"cities"`  // empty = all configured
 	Heading string   `json:"heading"` // optional
 	Email   string   `json:"email"`   // optional; defaults to admin alert email
+	BgURL   string   `json:"bgUrl"`   // optional; overrides per-city backgrounds
 }
 
 // GenerateRange renders cards for a custom date range on demand and emails the
@@ -94,6 +99,7 @@ func (h *SocialHandler) GenerateRange(w http.ResponseWriter, r *http.Request) {
 		Heading:   req.Heading,
 		Cities:    social.CitiesByName(joinCities(req.Cities)),
 		Recipient: req.Email,
+		BgURL:     req.BgURL,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
@@ -118,4 +124,62 @@ func joinCities(cities []string) string {
 		out += c
 	}
 	return out
+}
+
+// Backgrounds returns the predefined-background status for each configured city.
+func (h *SocialHandler) Backgrounds(w http.ResponseWriter, r *http.Request) {
+	if h.generator == nil {
+		http.Error(w, `{"error":"social generator not configured"}`, http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"backgrounds": h.generator.BackgroundStatus(r.Context()),
+	})
+}
+
+const maxBackgroundBytes = 10 << 20 // 10 MB
+
+// UploadBackground stores a background image (raw image body). With ?city=<name>
+// it overwrites that city's predefined background; without a city it stores a
+// one-off image (for the on-demand control) and returns its URL.
+func (h *SocialHandler) UploadBackground(w http.ResponseWriter, r *http.Request) {
+	if h.generator == nil {
+		http.Error(w, `{"error":"social generator not configured"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		http.Error(w, `{"error":"body must be an image (image/* Content-Type)"}`, http.StatusBadRequest)
+		return
+	}
+
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxBackgroundBytes+1))
+	if err != nil {
+		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(data) == 0 {
+		http.Error(w, `{"error":"empty body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(data) > maxBackgroundBytes {
+		http.Error(w, `{"error":"image too large (max 10MB)"}`, http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	var url string
+	if city := strings.TrimSpace(r.URL.Query().Get("city")); city != "" {
+		url, err = h.generator.UploadCityBackground(r.Context(), city, contentType, data)
+	} else {
+		url, err = h.generator.UploadTempBackground(r.Context(), uuid.NewString(), contentType, data)
+	}
+	if err != nil {
+		http.Error(w, `{"error":"upload failed: `+err.Error()+`"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": url})
 }

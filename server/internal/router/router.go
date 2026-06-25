@@ -172,6 +172,8 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 			r.Post("/admin/social/trigger", socialHandler.Trigger)
 			r.Get("/admin/social/cities", socialHandler.Cities)
 			r.Post("/admin/social/generate", socialHandler.GenerateRange)
+			r.Get("/admin/social/backgrounds", socialHandler.Backgrounds)
+			r.Post("/admin/social/background", socialHandler.UploadBackground)
 			r.Get("/admin/suggestions", suggestionHandler.ListPending)
 			r.Get("/admin/stats", adminHandler.GetStats)
 		})

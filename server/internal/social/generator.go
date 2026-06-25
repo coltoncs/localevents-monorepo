@@ -81,6 +81,14 @@ type RangeOptions struct {
 	Heading    string             // card heading; defaults to "Events"
 	Cities     []scraper.Location // defaults to the configured cities
 	Recipient  string             // gallery recipient; defaults to AdminEmail
+	BgURL      string             // optional background for every card in this run
+}
+
+// BgStatus describes the predefined background state for a configured city.
+type BgStatus struct {
+	City   string `json:"city"`
+	URL    string `json:"url"`
+	Exists bool   `json:"exists"`
 }
 
 // CityNames returns the configured city names, for populating admin UI.
@@ -110,7 +118,7 @@ func (g *Generator) Run(ctx context.Context) {
 	log.Printf("Social: starting %s run for %d cities (window %s–%s)",
 		listType, len(g.Cities), start.Format("Jan 2"), end.AddDate(0, 0, -1).Format("Jan 2"))
 
-	results := g.generate(ctx, listType, heading, start, end, g.Cities)
+	results := g.generate(ctx, listType, heading, "", start, end, g.Cities)
 	if len(results) > 0 {
 		g.emailGallery(g.AdminEmail, heading, start, results)
 	}
@@ -136,7 +144,7 @@ func (g *Generator) GenerateRange(ctx context.Context, opts RangeOptions) ([]Car
 	log.Printf("Social: on-demand generation for %d cities (window %s–%s)",
 		len(cities), opts.Start.Format("Jan 2"), opts.End.AddDate(0, 0, -1).Format("Jan 2"))
 
-	results := g.generate(ctx, "custom", heading, opts.Start, opts.End, cities)
+	results := g.generate(ctx, "custom", heading, opts.BgURL, opts.Start, opts.End, cities)
 
 	recipient := strings.TrimSpace(opts.Recipient)
 	if recipient == "" {
@@ -149,8 +157,10 @@ func (g *Generator) GenerateRange(ctx context.Context, opts RangeOptions) ([]Car
 }
 
 // generate renders, uploads, and returns a card per city for the given window.
-// listType is used only in the R2 object key.
-func (g *Generator) generate(ctx context.Context, listType, heading string, start, end time.Time, cities []scraper.Location) []Card {
+// listType is used only in the R2 object key. bgOverride, when non-empty, is
+// used as the background for every card; otherwise each city's predefined
+// background is used.
+func (g *Generator) generate(ctx context.Context, listType, heading, bgOverride string, start, end time.Time, cities []scraper.Location) []Card {
 	var results []Card
 	for _, city := range cities {
 		days := g.topEventsPerDay(ctx, city, start, end)
@@ -163,12 +173,17 @@ func (g *Generator) generate(ctx context.Context, listType, heading string, star
 			continue
 		}
 
+		bg := bgOverride
+		if bg == "" {
+			bg = g.backgroundURL(city)
+		}
+
 		payload := renderPayload{
 			City:       city.Name,
 			ListType:   listType,
 			Heading:    heading,
 			Subheading: fmt.Sprintf("%s · %s", city.Name, dateRangeLabel(start, end)),
-			BgURL:      g.backgroundURL(city),
+			BgURL:      bg,
 			Days:       days,
 		}
 
@@ -283,14 +298,50 @@ func (g *Generator) render(ctx context.Context, payload renderPayload) ([]byte, 
 	return data, nil
 }
 
-// backgroundURL returns the per-city branded background, falling back to a
-// generic asset. Backgrounds live alongside other R2 assets under social-bg/.
+// cityBackgroundKey is the R2 key for a city's predefined background. The .jpg
+// extension is cosmetic — R2 serves whatever content-type was stored, which the
+// render route honors — so PNG/WebP uploads work under the same key.
+func cityBackgroundKey(cityName string) string {
+	return "social-bg/" + citySlug(cityName) + ".jpg"
+}
+
+// backgroundURL returns the public URL of a city's predefined background. The
+// render route drops it (flat-teal fallback) if no object exists at the key.
 func (g *Generator) backgroundURL(city scraper.Location) string {
 	base := strings.TrimRight(g.R2.PublicURL(), "/")
 	if base == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/social-bg/%s.jpg", base, citySlug(city.Name))
+	return base + "/" + cityBackgroundKey(city.Name)
+}
+
+// BackgroundStatus reports, per configured city, the predefined background URL
+// and whether an object currently exists there.
+func (g *Generator) BackgroundStatus(ctx context.Context) []BgStatus {
+	out := make([]BgStatus, 0, len(g.Cities))
+	for _, c := range g.Cities {
+		out = append(out, BgStatus{
+			City:   c.Name,
+			URL:    g.backgroundURL(c),
+			Exists: g.R2.Exists(ctx, cityBackgroundKey(c.Name)),
+		})
+	}
+	return out
+}
+
+// UploadCityBackground stores (overwriting) a city's predefined background and
+// returns its public URL.
+func (g *Generator) UploadCityBackground(ctx context.Context, cityName, contentType string, data []byte) (string, error) {
+	if citySlug(cityName) == "" {
+		return "", fmt.Errorf("city is required")
+	}
+	return g.R2.PutBytes(ctx, cityBackgroundKey(cityName), contentType, data)
+}
+
+// UploadTempBackground stores a one-off background (for on-demand generation)
+// under social-bg/uploads/<id> and returns its public URL.
+func (g *Generator) UploadTempBackground(ctx context.Context, id, contentType string, data []byte) (string, error) {
+	return g.R2.PutBytes(ctx, "social-bg/uploads/"+id+".jpg", contentType, data)
 }
 
 func toRenderEvent(e store.Event, loc *time.Location) renderEvent {

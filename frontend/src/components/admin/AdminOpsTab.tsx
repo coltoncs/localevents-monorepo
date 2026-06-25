@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { apiClient } from "#/lib/api";
 import { useAdminStats } from "#/lib/hooks/useAdminStats";
 import type { AdminStats } from "#/lib/types";
@@ -8,6 +8,24 @@ interface SocialCard {
 	city: string;
 	url: string;
 	count: number;
+}
+
+interface BgStatus {
+	city: string;
+	url: string;
+	exists: boolean;
+}
+
+// Uploads a raw image to the social background endpoint. With a city it sets
+// that city's predefined background; without one it stores a one-off image and
+// returns its URL (used for the on-demand background override).
+function uploadBackgroundImage(file: File, city?: string) {
+	const q = city ? `?city=${encodeURIComponent(city)}` : "";
+	return apiClient<{ url: string }>(`/api/admin/social/background${q}`, {
+		method: "POST",
+		headers: { "Content-Type": file.type },
+		body: file,
+	});
 }
 
 function CronStatusPanel({
@@ -111,6 +129,8 @@ function SocialCardGenerator() {
 	const [heading, setHeading] = useState("");
 	const [email, setEmail] = useState("");
 	const [selectedCities, setSelectedCities] = useState<string[]>([]);
+	const [bgUrl, setBgUrl] = useState("");
+	const [bgUploading, setBgUploading] = useState(false);
 
 	const { data: cityData } = useQuery({
 		queryKey: ["admin", "social", "cities"],
@@ -122,6 +142,17 @@ function SocialCardGenerator() {
 		setSelectedCities((prev) =>
 			prev.includes(city) ? prev.filter((c) => c !== city) : [...prev, city],
 		);
+
+	const onBgFile = async (file: File | undefined) => {
+		if (!file) return;
+		setBgUploading(true);
+		try {
+			const { url } = await uploadBackgroundImage(file);
+			setBgUrl(url);
+		} finally {
+			setBgUploading(false);
+		}
+	};
 
 	const generate = useMutation({
 		mutationFn: () =>
@@ -135,6 +166,7 @@ function SocialCardGenerator() {
 						cities: selectedCities, // empty = all configured
 						heading: heading.trim(),
 						email: email.trim(),
+						bgUrl, // optional override; empty = per-city predefined
 					}),
 				},
 			),
@@ -220,10 +252,46 @@ function SocialCardGenerator() {
 				</label>
 			</div>
 
+			<div className="space-y-1">
+				<span className="text-sm text-(--sea-ink)">
+					Background{" "}
+					<span className="text-(--sea-ink-soft)">
+						(optional; overrides per-city backgrounds for this run)
+					</span>
+				</span>
+				<div className="flex items-center gap-3">
+					<input
+						type="file"
+						accept="image/*"
+						onChange={(e) => onBgFile(e.target.files?.[0])}
+						className="text-sm text-(--sea-ink)"
+					/>
+					{bgUploading && (
+						<span className="text-sm text-(--sea-ink-soft)">Uploading…</span>
+					)}
+					{bgUrl && !bgUploading && (
+						<>
+							<img
+								src={bgUrl}
+								alt="background preview"
+								className="h-10 w-10 rounded object-cover"
+							/>
+							<button
+								type="button"
+								onClick={() => setBgUrl("")}
+								className="cursor-pointer text-sm text-red-600"
+							>
+								Clear
+							</button>
+						</>
+					)}
+				</div>
+			</div>
+
 			<button
 				type="button"
 				onClick={() => generate.mutate()}
-				disabled={generate.isPending}
+				disabled={generate.isPending || bgUploading}
 				className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon) disabled:opacity-50"
 			>
 				{generate.isPending ? "Generating..." : "Generate & email"}
@@ -272,6 +340,103 @@ function SocialCardGenerator() {
 	);
 }
 
+function CityBackgroundRow({
+	bg,
+	onUploaded,
+}: {
+	bg: BgStatus;
+	onUploaded: () => void;
+}) {
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [uploading, setUploading] = useState(false);
+	// Cache-bust the preview after a replace so the new image shows immediately.
+	const [version, setVersion] = useState(0);
+
+	const onFile = async (file: File | undefined) => {
+		if (!file) return;
+		setUploading(true);
+		try {
+			await uploadBackgroundImage(file, bg.city);
+			setVersion((v) => v + 1);
+			onUploaded();
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center gap-3">
+			<div className="h-12 w-20 shrink-0 overflow-hidden rounded border border-(--line) bg-(--surface)">
+				{bg.exists && (
+					<img
+						src={`${bg.url}?v=${version}`}
+						alt={`${bg.city} background`}
+						className="h-full w-full object-cover"
+					/>
+				)}
+			</div>
+			<div className="flex-1">
+				<p className="text-sm font-medium text-(--sea-ink)">{bg.city}</p>
+				<p className="text-xs text-(--sea-ink-soft)">
+					{uploading
+						? "Uploading…"
+						: bg.exists
+							? "Background set"
+							: "No background (flat teal)"}
+				</p>
+			</div>
+			<input
+				ref={inputRef}
+				type="file"
+				accept="image/*"
+				className="hidden"
+				onChange={(e) => onFile(e.target.files?.[0])}
+			/>
+			<button
+				type="button"
+				onClick={() => inputRef.current?.click()}
+				disabled={uploading}
+				className="cursor-pointer rounded-md border border-(--line) px-3 py-1.5 text-sm font-medium text-(--sea-ink) hover:bg-(--surface) disabled:opacity-50"
+			>
+				{bg.exists ? "Replace" : "Upload"}
+			</button>
+		</div>
+	);
+}
+
+function CardBackgrounds() {
+	const queryClient = useQueryClient();
+	const { data } = useQuery({
+		queryKey: ["admin", "social", "backgrounds"],
+		queryFn: () =>
+			apiClient<{ backgrounds: BgStatus[] }>("/api/admin/social/backgrounds"),
+	});
+	const backgrounds = data?.backgrounds ?? [];
+	const refetch = () =>
+		queryClient.invalidateQueries({
+			queryKey: ["admin", "social", "backgrounds"],
+		});
+
+	if (backgrounds.length === 0) return null;
+
+	return (
+		<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-3">
+			<div>
+				<h3 className="font-semibold text-(--sea-ink)">Card Backgrounds</h3>
+				<p className="text-sm text-(--sea-ink-soft)">
+					Predefined per-city backgrounds for the weekly cards. JPG/PNG/WebP;
+					1080×1350 recommended.
+				</p>
+			</div>
+			<div className="space-y-3">
+				{backgrounds.map((bg) => (
+					<CityBackgroundRow key={bg.city} bg={bg} onUploaded={refetch} />
+				))}
+			</div>
+		</div>
+	);
+}
+
 export function AdminOpsTab() {
 	const { data: stats } = useAdminStats();
 
@@ -284,6 +449,7 @@ export function AdminOpsTab() {
 				/>
 			)}
 			<DigestTrigger />
+			<CardBackgrounds />
 			<SocialCardGenerator />
 		</div>
 	);
