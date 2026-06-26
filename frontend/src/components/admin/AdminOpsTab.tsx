@@ -119,18 +119,28 @@ function ymd(d: Date): string {
 	return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
 }
 
+// Cards overflow past ~5 days, and the backend rejects longer ranges.
+const MAX_RANGE_DAYS = 5;
+
 function SocialCardGenerator() {
 	const today = new Date();
-	const weekLater = new Date();
-	weekLater.setDate(today.getDate() + 6);
+	const rangeEnd = new Date();
+	rangeEnd.setDate(today.getDate() + MAX_RANGE_DAYS - 1);
 
 	const [start, setStart] = useState(ymd(today));
-	const [end, setEnd] = useState(ymd(weekLater));
+	const [end, setEnd] = useState(ymd(rangeEnd));
 	const [heading, setHeading] = useState("");
 	const [email, setEmail] = useState("");
 	const [selectedCities, setSelectedCities] = useState<string[]>([]);
 	const [bgUrl, setBgUrl] = useState("");
 	const [bgUploading, setBgUploading] = useState(false);
+
+	// Latest end date allowed for the current start (inclusive 5-day window).
+	const maxEnd = (() => {
+		const d = new Date(`${start}T00:00:00`);
+		d.setDate(d.getDate() + MAX_RANGE_DAYS - 1);
+		return ymd(d);
+	})();
 
 	const { data: cityData } = useQuery({
 		queryKey: ["admin", "social", "cities"],
@@ -194,11 +204,15 @@ function SocialCardGenerator() {
 					/>
 				</label>
 				<label className="flex flex-col gap-1 text-sm text-(--sea-ink)">
-					End date
+					End date{" "}
+					<span className="text-(--sea-ink-soft)">
+						(max {MAX_RANGE_DAYS} days)
+					</span>
 					<input
 						type="date"
 						value={end}
 						min={start}
+						max={maxEnd}
 						onChange={(e) => setEnd(e.target.value)}
 						className="rounded-md border border-(--line) bg-(--surface) px-3 py-2"
 					/>

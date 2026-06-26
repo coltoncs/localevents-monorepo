@@ -22,7 +22,7 @@ func NewSocialHandler(generator *social.Generator) *SocialHandler {
 }
 
 // maxRangeDays caps an on-demand window so cards don't overflow the layout.
-const maxRangeDays = 14
+const maxRangeDays = 5
 
 // Trigger runs social-card generation on demand (admin only), inferring the
 // week vs weekend window from the current weekday.
@@ -89,7 +89,7 @@ func (h *SocialHandler) GenerateRange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if end.Sub(start) > maxRangeDays*24*time.Hour {
-		http.Error(w, `{"error":"date range too large (max 14 days)"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"date range too large (max 5 days)"}`, http.StatusBadRequest)
 		return
 	}
 

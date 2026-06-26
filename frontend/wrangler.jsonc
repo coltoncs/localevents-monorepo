@@ -4,6 +4,10 @@
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  // Image rendering (Satori + resvg WASM) for /render/social-card is CPU-heavy
+  // when compositing a photographic background. Raise the per-request CPU limit
+  // above the 30s default (Standard usage model, paid plan; max 300000).
+  "limits": { "cpu_ms": 120000 },
   "vars": {
     "VITE_API_URL": "https://localevents-production.up.railway.app"
   }

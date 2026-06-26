@@ -26,19 +26,27 @@ async function loadFont(url: string): Promise<ArrayBuffer> {
 // Fetch the background image and inline it as a data URL. Returns undefined if
 // the image is missing (e.g. a city's branded background hasn't been uploaded
 // yet) so the card still renders over the flat teal fallback.
+//
+// The fetch is cache-busted: backgrounds change (uploaded after first being
+// referenced, or replaced), and a CDN-cached negative response (404 from before
+// the image existed) or a stale image must never be served here.
 async function resolveBackground(url?: string): Promise<string | undefined> {
 	if (!url) return undefined;
 	try {
-		const res = await fetch(url, {
-			cf: { cacheTtl: 86400, cacheEverything: true },
-		} as RequestInit);
+		const bust = `${url}${url.includes("?") ? "&" : "?"}cb=${crypto.randomUUID()}`;
+		const res = await fetch(bust, { cache: "no-store" });
 		if (!res.ok) return undefined;
 		const type = res.headers.get("content-type") || "image/jpeg";
 		const buf = await res.arrayBuffer();
-		let binary = "";
+		// Convert to base64 in 32KB chunks. A naive per-byte string build is a
+		// CPU hot spot (it can degrade to O(n²)) and isn't caught locally, where
+		// the Worker CPU limit isn't enforced.
 		const bytes = new Uint8Array(buf);
-		for (let i = 0; i < bytes.length; i++)
-			binary += String.fromCharCode(bytes[i]);
+		let binary = "";
+		const CHUNK = 0x8000;
+		for (let i = 0; i < bytes.length; i += CHUNK) {
+			binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+		}
 		return `data:${type};base64,${btoa(binary)}`;
 	} catch {
 		return undefined;
