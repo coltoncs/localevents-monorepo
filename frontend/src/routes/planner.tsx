@@ -8,6 +8,7 @@ import {
 } from "#/components/maps/LocationPicker";
 import { Itinerary } from "#/components/planner/Itinerary";
 import { Spinner } from "#/components/Spinner";
+import { track } from "#/lib/analytics";
 import { useNotificationPreferences } from "#/lib/hooks/useNotifications";
 import {
 	type PlannerComputeArgs,
@@ -51,7 +52,14 @@ function AnonPlanner() {
 			<PlannerForm
 				submitLabel="Build my plan"
 				submitting={compute.isPending}
-				onSubmit={(args) => compute.mutate(args)}
+				onSubmit={(args) => {
+					track("planner_build", {
+						authed: false,
+						radius: args.radius ?? 25,
+						category_count: args.categories?.length ?? 0,
+					});
+					compute.mutate(args);
+				}}
 			/>
 			{compute.isPending && <Spinner className="py-8" />}
 			{plan && (
@@ -101,7 +109,14 @@ function AuthedPlanner() {
 				initialRadius={user.DefaultRadiusMiles ?? 25}
 				submitLabel="Recalculate"
 				submitting={compute.isPending}
-				onSubmit={(args) => compute.mutate(args)}
+				onSubmit={(args) => {
+					track("planner_build", {
+						authed: true,
+						radius: args.radius ?? 25,
+						category_count: args.categories?.length ?? 0,
+					});
+					compute.mutate(args);
+				}}
 			/>
 
 			{(stored.isLoading || compute.isPending) && <Spinner className="py-8" />}
@@ -241,6 +256,7 @@ function SignUpCTA() {
 			<SignUpButton mode="modal">
 				<button
 					type="button"
+					onClick={() => track("planner_signup_cta")}
 					className="mt-4 rounded-md bg-(--lagoon-deep) px-5 py-2 text-sm font-semibold text-white! shadow-sm hover:bg-(--lagoon)"
 				>
 					Sign up free
@@ -263,6 +279,7 @@ function EnableDigestCTA() {
 			<Link
 				to="/profile"
 				search={{ tab: "settings" }}
+				onClick={() => track("planner_enable_digest_cta")}
 				className="mt-4 inline-block rounded-md bg-(--lagoon-deep) px-5 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon)"
 			>
 				Enable weekly email digest

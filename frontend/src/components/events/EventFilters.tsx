@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
+import { track } from '#/lib/analytics'
 
 export const CATEGORIES = [
   'Music',
@@ -69,6 +70,7 @@ export function EventFilters({
       date: start ? formatDateStr(start) : undefined,
       endDate: end ? formatDateStr(end) : undefined,
     }
+    if (start) track('filter_events', { filter_type: 'date' })
     updateSearch(updates)
   }
 
@@ -105,7 +107,9 @@ export function EventFilters({
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          updateSearch({ search: searchInput.trim() || undefined })
+          const term = searchInput.trim()
+          if (term) track('search', { search_term: term })
+          updateSearch({ search: term || undefined })
         }}
         className="flex w-full gap-2 sm:w-auto"
       >
@@ -185,9 +189,14 @@ export function EventFilters({
 
         <select
           value={category ?? ''}
-          onChange={(e) =>
+          onChange={(e) => {
+            if (e.target.value)
+              track('filter_events', {
+                filter_type: 'category',
+                value: e.target.value,
+              })
             updateSearch({ category: e.target.value || undefined })
-          }
+          }}
           className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">All Categories</option>
@@ -200,7 +209,13 @@ export function EventFilters({
 
         <select
           value={radius ?? 10}
-          onChange={(e) => updateSearch({ radius: e.target.value })}
+          onChange={(e) => {
+            track('filter_events', {
+              filter_type: 'radius',
+              value: e.target.value,
+            })
+            updateSearch({ radius: e.target.value })
+          }}
           className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
         >
           {[5, 10, 25, 50, 100].map((r) => (

@@ -8,6 +8,7 @@ import {
 	Share2,
 } from "lucide-react";
 import { useState } from "react";
+import { track } from "#/lib/analytics";
 import { useCreateSharedPlan } from "#/lib/hooks/usePlanner";
 import { useSavedEvents, useSaveEvent } from "#/lib/hooks/useSavedEvents";
 import { downloadIcs } from "#/lib/ics";
@@ -105,12 +106,10 @@ function SaveDayButton({ day }: { day: PlanDay }) {
 
 	const handleSave = async () => {
 		setSaving(true);
+		const toSave = ids.filter((id) => !savedIds.has(id));
+		track("planner_save_day", { event_count: toSave.length });
 		try {
-			await Promise.all(
-				ids
-					.filter((id) => !savedIds.has(id))
-					.map((id) => saveEvent.mutateAsync(id)),
-			);
+			await Promise.all(toSave.map((id) => saveEvent.mutateAsync(id)));
 		} finally {
 			setSaving(false);
 		}
@@ -132,6 +131,7 @@ function SaveDayButton({ day }: { day: PlanDay }) {
 
 function CalendarDayButton({ day }: { day: PlanDay }) {
 	const handleDownload = () => {
+		track("planner_add_to_calendar", { event_count: day.items.length });
 		downloadIcs(
 			`919events-${day.date}`,
 			day.items.map((it) => ({
@@ -196,6 +196,7 @@ function ShareDayButton({ day, weekOf }: { day: PlanDay; weekOf: string }) {
 		if (canNativeShare) {
 			try {
 				await navigator.share(shareData);
+				track("planner_share_day", { method: "native" });
 				return;
 			} catch (err) {
 				// User dismissed the share sheet — don't fall back to copying.
@@ -205,6 +206,7 @@ function ShareDayButton({ day, weekOf }: { day: PlanDay; weekOf: string }) {
 
 		try {
 			await navigator.clipboard.writeText(url);
+			track("planner_share_day", { method: "clipboard" });
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch {

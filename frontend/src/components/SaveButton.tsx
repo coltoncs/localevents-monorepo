@@ -1,5 +1,6 @@
 import { useAuth, useClerk } from '@clerk/clerk-react'
 import { Heart } from 'lucide-react'
+import { track } from '#/lib/analytics'
 import {
   useSavedEvents,
   useSaveEvent,
@@ -7,7 +8,7 @@ import {
   useEventSaveCount,
 } from '#/lib/hooks/useSavedEvents'
 
-export function SaveButton({ eventId, disabled }: { eventId: string, disabled: boolean }) {
+export function SaveButton({ eventId, disabled, source = 'event_detail' }: { eventId: string, disabled: boolean, source?: string }) {
   const { isSignedIn } = useAuth()
   const { openSignIn } = useClerk()
   const { data: savedEvents } = useSavedEvents()
@@ -24,8 +25,10 @@ export function SaveButton({ eventId, disabled }: { eventId: string, disabled: b
       return
     }
     if (isSaved) {
+      track('unsave_event', { source })
       unsaveEvent.mutate(eventId)
     } else {
+      track('save_event', { source })
       saveEvent.mutate(eventId)
     }
   }

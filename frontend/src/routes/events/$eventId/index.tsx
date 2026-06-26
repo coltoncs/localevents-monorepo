@@ -1,6 +1,7 @@
 import { SignUpButton, useAuth } from "@clerk/clerk-react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { track } from "#/lib/analytics";
 import { ApiError } from "#/lib/api";
 import { AddToCalendarButton } from "#/components/AddToCalendarButton";
 import { FeaturedBadge } from "#/components/events/FeaturedBadge";
@@ -169,6 +170,7 @@ function EventDetailPage() {
 
 
   const handleFeatureClick = () => {
+    track("feature_event_click", { state: event.IsFeatured ? "on" : "off" });
     if (event.IsFeatured) {
       // Already featured: only the featurer (or an admin) can turn it off.
       if (featuredByMe) {
@@ -177,6 +179,7 @@ function EventDetailPage() {
       return;
     }
     if (!isSignedIn) {
+      track("feature_event_signup_prompt");
       setShowSignUpCTA(true);
       return;
     }
@@ -187,11 +190,16 @@ function EventDetailPage() {
     setFeatured.mutate(
       { id: event.ID, featured: true },
       {
+        onSuccess: () => {
+          track("feature_event_success");
+        },
         onError: (err) => {
           if (err instanceof ApiError) {
             if (err.message.includes("feature_limit_reached")) {
+              track("feature_event_limit_reached");
               setShowFeatureLimit(true);
             } else if (err.message.includes("subscription_required")) {
+              track("feature_event_subscribe_prompt");
               setShowSubscribeCTA(true);
             }
           }
@@ -542,6 +550,7 @@ function EventDetailPage() {
             <div className="mt-4 flex justify-center gap-3">
               <Link
                 to="/donate"
+                onClick={() => track("feature_event_subscribe_cta_click")}
                 className="rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white! no-underline hover:bg-(--lagoon)"
               >
                 Subscribe
@@ -572,6 +581,7 @@ function EventDetailPage() {
               <SignUpButton mode="modal">
                 <button
                   type="button"
+                  onClick={() => track("feature_event_signup_cta_click")}
                   className="cursor-pointer rounded-md bg-(--lagoon-deep) px-4 py-2 text-sm font-semibold text-white hover:bg-(--lagoon)"
                 >
                   Sign up

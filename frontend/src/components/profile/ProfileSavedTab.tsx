@@ -3,6 +3,7 @@ import { EventCard } from "#/components/events/EventCard";
 import { EventTable } from "#/components/events/EventTable";
 import { Spinner } from "#/components/Spinner";
 import { ViewToggle } from "#/components/ViewToggle";
+import { track } from "#/lib/analytics";
 import { useSavedEvents, useUnsaveEvent } from "#/lib/hooks/useSavedEvents";
 
 export function ProfileSavedTab() {
@@ -33,7 +34,10 @@ export function ProfileSavedTab() {
 							<EventCard event={event} />
 							<button
 								type="button"
-								onClick={() => unsave.mutate(event.ID)}
+								onClick={() => {
+									track("unsave_event", { source: "profile" });
+									unsave.mutate(event.ID);
+								}}
 								disabled={unsave.isPending}
 								className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
 							>

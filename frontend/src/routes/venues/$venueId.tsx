@@ -11,6 +11,7 @@ import { getSavedLocation } from '#/components/maps/LocationSearch'
 import { SuggestVenueEditModal } from '#/components/venues/SuggestVenueEditModal'
 import { Spinner } from '#/components/Spinner'
 import { venueJsonLd } from '#/lib/seo'
+import { track } from '#/lib/analytics'
 import type { Venue } from '#/lib/types'
 
 const RALEIGH = { lat: 35.7796, lng: -78.6382 }
@@ -274,13 +275,19 @@ function VenuePage() {
             <div key={event.ID} className="relative">
               <EventCard event={event} />
               {isSaved ? (<button
-                onClick={() => unsave.mutate(event.ID)}
+                onClick={() => {
+                  track('unsave_event', { source: 'venue' })
+                  unsave.mutate(event.ID)
+                }}
                 disabled={unsave.isPending}
                 className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50"
               >
                 Unsave
               </button>) : (<button
-                onClick={() => save.mutate(event.ID)}
+                onClick={() => {
+                  track('save_event', { source: 'venue' })
+                  save.mutate(event.ID)
+                }}
                 disabled={save.isPending}
                 className="absolute right-2 top-2 rounded-md bg-(--surface-strong)/90 px-2 py-1 text-xs font-medium text-green-600 shadow-sm hover:bg-green-50"
               >
