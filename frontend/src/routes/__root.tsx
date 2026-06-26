@@ -7,9 +7,10 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ClerkTokenProvider } from "../components/auth/ClerkTokenProvider";
-import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
+import { ChatLauncher } from "../components/chat/ChatLauncher";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
+import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
 import ClerkProvider from "../integrations/clerk/provider";
 
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
@@ -69,9 +70,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 							<EmailNotifBanner />
 							{children}
 							<Footer />
+							<ChatLauncher />
 							<TanStackDevtools
 								config={{
-									position: "bottom-right",
+									// bottom-left so it doesn't overlap the ChatLauncher (bottom-right)
+									position: "bottom-left",
 								}}
 								plugins={[
 									{

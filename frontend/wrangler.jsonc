@@ -3,12 +3,22 @@
   "name": "localevents",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  // Custom worker entry: runs routeAgentRequest (Agents SDK) for /agents/*
+  // WebSocket upgrades, then delegates to TanStack Start's SSR handler. Also
+  // re-exports the EventChatAgent Durable Object class so it can be registered.
+  "main": "./src/server.ts",
   // Image rendering (Satori + resvg WASM) for /render/social-card is CPU-heavy
   // when compositing a photographic background. Raise the per-request CPU limit
   // above the 30s default (Standard usage model, paid plan; max 300000).
   "limits": { "cpu_ms": 120000 },
   "vars": {
     "VITE_API_URL": "https://localevents-production.up.railway.app"
-  }
+  },
+  // Workers AI binding powers the event-recommendation chat agent.
+  "ai": { "binding": "AI" },
+  // EventChatAgent Durable Object (Agents SDK) — one instance per chat session.
+  "durable_objects": {
+    "bindings": [{ "name": "EventChatAgent", "class_name": "EventChatAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EventChatAgent"] }]
 }

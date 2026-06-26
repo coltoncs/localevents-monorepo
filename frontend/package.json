@@ -18,8 +18,10 @@
     "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.214",
     "@clerk/clerk-react": "^5.49.0",
     "@clerk/themes": "^2.4.57",
+    "@cloudflare/ai-chat": "^0.9.0",
     "@cloudflare/vite-plugin": "^1.13.8",
     "@faker-js/faker": "^10.0.0",
     "@floating-ui/react": "^0.27.19",
@@ -54,6 +56,8 @@
     "@tiptap/pm": "^3.20.3",
     "@tiptap/react": "^3.20.3",
     "@tiptap/starter-kit": "^3.20.3",
+    "agents": "^0.17.0",
+    "ai": "^6.0.212",
     "gsap": "^3.14.2",
     "lodash.throttle": "^4.1.1",
     "lucide-react": "^0.545.0",
@@ -64,6 +68,7 @@
     "react-hotkeys-hook": "^5.2.4",
     "react-phone-number-input": "^3.4.16",
     "tailwindcss": "^4.1.18",
+    "workers-ai-provider": "^3.2.1",
     "workers-og": "^0.0.27",
     "zod": "4.2.1"
   },
