@@ -150,6 +150,44 @@ func (r *R2Client) Exists(ctx context.Context, key string) bool {
 	return err == nil
 }
 
+// PruneOlderThan deletes every object under prefix whose last-modified time is
+// older than olderThan ago, returning the number deleted. Paginates through all
+// results. Individual delete failures are logged and skipped, not fatal.
+func (r *R2Client) PruneOlderThan(ctx context.Context, prefix string, olderThan time.Duration) (int, error) {
+	cutoff := time.Now().Add(-olderThan)
+	deleted := 0
+	var token *string
+	for {
+		out, err := r.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            &r.bucket,
+			Prefix:            &prefix,
+			ContinuationToken: token,
+		})
+		if err != nil {
+			return deleted, fmt.Errorf("list %q: %w", prefix, err)
+		}
+		for _, obj := range out.Contents {
+			if obj.LastModified == nil || !obj.LastModified.Before(cutoff) {
+				continue
+			}
+			if _, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+				Bucket: &r.bucket,
+				Key:    obj.Key,
+			}); err != nil {
+				log.Printf("R2 prune: failed to delete %s: %v", *obj.Key, err)
+				continue
+			}
+			deleted++
+		}
+		if out.IsTruncated != nil && *out.IsTruncated {
+			token = out.NextContinuationToken
+		} else {
+			break
+		}
+	}
+	return deleted, nil
+}
+
 // DeleteByPublicURL deletes an object from R2 given its full public URL.
 func (r *R2Client) DeleteByPublicURL(ctx context.Context, publicURL string) error {
 	key := strings.TrimPrefix(publicURL, r.publicURL+"/")

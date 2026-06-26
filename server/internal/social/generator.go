@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/coltonsweeney/localevents/server/internal/metrics"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
@@ -118,11 +120,41 @@ func (g *Generator) Run(ctx context.Context) {
 	log.Printf("Social: starting %s run for %d cities (window %s–%s)",
 		listType, len(g.Cities), start.Format("Jan 2"), end.AddDate(0, 0, -1).Format("Jan 2"))
 
-	results := g.generate(ctx, listType, heading, "", start, end, g.Cities)
+	results := g.generate(ctx, listType, heading, "", start, end, g.Cities, newStamp())
 	if len(results) > 0 {
 		g.emailGallery(g.AdminEmail, heading, start, results)
 	}
 	log.Printf("Social: %s run complete (%d/%d cities generated)", listType, len(results), len(g.Cities))
+
+	// Prune prior weeks' cards (and stale one-off background uploads) so R2
+	// doesn't grow unbounded. Runs on each scheduled cron, not on on-demand
+	// generation, so a freshly generated card is never at risk.
+	g.CleanupOldCards(ctx)
+}
+
+// cardRetention is how long generated cards and one-off background uploads are
+// kept in R2 before the cron cleanup prunes them.
+const cardRetention = 7 * 24 * time.Hour
+
+// CleanupOldCards deletes generated cards and one-off background uploads older
+// than cardRetention. It targets only the "social/" prefix — predefined
+// per-city backgrounds live under "social-bg/" and are never touched.
+func (g *Generator) CleanupOldCards(ctx context.Context) {
+	n, err := g.R2.PruneOlderThan(ctx, "social/", cardRetention)
+	if err != nil {
+		log.Printf("Social: card cleanup error: %v", err)
+		return
+	}
+	if n > 0 {
+		log.Printf("Social: cleanup pruned %d old card/upload objects", n)
+	}
+}
+
+// newStamp returns a short unique token used to make each generation's R2 keys
+// (and thus public URLs) unique — different runs never collide, so the CDN can
+// never serve a stale card from a reused URL.
+func newStamp() string {
+	return uuid.NewString()[:8]
 }
 
 // GenerateRange renders cards for a custom date window on demand, uploads them,
@@ -144,7 +176,7 @@ func (g *Generator) GenerateRange(ctx context.Context, opts RangeOptions) ([]Car
 	log.Printf("Social: on-demand generation for %d cities (window %s–%s)",
 		len(cities), opts.Start.Format("Jan 2"), opts.End.AddDate(0, 0, -1).Format("Jan 2"))
 
-	results := g.generate(ctx, "custom", heading, opts.BgURL, opts.Start, opts.End, cities)
+	results := g.generate(ctx, "custom", heading, opts.BgURL, opts.Start, opts.End, cities, newStamp())
 
 	recipient := strings.TrimSpace(opts.Recipient)
 	if recipient == "" {
@@ -157,10 +189,10 @@ func (g *Generator) GenerateRange(ctx context.Context, opts RangeOptions) ([]Car
 }
 
 // generate renders, uploads, and returns a card per city for the given window.
-// listType is used only in the R2 object key. bgOverride, when non-empty, is
-// used as the background for every card; otherwise each city's predefined
-// background is used.
-func (g *Generator) generate(ctx context.Context, listType, heading, bgOverride string, start, end time.Time, cities []scraper.Location) []Card {
+// listType and stamp are used only in the R2 object key (stamp makes the key
+// unique per generation). bgOverride, when non-empty, is used as the background
+// for every card; otherwise each city's predefined background is used.
+func (g *Generator) generate(ctx context.Context, listType, heading, bgOverride string, start, end time.Time, cities []scraper.Location, stamp string) []Card {
 	var results []Card
 	for _, city := range cities {
 		days := g.topEventsPerDay(ctx, city, start, end)
@@ -196,7 +228,7 @@ func (g *Generator) generate(ctx context.Context, listType, heading, bgOverride 
 			continue
 		}
 
-		key := fmt.Sprintf("social/%s/%s-%s.png", citySlug(city.Name), start.Format("2006-01-02"), listType)
+		key := fmt.Sprintf("social/%s/%s-%s-%s.png", citySlug(city.Name), start.Format("2006-01-02"), listType, stamp)
 		url, err := g.R2.PutBytes(ctx, key, "image/png", png)
 		if err != nil {
 			log.Printf("Social: R2 upload failed for %s: %v", city.Name, err)
