@@ -122,7 +122,7 @@ export function buildCardHtml(data: CardData): string {
 
 	const totalEvents = days.reduce((n, d) => n + d.events.length, 0);
 	// Switch to the denser tier once content gets tall enough to risk overflow.
-	const s = totalEvents > 12 || days.length > 4 ? DENSE : NORMAL;
+	const s = totalEvents > 18 || days.length > 4 ? DENSE : NORMAL;
 
 	// width/height MUST be attributes (not just CSS) — without them Satori decodes
 	// the full-resolution image just to measure it, which can blow the Worker CPU
