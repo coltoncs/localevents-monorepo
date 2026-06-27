@@ -211,11 +211,20 @@ func mapTMEvent(ev tmEvent) (RawEvent, error) {
 		}
 	}
 
-	// Categories from classifications
+	// Categories + genre from classifications
 	if len(ev.Classifications) > 0 {
 		c := ev.Classifications[0]
 		if c.Segment.Name != "" && c.Segment.Name != "Undefined" {
 			raw.Categories = []string{c.Segment.Name}
+		}
+		// Genre/sub-genre are meaningful only for music; NormalizeGenres
+		// drops anything that isn't a recognized music genre, so passing
+		// non-music classifications through is harmless.
+		if c.Genre.Name != "" {
+			raw.Genre = append(raw.Genre, c.Genre.Name)
+		}
+		if c.SubGenre.Name != "" {
+			raw.Genre = append(raw.Genre, c.SubGenre.Name)
 		}
 	}
 
@@ -279,8 +288,9 @@ type tmDateTime struct {
 }
 
 type tmClassification struct {
-	Segment tmNamedItem `json:"segment"`
-	Genre   tmNamedItem `json:"genre"`
+	Segment  tmNamedItem `json:"segment"`
+	Genre    tmNamedItem `json:"genre"`
+	SubGenre tmNamedItem `json:"subGenre"`
 }
 
 type tmNamedItem struct {

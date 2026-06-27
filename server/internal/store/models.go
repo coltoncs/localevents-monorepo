@@ -89,6 +89,7 @@ type Event struct {
 	IsFeatured     bool
 	FeaturedAt     pgtype.Timestamptz
 	FeaturedBy     pgtype.UUID
+	Genre          []string
 }
 
 type EventEmbedding struct {

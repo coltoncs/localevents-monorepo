@@ -119,6 +119,15 @@ func mapSGEvent(ev sgEvent) (RawEvent, error) {
 
 	if len(ev.Performers) > 0 {
 		raw.ImageURL = ev.Performers[0].Images.Huge
+		// Collect genres across all performers; NormalizeGenres dedupes and
+		// folds them into canonical music genres downstream.
+		for _, p := range ev.Performers {
+			for _, g := range p.Genres {
+				if g.Name != "" {
+					raw.Genre = append(raw.Genre, g.Name)
+				}
+			}
+		}
 	}
 
 	if ev.Stats.LowestPrice > 0 {
@@ -170,7 +179,12 @@ type sgLocation struct {
 }
 
 type sgPerformer struct {
-	Images sgImages `json:"images"`
+	Images sgImages  `json:"images"`
+	Genres []sgGenre `json:"genres"`
+}
+
+type sgGenre struct {
+	Name string `json:"name"`
 }
 
 type sgImages struct {

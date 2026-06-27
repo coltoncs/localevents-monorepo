@@ -29,6 +29,7 @@ interface CompactEvent {
 	start: string;
 	end?: string;
 	categories?: string[];
+	genre?: string[];
 	price?: string;
 	isFree?: boolean;
 	ticketUrl?: string;
@@ -44,6 +45,7 @@ interface RawEvent {
 	StartTime: string;
 	EndTime?: string | null;
 	Categories?: string[] | null;
+	Genre?: string[] | null;
 	PriceMin?: number | null;
 	PriceMax?: number | null;
 	IsFree?: boolean | null;
@@ -111,6 +113,71 @@ function matchesCategory(
 	});
 }
 
+// Canonical music genres (mirrors CanonicalGenres in server/internal/scraper/
+// genre.go). Events store these on the `Genre` field; the API matches them
+// exactly/case-sensitively, so — as with categories — we never send `genre` to
+// the API and instead fetch broadly and filter here.
+const MUSIC_GENRES = [
+	"Rock",
+	"Pop",
+	"Hip-Hop",
+	"R&B",
+	"Country",
+	"Jazz",
+	"Blues",
+	"Classical",
+	"Folk",
+	"Metal",
+	"Punk",
+	"Electronic",
+	"Latin",
+	"Reggae",
+	"Indie",
+	"Alternative",
+	"Soul",
+	"Funk",
+	"Gospel",
+	"World",
+] as const;
+
+// Common genre phrasings → canonical genre term (lowercased). Mirrors the
+// genreAliases map on the server so the model's wording resolves the same way.
+const GENRE_SYNONYMS: Record<string, string> = {
+	rap: "hip-hop",
+	"hip hop": "hip-hop",
+	trap: "hip-hop",
+	rnb: "r&b",
+	"rhythm and blues": "r&b",
+	edm: "electronic",
+	house: "electronic",
+	techno: "electronic",
+	dance: "electronic",
+	dubstep: "electronic",
+	heavy: "metal",
+	"heavy metal": "metal",
+	americana: "country",
+	bluegrass: "folk",
+	"singer-songwriter": "folk",
+	opera: "classical",
+	orchestral: "classical",
+	reggaeton: "latin",
+	afrobeats: "world",
+};
+
+/** Whether an event's genre tags satisfy a requested genre term. */
+function matchesGenre(
+	eventGenres: string[] | undefined,
+	requested: string,
+): boolean {
+	if (!eventGenres?.length) return false;
+	const raw = requested.toLowerCase().trim();
+	const want = GENRE_SYNONYMS[raw] ?? raw;
+	return eventGenres.some((g) => {
+		const genre = g.toLowerCase();
+		return genre === want || genre.includes(want) || want.includes(genre);
+	});
+}
+
 export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 	async onStart(props?: Record<string, unknown>): Promise<void> {
 		await super.onStart?.(props);
@@ -156,6 +223,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			`Today's date is ${today}. Only pass date/endDate when the user explicitly mentions a timeframe — interpret relative dates ("this weekend", "tonight", "next Friday") into concrete YYYY-MM-DD ranges. If the user mentions NO timeframe, omit both date and endDate so the search covers all upcoming events. Never search dates in the past — only today or later.`,
 			knownLocation,
 			`For the category filter use exactly one of: ${CATEGORIES.join(", ")}. Map concerts/live music/DJs to "Music". If the user's interest isn't a category, omit category and use the search term instead.`,
+			`When the user asks for a specific MUSIC GENRE (e.g. jazz, metal, hip-hop, country, EDM), set the \`genre\` filter (one of: ${MUSIC_GENRES.join(", ")}) instead of category — it narrows to that style of concert. The tool falls back to music events if no genre-tagged matches are found, so present whatever it returns and mention the fallback if a \`note\` is included.`,
 			"The search_events tool already broadens automatically (it widens a too-narrow category and shows all nearby events instead), so ONE search is almost always enough. Do not call it repeatedly — if the first call returns events, present them. If a result includes a `note`, mention that you broadened the search.",
 			"To find a specific event, artist, or venue by name, use the `search` parameter — it matches across ALL upcoming events regardless of date. The result's `total` is the full count of matching events; when it exceeds the few you list, you can mention there are more and offer to narrow by date or category.",
 			"When recommending, be concise: a short intro line, then a handful of picks. For each pick give the title, venue, date/time (human-friendly), and price if known.",
@@ -213,6 +281,12 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 						.describe(
 							`Optional category filter. Valid: ${CATEGORIES.join(", ")}. Use "Music" for concerts/live music/DJs. Matching is case-insensitive.`,
 						),
+					genre: z
+						.string()
+						.optional()
+						.describe(
+							`Optional music-genre filter for concerts. Common values: ${MUSIC_GENRES.join(", ")}. Set this (instead of category) when the user asks for a specific genre like "jazz shows" or "metal concerts". Matching is case-insensitive.`,
+						),
 					search: z
 						.string()
 						.optional()
@@ -253,6 +327,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 		date?: string;
 		endDate?: string;
 		category?: string;
+		genre?: string;
 		search?: string;
 	}): Promise<
 		{ events: CompactEvent[]; total: number; note?: string } | { error: string }
@@ -276,9 +351,10 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			endDate = args.endDate;
 		}
 		// Searching across the full window (no date) needs a wider page than a
-		// single day; category filtering also fetches wide to leave room.
+		// single day; category/genre filtering also fetches wide to leave room.
 		const wantCategory = args.category?.trim();
-		const wide = wantCategory || !date;
+		const wantGenre = args.genre?.trim();
+		const wide = wantCategory || wantGenre || !date;
 		const params = new URLSearchParams({
 			lat: String(args.lat),
 			lng: String(args.lng),
@@ -311,6 +387,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 				start: e.StartTime,
 				end: e.EndTime ?? undefined,
 				categories: e.Categories ?? undefined,
+				genre: e.Genre ?? undefined,
 				price: formatPrice(
 					e.PriceMin ?? undefined,
 					e.PriceMax ?? undefined,
@@ -321,6 +398,28 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 				url: `/events/${e.ID}`,
 			}),
 		);
+
+		// Genre is more specific than category — apply it first. Genre tags are
+		// only populated on freshly-scraped events, so a miss is expected for
+		// older rows; fall back to music events rather than returning nothing.
+		if (wantGenre) {
+			const filtered = all.filter((e) => matchesGenre(e.genre, wantGenre));
+			if (filtered.length > 0) {
+				return {
+					events: filtered.slice(0, MAX_EVENTS),
+					total: filtered.length,
+				};
+			}
+			const music = all.filter((e) => matchesCategory(e.categories, "music"));
+			const fallback = music.length > 0 ? music : all;
+			return {
+				events: fallback.slice(0, MAX_EVENTS),
+				total: fallback.length,
+				note: `No events tagged "${wantGenre}" were found nearby (genre data may be incomplete); showing ${
+					music.length > 0 ? "music events" : "all nearby events"
+				} instead.`,
+			};
+		}
 
 		if (wantCategory) {
 			const filtered = all.filter((e) =>

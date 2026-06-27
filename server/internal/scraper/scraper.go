@@ -42,7 +42,11 @@ type RawEvent struct {
 	StartTime   time.Time
 	EndTime     *time.Time
 	Categories  []string
-	ImageURL    string
+	// Genre holds raw music-genre strings from the source (Ticketmaster
+	// classifications, SeatGeek performer genres). Normalized to canonical
+	// genres via NormalizeGenres at upsert time.
+	Genre    []string
+	ImageURL string
 	TicketURL   string
 	PriceMin    *float64
 	PriceMax    *float64
@@ -180,6 +184,9 @@ func (r *Runner) Run(ctx context.Context) {
 			e.Categories = mapped
 		}
 
+		// Fold raw source genres into canonical music genres.
+		e.Genre = NormalizeGenres(e.Genre)
+
 		// Mirror external image to R2 if configured.
 		if r.R2 != nil && e.ImageURL != "" {
 			if r2URL, err := r.R2.MirrorImage(ctx, e.ImageURL); err != nil {
@@ -225,6 +232,7 @@ func (r *Runner) Run(ctx context.Context) {
 			StartTime:   pgtype.Timestamptz{Time: e.StartTime, Valid: true},
 			EndTime:     timestamptzFromPtr(e.EndTime),
 			Categories:  e.Categories,
+			Genre:       e.Genre,
 			ImageUrl:    textFromStr(e.ImageURL),
 			TicketUrl:   textFromStr(e.TicketURL),
 			PriceMin:    numericFromFloat(e.PriceMin),
@@ -344,6 +352,12 @@ func enrichPriorityEvent(pe, ae *RawEvent) {
 	// Fill in categories if missing
 	if len(ae.Categories) > 0 && len(pe.Categories) == 0 {
 		pe.Categories = ae.Categories
+	}
+	// Aggregators (Ticketmaster/SeatGeek) carry genre data that local
+	// community sources usually lack — fill it in when the priority event
+	// has none.
+	if len(ae.Genre) > 0 && len(pe.Genre) == 0 {
+		pe.Genre = ae.Genre
 	}
 }
 
