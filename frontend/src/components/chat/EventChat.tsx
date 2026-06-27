@@ -2,11 +2,13 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { Link } from "@tanstack/react-router";
 import { useAgent } from "agents/react";
 import type { UIMessage } from "ai";
-import { Send, Sparkles, X } from "lucide-react";
+import { LocateFixed, MapPin, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	getSavedLocation,
+	NC_CITIES,
 	type SavedLocation,
+	saveLocation,
 } from "#/components/maps/LocationSearch";
 
 const SESSION_KEY = "events_chat_session";
@@ -46,16 +48,25 @@ export function EventChat({ onClose }: { onClose?: () => void } = {}) {
 		);
 	}
 
-	return <Chat sessionId={sessionId} location={location} onClose={onClose} />;
+	return (
+		<Chat
+			sessionId={sessionId}
+			location={location}
+			onLocationChange={setLocation}
+			onClose={onClose}
+		/>
+	);
 }
 
 function Chat({
 	sessionId,
 	location,
+	onLocationChange,
 	onClose,
 }: {
 	sessionId: string;
 	location: SavedLocation | null;
+	onLocationChange: (location: SavedLocation) => void;
 	onClose?: () => void;
 }) {
 	const agent = useAgent({ agent: "event-chat-agent", name: sessionId });
@@ -64,6 +75,7 @@ function Chat({
 	});
 
 	const [input, setInput] = useState("");
+	const [showLocation, setShowLocation] = useState(false);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const isBusy = status === "submitted" || status === "streaming";
 
@@ -107,9 +119,18 @@ function Chat({
 					<span className="font-medium text-(--sea-ink)">Event Assistant</span>
 				</div>
 				<div className="flex items-center gap-2">
-					<span className="hidden text-xs text-(--sea-ink-soft) sm:inline">
-						{location ? `Near ${location.name}` : "No location set"}
-					</span>
+					<button
+						type="button"
+						onClick={() => setShowLocation((v) => !v)}
+						aria-expanded={showLocation}
+						title="Set search location"
+						className="inline-flex max-w-[9rem] cursor-pointer items-center gap-1 rounded-md border border-(--line) bg-(--surface-strong) px-2 py-1 text-xs font-medium text-(--sea-ink-soft) transition hover:bg-(--surface)"
+					>
+						<MapPin size={13} className="shrink-0 text-(--lagoon-deep)" />
+						<span className="truncate">
+							{location ? location.name : "Set location"}
+						</span>
+					</button>
 					{messages.length > 0 && (
 						<button
 							type="button"
@@ -131,6 +152,10 @@ function Chat({
 					)}
 				</div>
 			</div>
+
+			{showLocation && (
+				<LocationControl value={location} onChange={onLocationChange} />
+			)}
 
 			{/* Messages */}
 			<div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
@@ -179,6 +204,97 @@ function Chat({
 					</button>
 				)}
 			</form>
+		</div>
+	);
+}
+
+/** Lets the user pick the location the assistant searches around: a preset
+ * city or their device location. Persists to the shared localStorage key so the
+ * rest of the app stays in sync, and updates the chat's location immediately. */
+function LocationControl({
+	value,
+	onChange,
+}: {
+	value: SavedLocation | null;
+	onChange: (location: SavedLocation) => void;
+}) {
+	const [geolocating, setGeolocating] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	function selectCity(name: string) {
+		const coords = NC_CITIES[name];
+		if (!coords) return;
+		const loc = { name, lat: coords.lat, lng: coords.lng };
+		saveLocation(loc);
+		onChange(loc);
+	}
+
+	function useMyLocation() {
+		if (!navigator.geolocation) {
+			setError("Location isn't available in this browser.");
+			return;
+		}
+		setGeolocating(true);
+		setError(null);
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				setGeolocating(false);
+				const loc = {
+					name: "My location",
+					lat: pos.coords.latitude,
+					lng: pos.coords.longitude,
+				};
+				saveLocation(loc);
+				onChange(loc);
+			},
+			() => {
+				setGeolocating(false);
+				setError("Couldn't get your location. Pick a city instead.");
+			},
+			{ timeout: 10000 },
+		);
+	}
+
+	const selectedCity = value && value.name in NC_CITIES ? value.name : "";
+
+	return (
+		<div className="space-y-2 border-b border-(--line) bg-(--surface) px-4 py-3">
+			<div className="flex items-center gap-2">
+					<label className="flex-1">
+					<span className="sr-only">Choose a city</span>
+					<select
+						value={selectedCity}
+						onChange={(e) => selectCity(e.target.value)}
+						className="w-full cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-2 py-1.5 text-sm text-(--sea-ink) outline-none focus:border-(--lagoon-deep)"
+					>
+						<option value="">Choose a city…</option>
+						{Object.keys(NC_CITIES).map((c) => (
+							<option key={c} value={c}>
+								{c}
+							</option>
+						))}
+					</select>
+				</label>
+				<button
+					type="button"
+					onClick={useMyLocation}
+					disabled={geolocating}
+					className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-2.5 py-1.5 text-xs font-medium text-(--sea-ink-soft) transition hover:bg-(--surface) disabled:opacity-50"
+				>
+					<LocateFixed size={14} />
+					{geolocating ? "Locating…" : "Use my location"}
+				</button>
+			</div>
+			{value ? (
+				<p className="text-xs text-(--sea-ink-soft)">
+					Searching near <span className="text-(--sea-ink)">{value.name}</span>
+				</p>
+			) : (
+				<p className="text-xs text-(--sea-ink-soft)">
+					Set a location so I can find events near you.
+				</p>
+			)}
+			{error && <p className="text-xs text-red-500">{error}</p>}
 		</div>
 	);
 }

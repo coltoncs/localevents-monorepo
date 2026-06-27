@@ -153,10 +153,11 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 
 		const system = [
 			"You are the LocalEvents assistant. You help people discover local events (concerts, shows, festivals, things to do) using ONLY the search_events tool — never invent events.",
-			`Today's date is ${today}. Interpret relative dates ("this weekend", "tonight", "next Friday") into concrete YYYY-MM-DD ranges before searching. Never search dates in the past — only today or later.`,
+			`Today's date is ${today}. Only pass date/endDate when the user explicitly mentions a timeframe — interpret relative dates ("this weekend", "tonight", "next Friday") into concrete YYYY-MM-DD ranges. If the user mentions NO timeframe, omit both date and endDate so the search covers all upcoming events. Never search dates in the past — only today or later.`,
 			knownLocation,
 			`For the category filter use exactly one of: ${CATEGORIES.join(", ")}. Map concerts/live music/DJs to "Music". If the user's interest isn't a category, omit category and use the search term instead.`,
 			"The search_events tool already broadens automatically (it widens a too-narrow category and shows all nearby events instead), so ONE search is almost always enough. Do not call it repeatedly — if the first call returns events, present them. If a result includes a `note`, mention that you broadened the search.",
+			"To find a specific event, artist, or venue by name, use the `search` parameter — it matches across ALL upcoming events regardless of date. The result's `total` is the full count of matching events; when it exceeds the few you list, you can mention there are more and offer to narrow by date or category.",
 			"When recommending, be concise: a short intro line, then a handful of picks. For each pick give the title, venue, date/time (human-friendly), and price if known.",
 			"Always link each event with a relative markdown link whose visible text is the event's EXACT title from the search results: [Exact Title](/events/{id}). Take the id from the SAME search-result row as that title — never reuse an id from a different event or an earlier search, and never fabricate ids.",
 		].join("\n\n");
@@ -197,11 +198,15 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 					date: z
 						.string()
 						.optional()
-						.describe("Start date (inclusive), YYYY-MM-DD. Defaults to today."),
+						.describe(
+							"Start date (inclusive), YYYY-MM-DD. ONLY set when the user names a day/timeframe. Omit it (and endDate) to search ALL upcoming events — do not default to today.",
+						),
 					endDate: z
 						.string()
 						.optional()
-						.describe("End date (inclusive), YYYY-MM-DD. Omit for single-day."),
+						.describe(
+							"End date (inclusive), YYYY-MM-DD. Set with `date` for a multi-day range. Omit for a single day, or omit both for all upcoming events.",
+						),
 					category: z
 						.string()
 						.optional()
@@ -255,22 +260,32 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 		const base = this.env.VITE_API_URL ?? "";
 		const today = new Date().toISOString().slice(0, 10);
 
-		// Clamp dates to today — past events are removed and their detail pages
-		// 404, so we never want the model linking to them.
-		const date = args.date && args.date >= today ? args.date : today;
-		const endDate =
-			args.endDate && args.endDate >= date ? args.endDate : undefined;
-
-		// Category is filtered client-side (the API matches Title-Cased values
-		// exactly), so fetch a wider page when filtering to leave room.
+		// Resolve the date window. Only constrain by date when the caller actually
+		// specified one — when no timeframe is given we omit `date` entirely so the
+		// API falls back to its "all upcoming events" default (today → +1yr).
+		// Sending `date` with no `end_date` would otherwise pin results to a single
+		// day. Past dates are clamped to today (past events are deleted and 404).
+		let date: string | undefined;
+		let endDate: string | undefined;
+		if (args.date) {
+			date = args.date >= today ? args.date : today;
+			if (args.endDate && args.endDate >= date) endDate = args.endDate;
+		} else if (args.endDate && args.endDate >= today) {
+			// end without start → search from today through that end date.
+			date = today;
+			endDate = args.endDate;
+		}
+		// Searching across the full window (no date) needs a wider page than a
+		// single day; category filtering also fetches wide to leave room.
 		const wantCategory = args.category?.trim();
+		const wide = wantCategory || !date;
 		const params = new URLSearchParams({
 			lat: String(args.lat),
 			lng: String(args.lng),
 			radius: String(args.radius ?? 10),
-			date,
-			limit: String(wantCategory ? 60 : MAX_EVENTS),
+			limit: String(wide ? 60 : MAX_EVENTS),
 		});
+		if (date) params.set("date", date);
 		if (endDate) params.set("end_date", endDate);
 		if (args.search) params.set("search", args.search);
 
