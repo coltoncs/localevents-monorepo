@@ -20,6 +20,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
 	"github.com/coltonsweeney/localevents/server/internal/router"
 	"github.com/coltonsweeney/localevents/server/internal/scraper"
+	"github.com/coltonsweeney/localevents/server/internal/search"
 	"github.com/coltonsweeney/localevents/server/internal/social"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
@@ -54,17 +55,19 @@ func main() {
 		r2 = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2PublicURL, cfg.R2Bucket)
 	}
 
-	// Embedding + recommendations (optional; require OPENAI_API_KEY).
+	// Embedding + recommendations + semantic search (optional; require OPENAI_API_KEY).
 	var embedClient *embedding.Client
 	var embedStore *embedding.Store
 	var recsService *recommend.Service
+	var searchSvc *search.Service
 	if cfg.OpenAIAPIKey != "" {
 		embedClient = embedding.NewClient(cfg.OpenAIAPIKey)
 		embedStore = embedding.NewStore(pool)
 		recsService = recommend.New(pool)
-		log.Println("Recommendations enabled (OpenAI embeddings)")
+		searchSvc = search.New(embedClient, pool)
+		log.Println("Recommendations and semantic search enabled (OpenAI embeddings)")
 	} else {
-		log.Println("OPENAI_API_KEY not set, recommendations disabled")
+		log.Println("OPENAI_API_KEY not set, recommendations and semantic search disabled")
 	}
 
 	c := cron.New()
@@ -336,7 +339,7 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter, socialGen)
+	r := router.New(queries, pool, cfg, digestRunner, r2, recsService, adminAlerter, socialGen, searchSvc)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

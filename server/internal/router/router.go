@@ -17,6 +17,7 @@ import (
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/planner"
 	"github.com/coltonsweeney/localevents/server/internal/recommend"
+	"github.com/coltonsweeney/localevents/server/internal/search"
 	"github.com/coltonsweeney/localevents/server/internal/social"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
@@ -32,7 +33,7 @@ func redirectLegacyPath(w http.ResponseWriter, r *http.Request, oldPrefix, newPr
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
 }
 
-func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter, socialGen *social.Generator) *chi.Mux {
+func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestRunner *notifier.Runner, r2 *storage.R2Client, recs *recommend.Service, alerter *notifier.AdminAlerter, socialGen *social.Generator, searchSvc *search.Service) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -43,7 +44,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 
 	r.Handle("/metrics", promhttp.Handler())
 
-	eventHandler := handler.NewEventHandler(queries, pool, r2, alerter)
+	eventHandler := handler.NewEventHandler(queries, pool, r2, alerter, searchSvc)
 	venueHandler := handler.NewVenueHandler(queries)
 	userHandler := handler.NewUserHandler(queries)
 	appHandler := handler.NewApplicationHandler(queries, alerter)

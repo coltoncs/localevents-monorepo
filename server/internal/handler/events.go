@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -15,19 +16,21 @@ import (
 
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
+	"github.com/coltonsweeney/localevents/server/internal/search"
 	"github.com/coltonsweeney/localevents/server/internal/storage"
 	"github.com/coltonsweeney/localevents/server/internal/store"
 )
 
 type EventHandler struct {
-	queries *store.Queries
-	pool    *pgxpool.Pool
-	r2      *storage.R2Client
-	alerter *notifier.AdminAlerter
+	queries   *store.Queries
+	pool      *pgxpool.Pool
+	r2        *storage.R2Client
+	alerter   *notifier.AdminAlerter
+	searchSvc *search.Service
 }
 
-func NewEventHandler(q *store.Queries, pool *pgxpool.Pool, r2 *storage.R2Client, alerter *notifier.AdminAlerter) *EventHandler {
-	return &EventHandler{queries: q, pool: pool, r2: r2, alerter: alerter}
+func NewEventHandler(q *store.Queries, pool *pgxpool.Pool, r2 *storage.R2Client, alerter *notifier.AdminAlerter, searchSvc *search.Service) *EventHandler {
+	return &EventHandler{queries: q, pool: pool, r2: r2, alerter: alerter, searchSvc: searchSvc}
 }
 
 func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -135,65 +138,81 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	locParams := store.CountEventsByLocationParams{
-		Lng:          lng,
-		Lat:          lat,
-		RadiusMeters: radiusMeters,
-		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
-		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
-		Category:     category,
-		Genre:        genre,
-		VenueName:    venueName,
-		VenueID:      venueID,
-		Search:       search,
-	}
-
-	total, err := h.queries.CountEventsByLocation(r.Context(), locParams)
-	if err != nil {
-		http.Error(w, `{"error":"failed to count events"}`, http.StatusInternalServerError)
-		return
-	}
-
-	listParams := store.ListEventsByLocationParams{
-		Lng:          locParams.Lng,
-		Lat:          locParams.Lat,
-		RadiusMeters: locParams.RadiusMeters,
-		StartDate:    locParams.StartDate,
-		EndDate:      locParams.EndDate,
-		Category:     locParams.Category,
-		Genre:        locParams.Genre,
-		VenueName:    locParams.VenueName,
-		VenueID:      locParams.VenueID,
-		Search:       locParams.Search,
-		EventLimit:   limit,
-		EventOffset:  offset,
-	}
-
+	var total int64
 	var events []store.Event
-	multiDay := dateStr == "" || endDateStr != ""
-	if multiDay {
-		// Multi-day results: sort by day, then proximity, then time
-		events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
-			Lng:          listParams.Lng,
-			Lat:          listParams.Lat,
-			RadiusMeters: listParams.RadiusMeters,
-			StartDate:    listParams.StartDate,
-			EndDate:      listParams.EndDate,
-			Category:     listParams.Category,
-			Genre:        listParams.Genre,
-			VenueName:    listParams.VenueName,
-			VenueID:      listParams.VenueID,
-			Search:       listParams.Search,
-			EventLimit:   listParams.EventLimit,
-			EventOffset:  listParams.EventOffset,
-		})
-	} else {
-		// Date filter: sort by time, then proximity as tiebreaker
-		events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
+
+	if search.Valid && h.searchSvc != nil {
+		// Semantic search: embed the query and rank by cosine similarity.
+		// Falls back to ILIKE below if embedding fails.
+		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, limit, offset)
+		sem, count, semErr := h.searchSvc.Semantic(r.Context(), search.String, sp)
+		if semErr != nil {
+			log.Printf("semantic search error, falling back to ILIKE: %v", semErr)
+		} else {
+			events = sem
+			total = count
+		}
 	}
-	if err != nil {
-		http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
-		return
+
+	if events == nil {
+		locParams := store.CountEventsByLocationParams{
+			Lng:          lng,
+			Lat:          lat,
+			RadiusMeters: radiusMeters,
+			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
+			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+			Category:     category,
+			Genre:        genre,
+			VenueName:    venueName,
+			VenueID:      venueID,
+			Search:       search,
+		}
+
+		var err error
+		total, err = h.queries.CountEventsByLocation(r.Context(), locParams)
+		if err != nil {
+			http.Error(w, `{"error":"failed to count events"}`, http.StatusInternalServerError)
+			return
+		}
+
+		listParams := store.ListEventsByLocationParams{
+			Lng:          locParams.Lng,
+			Lat:          locParams.Lat,
+			RadiusMeters: locParams.RadiusMeters,
+			StartDate:    locParams.StartDate,
+			EndDate:      locParams.EndDate,
+			Category:     locParams.Category,
+			Genre:        locParams.Genre,
+			VenueName:    locParams.VenueName,
+			VenueID:      locParams.VenueID,
+			Search:       locParams.Search,
+			EventLimit:   limit,
+			EventOffset:  offset,
+		}
+
+		multiDay := dateStr == "" || endDateStr != ""
+		if multiDay {
+			events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
+				Lng:          listParams.Lng,
+				Lat:          listParams.Lat,
+				RadiusMeters: listParams.RadiusMeters,
+				StartDate:    listParams.StartDate,
+				EndDate:      listParams.EndDate,
+				Category:     listParams.Category,
+				Genre:        listParams.Genre,
+				VenueName:    listParams.VenueName,
+				VenueID:      listParams.VenueID,
+				Search:       listParams.Search,
+				EventLimit:   listParams.EventLimit,
+				EventOffset:  listParams.EventOffset,
+			})
+		} else {
+			events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
+		}
+		if err != nil {
+			http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if events == nil {
@@ -293,44 +312,58 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	listParams := store.ListEventsByLocationParams{
-		Lng:          lng,
-		Lat:          lat,
-		RadiusMeters: radiusMeters,
-		StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
-		EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
-		Category:     category,
-		Genre:        genre,
-		VenueName:    venueName,
-		VenueID:      venueID,
-		Search:       search,
-		EventLimit:   500,
-		EventOffset:  0,
+	var events []store.Event
+
+	if search.Valid && h.searchSvc != nil {
+		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, 500, 0)
+		sem, _, semErr := h.searchSvc.Semantic(r.Context(), search.String, sp)
+		if semErr != nil {
+			log.Printf("semantic search error (map), falling back to ILIKE: %v", semErr)
+		} else {
+			events = sem
+		}
 	}
 
-	var events []store.Event
-	multiDay := dateStr == "" || endDateStr != ""
-	if multiDay {
-		events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
-			Lng:          listParams.Lng,
-			Lat:          listParams.Lat,
-			RadiusMeters: listParams.RadiusMeters,
-			StartDate:    listParams.StartDate,
-			EndDate:      listParams.EndDate,
-			Category:     listParams.Category,
-			Genre:        listParams.Genre,
-			VenueName:    listParams.VenueName,
-			VenueID:      listParams.VenueID,
-			Search:       listParams.Search,
-			EventLimit:   listParams.EventLimit,
-			EventOffset:  listParams.EventOffset,
-		})
-	} else {
-		events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
-	}
-	if err != nil {
-		http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
-		return
+	if events == nil {
+		listParams := store.ListEventsByLocationParams{
+			Lng:          lng,
+			Lat:          lat,
+			RadiusMeters: radiusMeters,
+			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
+			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+			Category:     category,
+			Genre:        genre,
+			VenueName:    venueName,
+			VenueID:      venueID,
+			Search:       search,
+			EventLimit:   500,
+			EventOffset:  0,
+		}
+
+		var err error
+		multiDay := dateStr == "" || endDateStr != ""
+		if multiDay {
+			events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
+				Lng:          listParams.Lng,
+				Lat:          listParams.Lat,
+				RadiusMeters: listParams.RadiusMeters,
+				StartDate:    listParams.StartDate,
+				EndDate:      listParams.EndDate,
+				Category:     listParams.Category,
+				Genre:        listParams.Genre,
+				VenueName:    listParams.VenueName,
+				VenueID:      listParams.VenueID,
+				Search:       listParams.Search,
+				EventLimit:   listParams.EventLimit,
+				EventOffset:  listParams.EventOffset,
+			})
+		} else {
+			events, err = h.queries.ListEventsByLocation(r.Context(), listParams)
+		}
+		if err != nil {
+			http.Error(w, `{"error":"failed to query events"}`, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if events == nil {
@@ -721,6 +754,28 @@ func (h *EventHandler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
+}
+
+func searchParams(
+	lat, lng, radiusMeters float64,
+	startDate, endDate time.Time,
+	category, genre, venueName pgtype.Text,
+	venueID pgtype.UUID,
+	limit, offset int32,
+) search.Params {
+	return search.Params{
+		Lat:          lat,
+		Lng:          lng,
+		RadiusMeters: radiusMeters,
+		StartDate:    startDate,
+		EndDate:      endDate,
+		Category:     category,
+		Genre:        genre,
+		VenueName:    venueName,
+		VenueID:      venueID,
+		Limit:        limit,
+		Offset:       offset,
+	}
 }
 
 func textFromPtr(s *string) pgtype.Text {
