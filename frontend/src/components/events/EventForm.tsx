@@ -17,24 +17,31 @@ import {
 } from "#/lib/hooks/useEvents";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
 import type { CreateEventInput, Venue } from "#/lib/types";
-import { CATEGORIES } from "./EventFilters";
+import { CATEGORIES, GENRES } from "./EventFilters";
+import { pillBase, pillSelected, pillUnselected } from "./pill-styles";
 
-export function CategoryPicker({
+// Toggle-pill multi-select with free-form custom entry. Used for both the
+// Categories and Genre fields on the event form.
+function TagPicker({
+	label,
+	options,
+	placeholder,
 	value,
 	onChange,
 }: {
+	label: string;
+	options: readonly string[];
+	placeholder: string;
 	value: string[];
 	onChange: (v: string[]) => void;
-	className?: string;
-	labelClassName?: string;
 }) {
 	const [customInput, setCustomInput] = useState("");
 
-	function toggle(cat: string) {
-		if (value.includes(cat)) {
-			onChange(value.filter((c) => c !== cat));
+	function toggle(item: string) {
+		if (value.includes(item)) {
+			onChange(value.filter((c) => c !== item));
 		} else {
-			onChange([...value, cat]);
+			onChange([...value, item]);
 		}
 	}
 
@@ -48,31 +55,27 @@ export function CategoryPicker({
 
 	return (
 		<div className="sm:col-span-2">
-			<label className={labelClass}>Categories</label>
+			<label className={labelClass}>{label}</label>
 			<div className="mt-1 flex flex-wrap gap-2">
-				{CATEGORIES.map((c) => (
+				{options.map((c) => (
 					<button
 						key={c}
 						type="button"
 						onClick={() => toggle(c)}
-						className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium border ${
-							value.includes(c)
-								? "bg-[rgba(79,184,178,0.14)] border-(--lagoon-deep) text-(--lagoon-deep)"
-								: "border-(--line) text-(--sea-ink-soft) hover:bg-(--surface)"
-						}`}
+						className={`${pillBase} ${value.includes(c) ? pillSelected : pillUnselected}`}
 					>
 						{c}
 					</button>
 				))}
 			</div>
-			{value.filter((c) => !CATEGORIES.includes(c)).length > 0 && (
+			{value.filter((c) => !options.includes(c)).length > 0 && (
 				<div className="mt-2 flex flex-wrap gap-1.5">
 					{value
-						.filter((c) => !CATEGORIES.includes(c))
+						.filter((c) => !options.includes(c))
 						.map((c) => (
 							<span
 								key={c}
-								className="inline-flex items-center gap-1 rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-xs font-medium text-(--lagoon-deep)"
+								className="inline-flex items-center gap-1 rounded-full border border-(--line) bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 text-xs font-medium text-(--lagoon-deep) shadow-sm"
 							>
 								{c}
 								<button
@@ -97,7 +100,7 @@ export function CategoryPicker({
 							addCustom();
 						}
 					}}
-					placeholder="Add custom category..."
+					placeholder={placeholder}
 					className={inputClass}
 				/>
 				<button
@@ -110,6 +113,42 @@ export function CategoryPicker({
 				</button>
 			</div>
 		</div>
+	);
+}
+
+export function CategoryPicker({
+	value,
+	onChange,
+}: {
+	value: string[];
+	onChange: (v: string[]) => void;
+}) {
+	return (
+		<TagPicker
+			label="Categories"
+			options={CATEGORIES}
+			placeholder="Add custom category..."
+			value={value}
+			onChange={onChange}
+		/>
+	);
+}
+
+export function GenrePicker({
+	value,
+	onChange,
+}: {
+	value: string[];
+	onChange: (v: string[]) => void;
+}) {
+	return (
+		<TagPicker
+			label="Genre"
+			options={GENRES}
+			placeholder="Add custom genre..."
+			value={value}
+			onChange={onChange}
+		/>
 	);
 }
 
@@ -128,6 +167,7 @@ interface EventFormProps {
 		latitude?: number;
 		longitude?: number;
 		categories?: string[];
+		genre?: string[];
 		image_url?: string;
 		ticket_url?: string;
 		price_min?: number;
@@ -283,6 +323,7 @@ export function EventForm({
 			latitude: initialValues?.latitude ?? savedLocation?.lat ?? 0,
 			longitude: initialValues?.longitude ?? savedLocation?.lng ?? 0,
 			categories: initialValues?.categories ?? [],
+			genre: initialValues?.genre ?? [],
 			image_url: initialValues?.image_url ?? "",
 			ticket_url: initialValues?.ticket_url ?? "",
 			price_min:
@@ -333,6 +374,9 @@ export function EventForm({
 					if (value.zip) changes.zip = value.zip;
 					const suggestCats = value.categories as string[];
 					if (suggestCats.length > 0) changes.categories = suggestCats;
+					const suggestGenre = value.genre as string[];
+					if (suggestCats.includes("Music") && suggestGenre.length > 0)
+						changes.genre = suggestGenre;
 					if (value.image_url) changes.image_url = value.image_url;
 					if (value.ticket_url) changes.ticket_url = value.ticket_url;
 					if (value.price_min) changes.price_min = Number(value.price_min);
@@ -362,6 +406,8 @@ export function EventForm({
 				if (value.zip) base.zip = value.zip as string;
 				const cats = value.categories as string[];
 				if (cats.length > 0) base.categories = cats;
+				const genre = value.genre as string[];
+				if (cats.includes("Music") && genre.length > 0) base.genre = genre;
 				if (value.image_url) base.image_url = value.image_url as string;
 				if (value.ticket_url) base.ticket_url = value.ticket_url as string;
 				if (value.price_min) base.price_min = Number(value.price_min);
@@ -754,9 +800,9 @@ export function EventForm({
 					{!isSuggest && (
 						<div>
 							<label className={labelClass}>Date Selection *</label>
-							<div className="mt-1 flex rounded-md border border-(--line) w-fit">
+							<div className="mt-1 flex flex-wrap gap-2">
 								{(["single", "range", "multiple"] as const).map(
-									(modeOption, i) => (
+									(modeOption) => (
 										<button
 											key={modeOption}
 											type="button"
@@ -764,11 +810,9 @@ export function EventForm({
 												setDateMode(modeOption);
 												setDateError(null);
 											}}
-											className={`cursor-pointer px-3 py-1.5 text-sm font-medium ${
-												dateMode === modeOption
-													? "bg-(--lagoon-deep) text-white"
-													: "bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)"
-											} ${i === 0 ? "rounded-l-md" : ""} ${i === 2 ? "rounded-r-md" : ""}`}
+											className={`${pillBase} ${
+												dateMode === modeOption ? pillSelected : pillUnselected
+											}`}
 										>
 											{modeOption === "single"
 												? "Single Date"
@@ -1004,6 +1048,25 @@ export function EventForm({
 						/>
 					)}
 				</form.Field>
+
+				<form.Subscribe
+					selector={(state) =>
+						(state.values.categories as string[]).includes("Music")
+					}
+				>
+					{(showGenre) =>
+						showGenre ? (
+							<form.Field name="genre">
+								{(field) => (
+									<GenrePicker
+										value={field.state.value as string[]}
+										onChange={(v) => field.handleChange(v)}
+									/>
+								)}
+							</form.Field>
+						) : null
+					}
+				</form.Subscribe>
 
 				<div className="sm:col-span-2">
 					<form.Field name="image_url">

@@ -36,6 +36,11 @@
   --hero-a: rgba(0, 180, 255, 0.28);
   --hero-b: rgba(224, 0, 212, 0.18);
   --neon-glow: 0 0 0 1px rgba(0, 180, 255, 0.4), 0 0 22px rgba(0, 180, 255, 0.28);
+  /* Selected toggle-pill (CategoryPicker / GenrePicker) */
+  --pill-from: #00b4ff;
+  --pill-to: #0066ff;
+  --pill-on: #ffffff;
+  --pill-glow: 0 6px 16px -6px rgba(0, 102, 255, 0.6);
 }
 
 :root[data-theme="dark"] {
@@ -60,6 +65,10 @@
   --hero-a: rgba(0, 240, 255, 0.18);
   --hero-b: rgba(255, 61, 242, 0.14);
   --neon-glow: 0 0 0 1px rgba(0, 240, 255, 0.55), 0 0 28px rgba(0, 240, 255, 0.35);
+  --pill-from: #00f0ff;
+  --pill-to: #1a8cff;
+  --pill-on: #050810;
+  --pill-glow: 0 6px 20px -4px rgba(0, 240, 255, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -85,6 +94,10 @@
     --hero-a: rgba(0, 240, 255, 0.18);
     --hero-b: rgba(255, 61, 242, 0.14);
     --neon-glow: 0 0 0 1px rgba(0, 240, 255, 0.55), 0 0 28px rgba(0, 240, 255, 0.35);
+    --pill-from: #00f0ff;
+    --pill-to: #1a8cff;
+    --pill-on: #050810;
+    --pill-glow: 0 6px 20px -4px rgba(0, 240, 255, 0.5);
   }
 }
 

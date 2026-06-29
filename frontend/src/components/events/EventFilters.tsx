@@ -18,6 +18,33 @@ export const CATEGORIES = [
   'Canes',
 ]
 
+// Canonical music genres — mirrors the server's NormalizeGenres list
+// (server/internal/scraper/genre.go). Shown on the event form when "Music"
+// is a selected category.
+export const GENRES = [
+  'Rock',
+  'Pop',
+  'Hip-Hop',
+  'R&B',
+  'Country',
+  'Jazz',
+  'Blues',
+  'Classical',
+  'Folk',
+  'Metal',
+  'Punk',
+  'Electronic',
+  'Latin',
+  'Reggae',
+  'Indie',
+  'Alternative',
+  'Soul',
+  'Funk',
+  'Gospel',
+  'World',
+  'Hardcore',
+]
+
 interface EventFiltersProps {
   category?: string
   date?: string

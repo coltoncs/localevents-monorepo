@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { CategoryPicker } from "#/components/events/EventForm";
+import { CategoryPicker, GenrePicker } from "#/components/events/EventForm";
 import { ImageUpload } from "#/components/ImageUpload";
 import {
 	LocationPickerMap,
@@ -69,6 +69,7 @@ function EditEventContent() {
 			latitude: event?.Latitude ?? 0,
 			longitude: event?.Longitude ?? 0,
 			categories: event?.Categories ?? [],
+			genre: event?.Genre ?? [],
 			image_url: event?.ImageUrl ?? "",
 			ticket_url: event?.TicketUrl ?? "",
 			price_min: event?.PriceMin != null ? String(event.PriceMin) : "",
@@ -99,6 +100,8 @@ function EditEventContent() {
 			if (endDate) data.end_time = endDate.toISOString();
 			const cats = value.categories as string[];
 			if (cats.length > 0) data.categories = cats;
+			const genre = value.genre as string[];
+			data.genre = cats.includes("Music") && genre.length > 0 ? genre : [];
 			if (value.image_url) data.image_url = value.image_url as string;
 			if (value.ticket_url) data.ticket_url = value.ticket_url as string;
 			if (value.price_min) data.price_min = Number(value.price_min);
@@ -431,6 +434,25 @@ function EditEventContent() {
 								/>
 							)}
 						</form.Field>
+
+						<form.Subscribe
+							selector={(state) =>
+								(state.values.categories as string[]).includes("Music")
+							}
+						>
+							{(showGenre) =>
+								showGenre ? (
+									<form.Field name="genre">
+										{(field) => (
+											<GenrePicker
+												value={field.state.value as string[]}
+												onChange={(v) => field.handleChange(v)}
+											/>
+										)}
+									</form.Field>
+								) : null
+							}
+						</form.Subscribe>
 
 						<div className="sm:col-span-2">
 							<form.Field name="image_url">

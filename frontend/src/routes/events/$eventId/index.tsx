@@ -5,6 +5,7 @@ import { track } from "#/lib/analytics";
 import { ApiError } from "#/lib/api";
 import { AddToCalendarButton } from "#/components/AddToCalendarButton";
 import { FeaturedBadge } from "#/components/events/FeaturedBadge";
+import { pillBadge } from "#/components/events/pill-styles";
 import { SuggestEventEditModal } from "#/components/events/SuggestEventEditModal";
 import { EventMap } from "#/components/maps/EventMap";
 import { NearbyPlaces } from "#/components/places/NearbyPlaces";
@@ -229,10 +230,7 @@ function EventDetailPage() {
           {event.Categories && event.Categories.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {event.Categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="inline-block rounded-full bg-[rgba(79,184,178,0.14)] px-3 py-1 text-sm font-medium text-(--lagoon-deep)"
-                >
+                <span key={cat} className={pillBadge}>
                   {cat}
                 </span>
               ))}
@@ -454,6 +452,21 @@ function EventDetailPage() {
                   Where
                 </h3>
                 <VenueName event={event} />
+              </div>
+            )}
+
+            {event.Genre && event.Genre.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-(--sea-ink-soft)">
+                  Genre
+                </h3>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {event.Genre.map((genre) => (
+                    <span key={genre} className={pillBadge}>
+                      {genre}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 

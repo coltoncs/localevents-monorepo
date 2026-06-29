@@ -14,6 +14,7 @@ export interface Event {
 	StartTime: string;
 	EndTime?: string;
 	Categories?: string[];
+	Genre?: string[];
 	ImageUrl?: string;
 	TicketUrl?: string;
 	PriceMin?: number;
@@ -114,6 +115,7 @@ export interface CreateEventInput {
 	start_time: string;
 	end_time?: string;
 	categories?: string[];
+	genre?: string[];
 	image_url?: string;
 	ticket_url?: string;
 	price_min?: number;
