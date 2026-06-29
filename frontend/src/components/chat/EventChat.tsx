@@ -10,6 +10,7 @@ import {
 	type SavedLocation,
 	saveLocation,
 } from "#/components/maps/LocationSearch";
+import { track } from "#/lib/analytics";
 
 const SESSION_KEY = "events_chat_session";
 
@@ -103,9 +104,10 @@ function Chat({
 		});
 	}, [messages.length]);
 
-	function submit(text: string) {
+	function submit(text: string, source: "typed" | "suggestion" = "typed") {
 		const trimmed = text.trim();
 		if (!trimmed || isBusy) return;
+		track("chat_message_sent", { source, has_location: !!location });
 		sendMessage({ text: trimmed }, { body });
 		setInput("");
 	}
@@ -134,7 +136,12 @@ function Chat({
 					{messages.length > 0 && (
 						<button
 							type="button"
-							onClick={clearHistory}
+							onClick={() => {
+								track("chat_clear_history", {
+									message_count: messages.length,
+								});
+								clearHistory();
+							}}
 							className="cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-2.5 py-1 text-xs font-medium text-(--sea-ink-soft) transition hover:bg-(--surface)"
 						>
 							Clear
@@ -160,7 +167,10 @@ function Chat({
 			{/* Messages */}
 			<div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
 				{messages.length === 0 ? (
-					<Empty onPick={submit} disabled={isBusy} />
+					<Empty
+						onPick={(text) => submit(text, "suggestion")}
+						disabled={isBusy}
+					/>
 				) : (
 					messages.map((m) => (
 						<MessageBubble key={m.id} message={m} eventIndex={eventIndex} />
@@ -188,7 +198,10 @@ function Chat({
 				{isBusy ? (
 					<button
 						type="button"
-						onClick={() => stop()}
+						onClick={() => {
+							track("chat_stop", { status });
+							stop();
+						}}
 						className="cursor-pointer rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) transition hover:bg-(--surface)"
 					>
 						Stop
@@ -225,6 +238,7 @@ function LocationControl({
 		const coords = NC_CITIES[name];
 		if (!coords) return;
 		const loc = { name, lat: coords.lat, lng: coords.lng };
+		track("chat_set_location", { method: "city" });
 		saveLocation(loc);
 		onChange(loc);
 	}
@@ -244,6 +258,7 @@ function LocationControl({
 					lat: pos.coords.latitude,
 					lng: pos.coords.longitude,
 				};
+				track("chat_set_location", { method: "device" });
 				saveLocation(loc);
 				onChange(loc);
 			},
@@ -260,7 +275,7 @@ function LocationControl({
 	return (
 		<div className="space-y-2 border-b border-(--line) bg-(--surface) px-4 py-3">
 			<div className="flex items-center gap-2">
-					<label className="flex-1">
+				<label className="flex-1">
 					<span className="sr-only">Choose a city</span>
 					<select
 						value={selectedCity}
@@ -444,6 +459,7 @@ function RichText({
 					key={match.index}
 					to="/events/$eventId"
 					params={{ eventId }}
+					onClick={() => track("chat_event_link_click", { event_id: eventId })}
 					className="underline"
 				>
 					{label}
@@ -451,7 +467,12 @@ function RichText({
 			);
 		} else if (href.startsWith("/")) {
 			nodes.push(
-				<a key={match.index} href={href} className="underline">
+				<a
+					key={match.index}
+					href={href}
+					onClick={() => track("chat_link_click", { kind: "internal" })}
+					className="underline"
+				>
 					{label}
 				</a>,
 			);
@@ -462,6 +483,7 @@ function RichText({
 					href={href}
 					target="_blank"
 					rel="noopener noreferrer"
+					onClick={() => track("chat_link_click", { kind: "external" })}
 					className="underline"
 				>
 					{label}

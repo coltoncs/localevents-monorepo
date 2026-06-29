@@ -1,5 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // ── Workers Builds (Git-connected CI/CD) ─────────────────────────────────
+  // Auto-deploys on push to `main`. Configured in the Cloudflare dashboard
+  // (Workers > localevents > Settings > Build), NOT here — there is
+  // intentionally no `build` field below, because the @cloudflare/vite-plugin
+  // already bundles the Worker during `vite build`; a wrangler `build.command`
+  // would run vite a second time during the deploy step.
+  //   Repository:      <localevents repo>
+  //   Branch:          main
+  //   Root directory:  frontend
+  //   Build command:   pnpm build      (runs `vite build`)
+  //   Deploy command:  npx wrangler deploy
+  // Build-time VITE_* vars (VITE_CLERK_PUBLISHABLE_KEY, VITE_MAPBOX_TOKEN, …)
+  // must be set as Build variables in those dashboard settings — Vite inlines
+  // them at build time, so Worker runtime secrets/.dev.vars do not cover them.
+  // ─────────────────────────────────────────────────────────────────────────
   "name": "localevents",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,7 +27,11 @@
   // above the 30s default (Standard usage model, paid plan; max 300000).
   "limits": { "cpu_ms": 120000 },
   "vars": {
-    "VITE_API_URL": "https://localevents-production.up.railway.app"
+    "VITE_API_URL": "https://localevents-production.up.railway.app",
+    // Public, URL-restricted Mapbox token (pk.*). Also a build var for client
+    // map inlining, but needed here so the chat agent's Durable Object can read
+    // it at runtime (this.env.VITE_MAPBOX_TOKEN) for geocoding.
+    "VITE_MAPBOX_TOKEN": "pk.eyJ1IjoiY2Nzd2VlbmV5IiwiYSI6ImNsdXVtem5zcDBiZ3AyanNmZGwzamt4d2oifQ.j98Apz4tCtnO2SnlgpntJw"
   },
   // Workers AI binding powers the event-recommendation chat agent.
   "ai": { "binding": "AI" },

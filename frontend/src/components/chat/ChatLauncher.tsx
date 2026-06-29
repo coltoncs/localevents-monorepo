@@ -1,6 +1,7 @@
 import { MessageCircle, X } from "lucide-react";
 import { useState } from "react";
 import { EventChat } from "#/components/chat/EventChat";
+import { track } from "#/lib/analytics";
 
 /**
  * Floating, app-wide entry point for the event assistant. Renders a launcher
@@ -19,7 +20,12 @@ export function ChatLauncher() {
 			)}
 			<button
 				type="button"
-				onClick={() => setOpen((o) => !o)}
+				onClick={() =>
+					setOpen((o) => {
+						track(o ? "chat_close" : "chat_open");
+						return !o;
+					})
+				}
 				aria-label={open ? "Close event assistant" : "Open event assistant"}
 				aria-expanded={open}
 				className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-(--lagoon-deep) text-white shadow-lg transition hover:brightness-110"

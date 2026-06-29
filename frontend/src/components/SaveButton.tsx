@@ -21,6 +21,7 @@ export function SaveButton({ eventId, disabled, source = 'event_detail' }: { eve
 
   function handleToggle() {
     if (!isSignedIn) {
+      track('save_signin_prompt', { source })
       openSignIn()
       return
     }
