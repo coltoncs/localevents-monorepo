@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"html"
 	"log"
 	"math/big"
 	"regexp"
@@ -97,6 +98,13 @@ func (r *Runner) Run(ctx context.Context) {
 				continue
 			}
 			log.Printf("[%s] %s: fetched %d events", src.Name(), loc.Name, len(events))
+
+			// Decode HTML entities (e.g. "&#8211;" -> "–", "&amp;" -> "&")
+			// that sources embed in text fields, so titles/descriptions read
+			// cleanly regardless of which scraper produced them.
+			for i := range events {
+				decodeEntities(&events[i])
+			}
 
 			if prioritySources[src.Name()] {
 				priorityEvents = append(priorityEvents, events...)
@@ -359,6 +367,20 @@ func enrichPriorityEvent(pe, ae *RawEvent) {
 	if len(ae.Genre) > 0 && len(pe.Genre) == 0 {
 		pe.Genre = ae.Genre
 	}
+}
+
+// decodeEntities unescapes HTML entities in the human-readable text fields of
+// a RawEvent. Sources frequently emit titles/descriptions with encoded
+// entities (e.g. "Rock &#8211; Roll", "Tom &amp; Jerry"); html.UnescapeString
+// turns these back into the characters they represent. It is idempotent on
+// text that contains no entities.
+func decodeEntities(e *RawEvent) {
+	e.Title = html.UnescapeString(e.Title)
+	e.Description = html.UnescapeString(e.Description)
+	e.VenueName = html.UnescapeString(e.VenueName)
+	e.Address = html.UnescapeString(e.Address)
+	e.City = html.UnescapeString(e.City)
+	e.State = html.UnescapeString(e.State)
 }
 
 // normalizeTitle lowercases a title and strips common filler words/punctuation
