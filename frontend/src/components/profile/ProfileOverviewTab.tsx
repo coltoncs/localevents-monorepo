@@ -1,10 +1,21 @@
+import { UserProfile, useUser as useClerkUser } from "@clerk/clerk-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Beer, Bookmark, MapPin, UtensilsCrossed } from "lucide-react";
+import {
+	Beer,
+	Bookmark,
+	MapPin,
+	Pencil,
+	UtensilsCrossed,
+	X,
+} from "lucide-react";
+import { useState } from "react";
 import { Spinner } from "#/components/Spinner";
 import { useMyPlaceCheckIns } from "#/lib/hooks/usePlaceCheckIns";
 import { useSavedEvents } from "#/lib/hooks/useSavedEvents";
 import { useUser } from "#/lib/hooks/useUser";
 import { useUserRole } from "#/lib/hooks/useUserRole";
+import { queryKeys } from "#/lib/query-keys";
 
 function formatMonthYear(iso: string) {
 	return new Date(iso).toLocaleDateString(undefined, {
@@ -15,11 +26,25 @@ function formatMonthYear(iso: string) {
 
 export function ProfileOverviewTab() {
 	const { data: user, isLoading: userLoading } = useUser();
+	const { user: clerkUser } = useClerkUser();
 	const { data: saved, isLoading: savedLoading } = useSavedEvents();
 	const { data: checkInsData, isLoading: checkInsLoading } =
 		useMyPlaceCheckIns();
 	const { isUser } = useUserRole();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const [editing, setEditing] = useState(false);
+
+	// When the user finishes editing their Clerk profile, refetch /api/me so the
+	// backend's freshly re-synced username/email columns are reflected here.
+	function toggleEditing() {
+		setEditing((wasEditing) => {
+			if (wasEditing) {
+				queryClient.invalidateQueries({ queryKey: queryKeys.user.me });
+			}
+			return !wasEditing;
+		});
+	}
 
 	if (userLoading || savedLoading || checkInsLoading) {
 		return <Spinner className="py-12" />;
@@ -28,29 +53,67 @@ export function ProfileOverviewTab() {
 	const stats = checkInsData?.stats;
 	const recentCheckIns = checkInsData?.checkins.slice(0, 3) ?? [];
 	const recentSaved = saved?.slice(0, 3) ?? [];
+	const displayName =
+		clerkUser?.fullName || user?.Username || user?.Email || "Welcome";
 
 	return (
 		<div className="space-y-6">
 			<div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-(--line) bg-(--surface-strong) p-6">
-				<div>
-					<h2 className="text-lg font-semibold text-(--sea-ink)">
-						{user?.Username || user?.Email || "Welcome"}
-					</h2>
-					{user?.CreatedAt && (
-						<p className="mt-0.5 text-sm text-(--sea-ink-soft)">
-							Member since {formatMonthYear(user.CreatedAt)}
-						</p>
+				<div className="flex items-center gap-4">
+					{clerkUser?.imageUrl && (
+						<img
+							src={clerkUser.imageUrl}
+							alt={displayName}
+							className="size-14 shrink-0 rounded-full object-cover"
+						/>
+					)}
+					<div>
+						<h2 className="text-lg font-semibold text-(--sea-ink)">
+							{displayName}
+						</h2>
+						{user?.CreatedAt && (
+							<p className="mt-0.5 text-sm text-(--sea-ink-soft)">
+								Member since {formatMonthYear(user.CreatedAt)}
+							</p>
+						)}
+					</div>
+				</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<button
+						type="button"
+						onClick={toggleEditing}
+						className="inline-flex items-center gap-1.5 rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface-strong)"
+					>
+						{editing ? <X size={16} /> : <Pencil size={16} />}
+						{editing ? "Close" : "Edit profile"}
+					</button>
+					{isUser && (
+						<Link
+							to="/apply-author"
+							className="inline-flex items-center rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) no-underline hover:bg-(--surface-strong)"
+						>
+							Apply to be Author
+						</Link>
 					)}
 				</div>
-				{isUser && (
-					<Link
-						to="/apply-author"
-						className="inline-flex items-center rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) no-underline hover:bg-(--surface-strong)"
-					>
-						Apply to be Author
-					</Link>
-				)}
 			</div>
+
+			{editing && (
+				<div className="overflow-x-auto rounded-lg border border-(--line) bg-(--surface-strong) p-4">
+					<UserProfile
+						routing="virtual"
+						appearance={{
+							elements: {
+								rootBox: "w-full",
+								cardBox: "w-full max-w-none shadow-none border-none",
+								card: "bg-transparent shadow-none",
+								navbar: "bg-transparent",
+								scrollBox: "bg-transparent",
+							},
+						}}
+					/>
+				</div>
+			)}
 
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				<StatTile

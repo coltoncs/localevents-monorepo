@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	clerkuser "github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -29,8 +31,10 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch email from Clerk to keep it synced
+	// Fetch the latest email and display name from Clerk so edits made in the
+	// Clerk profile UI are reflected in our denormalized columns on next load.
 	var email pgtype.Text
+	var username pgtype.Text
 	if cu, err := clerkuser.Get(r.Context(), clerkID); err == nil {
 		if cu.PrimaryEmailAddressID != nil {
 			for _, ea := range cu.EmailAddresses {
@@ -40,11 +44,15 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		if name := clerkDisplayName(cu); name != "" {
+			username = pgtype.Text{String: name, Valid: true}
+		}
 	}
 
 	user, err := h.queries.UpsertUser(r.Context(), store.UpsertUserParams{
-		ClerkID: clerkID,
-		Email:   email,
+		ClerkID:  clerkID,
+		Email:    email,
+		Username: username,
 	})
 	if err != nil {
 		http.Error(w, `{"error":"failed to get user"}`, http.StatusInternalServerError)
@@ -53,6 +61,25 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
+}
+
+// clerkDisplayName derives a display name from a Clerk user, preferring the
+// username, then falling back to the full name. Returns "" if neither is set.
+func clerkDisplayName(cu *clerk.User) string {
+	if cu == nil {
+		return ""
+	}
+	if cu.Username != nil && strings.TrimSpace(*cu.Username) != "" {
+		return strings.TrimSpace(*cu.Username)
+	}
+	var parts []string
+	if cu.FirstName != nil && strings.TrimSpace(*cu.FirstName) != "" {
+		parts = append(parts, strings.TrimSpace(*cu.FirstName))
+	}
+	if cu.LastName != nil && strings.TrimSpace(*cu.LastName) != "" {
+		parts = append(parts, strings.TrimSpace(*cu.LastName))
+	}
+	return strings.Join(parts, " ")
 }
 
 type updateSettingsRequest struct {
