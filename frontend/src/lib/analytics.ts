@@ -14,14 +14,34 @@ export type AnalyticsParams = Record<string, Primitive | undefined>;
 declare global {
 	interface Window {
 		gtag?: (command: "event", name: string, params?: AnalyticsParams) => void;
+		// Meta (Facebook/Instagram) Pixel. Loaded in __root.tsx when
+		// VITE_META_PIXEL_ID is set; absent during dev/SSR and when blocked.
+		fbq?: (
+			command: "track" | "trackCustom",
+			name: string,
+			params?: AnalyticsParams,
+		) => void;
 	}
 }
 
-// track sends a custom event to GA4. It is a no-op during SSR and when gtag
-// hasn't loaded (e.g. blocked by an ad blocker), so callers never need to guard.
-// `name` is typed to EventName so a typo or an un-catalogued name fails the build.
+// Subset of our GA4 events that also map to a Meta standard event. We fire
+// these to the Pixel alongside GA4 so Meta ad campaigns can build audiences
+// (people who searched, viewed, saved, signed up) and later optimize toward
+// that intent. Events not listed here stay GA4-only. Standard event names are
+// fixed by Meta — see developers.facebook.com/docs/meta-pixel/reference.
+const META_EVENTS: Partial<Record<EventName, string>> = {
+	[EVENTS.search]: "Search",
+	[EVENTS.viewEvent]: "ViewContent",
+	[EVENTS.saveEvent]: "Lead",
+	[EVENTS.signUp]: "CompleteRegistration",
+};
+
+// track sends a custom event to GA4 and, for mapped events, to the Meta Pixel.
+// It is a no-op during SSR and when neither tag has loaded (e.g. blocked by an
+// ad blocker), so callers never need to guard. `name` is typed to EventName so
+// a typo or an un-catalogued name fails the build.
 export function track(name: EventName, params?: AnalyticsParams): void {
-	if (typeof window === "undefined" || typeof window.gtag !== "function") {
+	if (typeof window === "undefined") {
 		return;
 	}
 	// Drop undefined values so GA4 doesn't record empty params.
@@ -30,7 +50,23 @@ export function track(name: EventName, params?: AnalyticsParams): void {
 				Object.entries(params).filter(([, v]) => v !== undefined),
 			)
 		: undefined;
-	window.gtag("event", name, clean);
+	if (typeof window.gtag === "function") {
+		window.gtag("event", name, clean);
+	}
+	const metaName = META_EVENTS[name];
+	if (metaName && typeof window.fbq === "function") {
+		window.fbq("track", metaName, clean);
+	}
+}
+
+// pageView fires a Meta Pixel PageView. The Pixel only auto-fires once on first
+// load, so this is called on every client route change (see __root.tsx). GA4
+// enhanced measurement already tracks SPA history changes, so it's not repeated
+// here.
+export function pageView(): void {
+	if (typeof window !== "undefined" && typeof window.fbq === "function") {
+		window.fbq("track", "PageView");
+	}
 }
 
 // Single source of truth for event names. snake_case, stable — renaming one
