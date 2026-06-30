@@ -16,6 +16,7 @@ import {
 	useCreateEventSeries,
 } from "#/lib/hooks/useEvents";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
+import { track } from "#/lib/analytics";
 import type { CreateEventInput, Venue } from "#/lib/types";
 import { CATEGORIES, GENRES } from "./EventFilters";
 import { pillBase, pillSelected, pillUnselected } from "./pill-styles";
@@ -262,6 +263,15 @@ export function EventForm({
 	const savedLocation = getSavedLocation();
 	const isSuggest = mode === "suggest";
 
+	// Funnel entry: fire once when the form mounts, keyed by mode (create vs
+	// suggest), so submit_event_success has a denominator.
+	const startTrackedRef = useRef(false);
+	useEffect(() => {
+		if (startTrackedRef.current) return;
+		startTrackedRef.current = true;
+		track("submit_event_start", { mode });
+	}, [mode]);
+
 	const [honeypot, setHoneypot] = useState("");
 	const [submittedForReview, setSubmittedForReview] = useState(false);
 	const [dateMode, setDateMode] = useState<DateMode>("single");
@@ -389,6 +399,7 @@ export function EventForm({
 						proposed_changes: changes,
 						hp: honeypot,
 					});
+					track("submit_event_success", { mode: "suggest", event_count: 1 });
 					setSubmittedForReview(true);
 					return;
 				}
@@ -461,6 +472,10 @@ export function EventForm({
 				});
 
 				const created = await createSeries.mutateAsync({ base, instances });
+				track("submit_event_success", {
+					mode: "create",
+					event_count: created.length,
+				});
 
 				if (created.length === 1) {
 					navigate({
@@ -470,6 +485,9 @@ export function EventForm({
 				} else {
 					navigate({ to: "/events" });
 				}
+			} catch (err) {
+				track("submit_event_error", { mode });
+				throw err;
 			} finally {
 				setSubmitting(false);
 			}

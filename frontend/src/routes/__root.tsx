@@ -23,6 +23,11 @@ interface MyRouterContext {
 
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`;
 
+// GA4 is loaded only in production builds with a configured measurement ID, so
+// `pnpm dev` and any build missing the env var never pollute the analytics property.
+const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_ENABLED = import.meta.env.PROD && !!GA_ID;
+
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	head: () => ({
 		meta: [
@@ -42,15 +47,17 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			{ rel: "stylesheet", href: appCss },
 			{ rel: "icon", href: "/favicon.png", type: "image/png" },
 		],
-		scripts: [
-			{
-				src: "https://www.googletagmanager.com/gtag/js?id=G-L9BV0QRP8Y",
-				async: true,
-			},
-			{
-				children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-L9BV0QRP8Y');`,
-			},
-		],
+		scripts: GA_ENABLED
+			? [
+					{
+						src: `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`,
+						async: true,
+					},
+					{
+						children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
+					},
+				]
+			: [],
 	}),
 	shellComponent: RootDocument,
 });

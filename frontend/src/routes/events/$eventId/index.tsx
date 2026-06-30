@@ -500,6 +500,7 @@ function EventDetailPage() {
                 href={event.TicketUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => track("ticket_url_click", { event_id: event.ID })}
                 className="inline-block rounded-md bg-blue-600 px-4 py-2 hover:bg-blue-700"
               >
                 <span className="text-sm font-medium text-white">

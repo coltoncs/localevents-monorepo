@@ -220,7 +220,7 @@ export function EventFilters({
             if (e.target.value)
               track('filter_events', {
                 filter_type: 'category',
-                value: e.target.value,
+                filter_value: e.target.value,
               })
             updateSearch({ category: e.target.value || undefined })
           }}
@@ -239,7 +239,7 @@ export function EventFilters({
           onChange={(e) => {
             track('filter_events', {
               filter_type: 'radius',
-              value: e.target.value,
+              filter_value: e.target.value,
             })
             updateSearch({ radius: e.target.value })
           }}
