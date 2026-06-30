@@ -24,18 +24,6 @@ declare global {
 	}
 }
 
-// Subset of our GA4 events that also map to a Meta standard event. We fire
-// these to the Pixel alongside GA4 so Meta ad campaigns can build audiences
-// (people who searched, viewed, saved, signed up) and later optimize toward
-// that intent. Events not listed here stay GA4-only. Standard event names are
-// fixed by Meta — see developers.facebook.com/docs/meta-pixel/reference.
-const META_EVENTS: Partial<Record<EventName, string>> = {
-	[EVENTS.search]: "Search",
-	[EVENTS.viewEvent]: "ViewContent",
-	[EVENTS.saveEvent]: "Lead",
-	[EVENTS.signUp]: "CompleteRegistration",
-};
-
 // track sends a custom event to GA4 and, for mapped events, to the Meta Pixel.
 // It is a no-op during SSR and when neither tag has loaded (e.g. blocked by an
 // ad blocker), so callers never need to guard. `name` is typed to EventName so
@@ -115,3 +103,19 @@ export const EVENTS = {
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];
+
+// Subset of our GA4 events that also map to a Meta standard event. We fire
+// these to the Pixel alongside GA4 so Meta ad campaigns can build audiences
+// (people who searched, viewed, saved, signed up) and later optimize toward
+// that intent. Events not listed here stay GA4-only. Standard event names are
+// fixed by Meta — see developers.facebook.com/docs/meta-pixel/reference.
+//
+// Declared after EVENTS: the computed keys read EVENTS at module-eval time, so
+// this must follow EVENTS to avoid a temporal-dead-zone ReferenceError that
+// would crash every SSR render (this module is imported by __root.tsx).
+const META_EVENTS: Partial<Record<EventName, string>> = {
+	[EVENTS.search]: "Search",
+	[EVENTS.viewEvent]: "ViewContent",
+	[EVENTS.saveEvent]: "Lead",
+	[EVENTS.signUp]: "CompleteRegistration",
+};
