@@ -11,6 +11,12 @@ SELECT * FROM edit_suggestions
 WHERE status = 'pending'
 ORDER BY created_at ASC;
 
+-- name: ListReviewedEditSuggestions :many
+SELECT * FROM edit_suggestions
+WHERE status <> 'pending'
+ORDER BY reviewed_at DESC NULLS LAST
+LIMIT 100;
+
 -- name: ListPendingEditSuggestionsForTarget :many
 SELECT * FROM edit_suggestions
 WHERE target_type = $1 AND target_id = $2 AND status = 'pending'

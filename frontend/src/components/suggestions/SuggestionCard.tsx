@@ -62,7 +62,21 @@ function actionBadgeClass(action: EditSuggestion["Action"]): string {
 	return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
 }
 
-export function SuggestionCard({ suggestion }: { suggestion: EditSuggestion }) {
+function statusBadgeClass(status: EditSuggestion["Status"]): string {
+	if (status === "approved")
+		return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+	if (status === "rejected")
+		return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+	return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+}
+
+export function SuggestionCard({
+	suggestion,
+	readOnly = false,
+}: {
+	suggestion: EditSuggestion;
+	readOnly?: boolean;
+}) {
 	const approve = useApproveSuggestion();
 	const reject = useRejectSuggestion();
 	const [reviewNotes, setReviewNotes] = useState("");
@@ -99,13 +113,22 @@ export function SuggestionCard({ suggestion }: { suggestion: EditSuggestion }) {
 						>
 							{action}
 						</span>
+						{readOnly && (
+							<span
+								className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${statusBadgeClass(suggestion.Status)}`}
+							>
+								{suggestion.Status}
+							</span>
+						)}
 					</div>
 					<p className="text-xs text-(--sea-ink-soft)">
 						{actionHeading(suggestion)}
 					</p>
 				</div>
-				<span className="text-xs text-(--sea-ink-soft) shrink-0">
-					{new Date(suggestion.CreatedAt).toLocaleDateString()}
+				<span className="text-xs text-(--sea-ink-soft) shrink-0 text-right">
+					{readOnly && suggestion.ReviewedAt
+						? `Reviewed ${new Date(suggestion.ReviewedAt).toLocaleDateString()}`
+						: new Date(suggestion.CreatedAt).toLocaleDateString()}
 				</span>
 			</div>
 
@@ -133,7 +156,16 @@ export function SuggestionCard({ suggestion }: { suggestion: EditSuggestion }) {
 				</div>
 			)}
 
-			{showReject && (
+			{readOnly && suggestion.ReviewNotes && (
+				<div>
+					<h4 className="text-sm font-medium text-(--sea-ink-soft)">
+						Review Notes
+					</h4>
+					<p className="text-sm text-(--sea-ink)">{suggestion.ReviewNotes}</p>
+				</div>
+			)}
+
+			{!readOnly && showReject && (
 				<label className="block text-sm font-medium text-(--sea-ink-soft)">
 					Review Notes (optional)
 					<textarea
@@ -145,42 +177,44 @@ export function SuggestionCard({ suggestion }: { suggestion: EditSuggestion }) {
 				</label>
 			)}
 
-			<div className="flex gap-2">
-				<button
-					type="button"
-					onClick={() =>
-						approve.mutate({ id: suggestion.ID, review_notes: reviewNotes })
-					}
-					disabled={approve.isPending}
-					className={`cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
-						action === "delete"
-							? "bg-red-600 hover:bg-red-700"
-							: "bg-green-600 hover:bg-green-700"
-					}`}
-				>
-					{approveLabel}
-				</button>
-				{!showReject ? (
-					<button
-						type="button"
-						onClick={() => setShowReject(true)}
-						className="cursor-pointer rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-					>
-						Reject
-					</button>
-				) : (
+			{!readOnly && (
+				<div className="flex gap-2">
 					<button
 						type="button"
 						onClick={() =>
-							reject.mutate({ id: suggestion.ID, review_notes: reviewNotes })
+							approve.mutate({ id: suggestion.ID, review_notes: reviewNotes })
 						}
-						disabled={reject.isPending}
-						className="cursor-pointer rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+						disabled={approve.isPending}
+						className={`cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
+							action === "delete"
+								? "bg-red-600 hover:bg-red-700"
+								: "bg-green-600 hover:bg-green-700"
+						}`}
 					>
-						{reject.isPending ? "Rejecting..." : "Confirm Reject"}
+						{approveLabel}
 					</button>
-				)}
-			</div>
+					{!showReject ? (
+						<button
+							type="button"
+							onClick={() => setShowReject(true)}
+							className="cursor-pointer rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+						>
+							Reject
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={() =>
+								reject.mutate({ id: suggestion.ID, review_notes: reviewNotes })
+							}
+							disabled={reject.isPending}
+							className="cursor-pointer rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+						>
+							{reject.isPending ? "Rejecting..." : "Confirm Reject"}
+						</button>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

@@ -10,6 +10,13 @@ export function usePendingSuggestions() {
 	});
 }
 
+export function usePastSuggestions() {
+	return useQuery({
+		queryKey: queryKeys.suggestions.past,
+		queryFn: () => apiClient<EditSuggestion[]>("/api/admin/suggestions/past"),
+	});
+}
+
 export function useMySuggestions() {
 	return useQuery({
 		queryKey: queryKeys.suggestions.mine,

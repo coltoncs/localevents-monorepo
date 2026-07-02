@@ -56,6 +56,7 @@ export const queryKeys = {
 	applications: {
 		all: ["applications"] as const,
 		pending: ["applications", "pending"] as const,
+		past: ["applications", "past"] as const,
 		mine: ["applications", "mine"] as const,
 	},
 	images: {
@@ -68,6 +69,7 @@ export const queryKeys = {
 	suggestions: {
 		all: ["suggestions"] as const,
 		pending: ["suggestions", "pending"] as const,
+		past: ["suggestions", "past"] as const,
 		mine: ["suggestions", "mine"] as const,
 	},
 	admin: {

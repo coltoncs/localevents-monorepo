@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Spinner } from "#/components/Spinner";
 import { SuggestionCard } from "#/components/suggestions/SuggestionCard";
-import { usePendingSuggestions } from "#/lib/hooks/useSuggestions";
+import {
+	usePastSuggestions,
+	usePendingSuggestions,
+} from "#/lib/hooks/useSuggestions";
 import type { EditSuggestion, SuggestionAction } from "#/lib/types";
 
 type TargetFilter = EditSuggestion["TargetType"] | "all";
@@ -27,21 +30,33 @@ export function AdminSuggestionsTab({
 	targetType?: EditSuggestion["TargetType"];
 }) {
 	const { data: suggestions, isLoading } = usePendingSuggestions();
+	const { data: pastSuggestions, isLoading: isLoadingPast } =
+		usePastSuggestions();
 	const [targetFilter, setTargetFilter] = useState<TargetFilter>(
 		targetType ?? "all",
 	);
 	const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
 
-	const filtered = useMemo(() => {
-		if (!suggestions) return [];
-		return suggestions.filter((s) => {
+	const matchesFilters = useCallback(
+		(s: EditSuggestion) => {
 			if (targetType && s.TargetType !== targetType) return false;
 			if (targetFilter !== "all" && s.TargetType !== targetFilter) return false;
 			if (actionFilter !== "all" && (s.Action ?? "edit") !== actionFilter)
 				return false;
 			return true;
-		});
-	}, [suggestions, targetType, targetFilter, actionFilter]);
+		},
+		[targetType, targetFilter, actionFilter],
+	);
+
+	const filtered = useMemo(() => {
+		if (!suggestions) return [];
+		return suggestions.filter(matchesFilters);
+	}, [suggestions, matchesFilters]);
+
+	const filteredPast = useMemo(() => {
+		if (!pastSuggestions) return [];
+		return pastSuggestions.filter(matchesFilters);
+	}, [pastSuggestions, matchesFilters]);
 
 	return (
 		<div className="space-y-4">
@@ -99,6 +114,26 @@ export function AdminSuggestionsTab({
 				{filtered.map((s) => (
 					<SuggestionCard key={s.ID} suggestion={s} />
 				))}
+			</div>
+
+			<div className="pt-4">
+				<h2 className="mb-4 text-xl font-bold text-(--sea-ink)">
+					Past Suggestions
+				</h2>
+
+				{isLoadingPast && <Spinner className="py-12" />}
+
+				{!isLoadingPast && filteredPast.length === 0 && (
+					<p className="py-8 text-center text-(--sea-ink-soft)">
+						No past suggestions.
+					</p>
+				)}
+
+				<div className="space-y-4">
+					{filteredPast.map((s) => (
+						<SuggestionCard key={s.ID} suggestion={s} readOnly />
+					))}
+				</div>
 			</div>
 		</div>
 	);

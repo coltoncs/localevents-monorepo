@@ -172,6 +172,45 @@ func (q *Queries) ListPendingApplications(ctx context.Context) ([]AuthorApplicat
 	return items, nil
 }
 
+const listReviewedApplications = `-- name: ListReviewedApplications :many
+SELECT id, clerk_id, full_name, email, bio, experience, status, submitted_at, reviewed_at, reviewed_by, review_notes FROM author_applications
+WHERE status <> 'pending'
+ORDER BY reviewed_at DESC NULLS LAST
+LIMIT 100
+`
+
+func (q *Queries) ListReviewedApplications(ctx context.Context) ([]AuthorApplication, error) {
+	rows, err := q.db.Query(ctx, listReviewedApplications)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthorApplication
+	for rows.Next() {
+		var i AuthorApplication
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClerkID,
+			&i.FullName,
+			&i.Email,
+			&i.Bio,
+			&i.Experience,
+			&i.Status,
+			&i.SubmittedAt,
+			&i.ReviewedAt,
+			&i.ReviewedBy,
+			&i.ReviewNotes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rejectApplication = `-- name: RejectApplication :one
 UPDATE author_applications SET
     status = 'rejected',

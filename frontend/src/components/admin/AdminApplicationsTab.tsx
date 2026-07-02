@@ -3,10 +3,25 @@ import { Spinner } from "#/components/Spinner";
 import { useAdminStats } from "#/lib/hooks/useAdminStats";
 import {
 	useApproveApplication,
+	usePastApplications,
 	usePendingApplications,
 	useRejectApplication,
 } from "#/lib/hooks/useApplications";
 import type { AdminStats, AuthorApplication } from "#/lib/types";
+
+function StatusBadge({ status }: { status: AuthorApplication["Status"] }) {
+	const cls =
+		status === "approved"
+			? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+			: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+	return (
+		<span
+			className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${cls}`}
+		>
+			{status}
+		</span>
+	);
+}
 
 function AuthorsTable({ authors }: { authors: AdminStats["authors"] }) {
 	if (authors.length === 0) return null;
@@ -44,7 +59,13 @@ function AuthorsTable({ authors }: { authors: AdminStats["authors"] }) {
 	);
 }
 
-function ApplicationCard({ app }: { app: AuthorApplication }) {
+function ApplicationCard({
+	app,
+	readOnly = false,
+}: {
+	app: AuthorApplication;
+	readOnly?: boolean;
+}) {
 	const approve = useApproveApplication();
 	const reject = useRejectApplication();
 	const [reviewNotes, setReviewNotes] = useState("");
@@ -52,13 +73,18 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
 
 	return (
 		<div className="rounded-lg border border-(--line) bg-(--surface-strong) p-4 space-y-3">
-			<div className="flex items-start justify-between">
+			<div className="flex items-start justify-between gap-3">
 				<div>
-					<h3 className="font-semibold text-(--sea-ink)">{app.FullName}</h3>
+					<div className="flex items-center gap-2">
+						<h3 className="font-semibold text-(--sea-ink)">{app.FullName}</h3>
+						{readOnly && <StatusBadge status={app.Status} />}
+					</div>
 					<p className="text-sm text-(--sea-ink-soft)">{app.Email}</p>
 				</div>
-				<span className="text-xs text-(--sea-ink-soft)">
-					{new Date(app.SubmittedAt).toLocaleDateString()}
+				<span className="text-xs text-(--sea-ink-soft) shrink-0 text-right">
+					{readOnly && app.ReviewedAt
+						? `Reviewed ${new Date(app.ReviewedAt).toLocaleDateString()}`
+						: new Date(app.SubmittedAt).toLocaleDateString()}
 				</span>
 			</div>
 
@@ -74,7 +100,16 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
 				<p className="text-sm text-(--sea-ink)">{app.Experience}</p>
 			</div>
 
-			{showReject && (
+			{readOnly && app.ReviewNotes && (
+				<div>
+					<h4 className="text-sm font-medium text-(--sea-ink-soft)">
+						Review Notes
+					</h4>
+					<p className="text-sm text-(--sea-ink)">{app.ReviewNotes}</p>
+				</div>
+			)}
+
+			{!readOnly && showReject && (
 				<label className="block text-sm font-medium text-(--sea-ink-soft)">
 					Review Notes (optional)
 					<textarea
@@ -86,38 +121,40 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
 				</label>
 			)}
 
-			<div className="flex gap-2">
-				<button
-					type="button"
-					onClick={() =>
-						approve.mutate({ id: app.ID, review_notes: reviewNotes })
-					}
-					disabled={approve.isPending}
-					className="cursor-pointer rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-				>
-					{approve.isPending ? "Approving..." : "Approve"}
-				</button>
-				{!showReject ? (
-					<button
-						type="button"
-						onClick={() => setShowReject(true)}
-						className="cursor-pointer rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-					>
-						Reject
-					</button>
-				) : (
+			{!readOnly && (
+				<div className="flex gap-2">
 					<button
 						type="button"
 						onClick={() =>
-							reject.mutate({ id: app.ID, review_notes: reviewNotes })
+							approve.mutate({ id: app.ID, review_notes: reviewNotes })
 						}
-						disabled={reject.isPending}
-						className="cursor-pointer rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+						disabled={approve.isPending}
+						className="cursor-pointer rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
 					>
-						{reject.isPending ? "Rejecting..." : "Confirm Reject"}
+						{approve.isPending ? "Approving..." : "Approve"}
 					</button>
-				)}
-			</div>
+					{!showReject ? (
+						<button
+							type="button"
+							onClick={() => setShowReject(true)}
+							className="cursor-pointer rounded-md border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+						>
+							Reject
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={() =>
+								reject.mutate({ id: app.ID, review_notes: reviewNotes })
+							}
+							disabled={reject.isPending}
+							className="cursor-pointer rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+						>
+							{reject.isPending ? "Rejecting..." : "Confirm Reject"}
+						</button>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -125,6 +162,8 @@ function ApplicationCard({ app }: { app: AuthorApplication }) {
 export function AdminApplicationsTab() {
 	const { data: stats } = useAdminStats();
 	const { data: applications, isLoading } = usePendingApplications();
+	const { data: pastApplications, isLoading: isLoadingPast } =
+		usePastApplications();
 
 	return (
 		<div className="space-y-8">
@@ -151,6 +190,26 @@ export function AdminApplicationsTab() {
 				<div className="space-y-4">
 					{applications?.map((app) => (
 						<ApplicationCard key={app.ID} app={app} />
+					))}
+				</div>
+			</div>
+
+			<div>
+				<h2 className="mb-4 text-xl font-bold text-(--sea-ink)">
+					Past Applications
+				</h2>
+
+				{isLoadingPast && <Spinner className="py-12" />}
+
+				{pastApplications && pastApplications.length === 0 && (
+					<p className="py-8 text-center text-(--sea-ink-soft)">
+						No past applications.
+					</p>
+				)}
+
+				<div className="space-y-4">
+					{pastApplications?.map((app) => (
+						<ApplicationCard key={app.ID} app={app} readOnly />
 					))}
 				</div>
 			</div>

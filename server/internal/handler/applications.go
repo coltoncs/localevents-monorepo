@@ -105,6 +105,21 @@ func (h *ApplicationHandler) ListPending(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(apps)
 }
 
+func (h *ApplicationHandler) ListPast(w http.ResponseWriter, r *http.Request) {
+	apps, err := h.queries.ListReviewedApplications(r.Context())
+	if err != nil {
+		http.Error(w, `{"error":"failed to list applications"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if apps == nil {
+		apps = []store.AuthorApplication{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(apps)
+}
+
 type reviewRequest struct {
 	ReviewNotes string `json:"review_notes"`
 }

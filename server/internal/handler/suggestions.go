@@ -342,6 +342,24 @@ func (h *SuggestionHandler) ListPending(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (h *SuggestionHandler) ListPast(w http.ResponseWriter, r *http.Request) {
+	suggestions, err := h.queries.ListReviewedEditSuggestions(r.Context())
+	if err != nil {
+		http.Error(w, `{"error":"failed to list suggestions"}`, http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]suggestionResponse, 0, len(suggestions))
+	for _, s := range suggestions {
+		sr := suggestionToResponse(s)
+		sr.TargetName = h.resolveTargetName(r, s.TargetType, s.TargetID)
+		resp = append(resp, sr)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (h *SuggestionHandler) ListMyEventSuggestions(w http.ResponseWriter, r *http.Request) {
 	clerkID := middleware.GetClerkUserID(r.Context())
 	if clerkID == "" {

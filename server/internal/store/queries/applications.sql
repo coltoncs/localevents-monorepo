@@ -17,6 +17,12 @@ SELECT * FROM author_applications
 WHERE status = 'pending'
 ORDER BY submitted_at ASC;
 
+-- name: ListReviewedApplications :many
+SELECT * FROM author_applications
+WHERE status <> 'pending'
+ORDER BY reviewed_at DESC NULLS LAST
+LIMIT 100;
+
 -- name: ApproveApplication :one
 UPDATE author_applications SET
     status = 'approved',

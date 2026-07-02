@@ -237,6 +237,46 @@ func (q *Queries) ListPendingEditSuggestionsForTarget(ctx context.Context, arg L
 	return items, nil
 }
 
+const listReviewedEditSuggestions = `-- name: ListReviewedEditSuggestions :many
+SELECT id, target_type, target_id, submitted_by, proposed_changes, status, review_notes, reviewed_by, created_at, reviewed_at, action, reason FROM edit_suggestions
+WHERE status <> 'pending'
+ORDER BY reviewed_at DESC NULLS LAST
+LIMIT 100
+`
+
+func (q *Queries) ListReviewedEditSuggestions(ctx context.Context) ([]EditSuggestion, error) {
+	rows, err := q.db.Query(ctx, listReviewedEditSuggestions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EditSuggestion
+	for rows.Next() {
+		var i EditSuggestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.SubmittedBy,
+			&i.ProposedChanges,
+			&i.Status,
+			&i.ReviewNotes,
+			&i.ReviewedBy,
+			&i.CreatedAt,
+			&i.ReviewedAt,
+			&i.Action,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rejectEditSuggestion = `-- name: RejectEditSuggestion :one
 UPDATE edit_suggestions SET
     status = 'rejected',

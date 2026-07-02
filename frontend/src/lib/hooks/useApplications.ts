@@ -32,6 +32,13 @@ export function usePendingApplications() {
   })
 }
 
+export function usePastApplications() {
+  return useQuery({
+    queryKey: queryKeys.applications.past,
+    queryFn: () => apiClient<AuthorApplication[]>('/api/admin/applications/past'),
+  })
+}
+
 export function useApproveApplication() {
   const queryClient = useQueryClient()
   return useMutation({
