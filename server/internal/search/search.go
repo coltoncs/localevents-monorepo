@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pgvector/pgvector-go"
@@ -14,12 +15,13 @@ import (
 )
 
 type Service struct {
-	pool   *pgxpool.Pool
-	client *embedding.Client
+	pool     *pgxpool.Pool
+	client   *embedding.Client
+	embStore *embedding.Store
 }
 
 func New(client *embedding.Client, pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool, client: client}
+	return &Service{pool: pool, client: client, embStore: embedding.NewStore(pool)}
 }
 
 type Params struct {
@@ -37,7 +39,7 @@ type Params struct {
 
 const baseFrom = `
 	FROM events e
-	JOIN event_embeddings ee ON ee.event_id = e.id
+	LEFT JOIN event_embeddings ee ON ee.event_id = e.id
 	WHERE ST_DWithin(
 	    ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography,
 	    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
@@ -51,9 +53,16 @@ const baseFrom = `
 	AND ($9::uuid IS NULL OR e.venue_id = $9::uuid)
 `
 
-// Semantic embeds query, counts all matching events, then returns a page of
-// results ordered by cosine similarity to the query vector.
-func (s *Service) Semantic(ctx context.Context, query string, p Params) ([]store.Event, int64, error) {
+// Hybrid combines exact/lexical matching with semantic (vector) ranking.
+// It embeds the query, counts all matching events, then returns a page of
+// results ordered exact-first: literal title/venue hits float to the top
+// (title equality, then title prefix, then any title/venue substring), and
+// everything else is ordered by cosine similarity to the query vector.
+//
+// The join to event_embeddings is a LEFT join so events without an embedding
+// yet (e.g. just-created events awaiting the backfill) still surface via the
+// lexical tiers; they sort last within the semantic tier (NULLS LAST).
+func (s *Service) Hybrid(ctx context.Context, query string, p Params) ([]store.Event, int64, error) {
 	vecs, err := s.client.Embed(ctx, []string{query})
 	if err != nil {
 		return nil, 0, fmt.Errorf("embed query: %w", err)
@@ -71,7 +80,7 @@ func (s *Service) Semantic(ctx context.Context, query string, p Params) ([]store
 
 	var total int64
 	if err := s.pool.QueryRow(ctx, "SELECT COUNT(*) "+baseFrom, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count semantic search: %w", err)
+		return nil, 0, fmt.Errorf("count hybrid search: %w", err)
 	}
 
 	const selectCols = `SELECT e.id, e.external_id, e.source, e.title, e.description,
@@ -82,13 +91,31 @@ func (s *Service) Semantic(ctx context.Context, query string, p Params) ([]store
 		e.venue_id, e.categories, e.series_id, e.is_free,
 		e.is_featured, e.featured_at, e.featured_by, e.genre `
 
-	listArgs := append(args, queryVec, p.Limit, p.Offset)
-	rows, err := s.pool.Query(ctx,
-		selectCols+baseFrom+`ORDER BY ee.embedding <=> $10 ASC LIMIT $11 OFFSET $12`,
-		listArgs...,
+	// $10 query vector, $11 raw query (exact), $12 prefix pattern, $13
+	// substring pattern, $14 limit, $15 offset. The lexical tier ranks
+	// exact title matches highest, then title prefixes, then any title or
+	// venue substring; a score of 0 means "no lexical hit, semantic only".
+	const orderBy = `
+		ORDER BY
+			CASE
+				WHEN lower(e.title) = lower($11) THEN 3
+				WHEN e.title ILIKE $12 THEN 2
+				WHEN e.title ILIKE $13 OR e.venue_name ILIKE $13 THEN 1
+				ELSE 0
+			END DESC,
+			(ee.embedding <=> $10) ASC NULLS LAST
+		LIMIT $14 OFFSET $15`
+
+	listArgs := append(args,
+		queryVec,
+		query,
+		query+"%",
+		"%"+query+"%",
+		p.Limit, p.Offset,
 	)
+	rows, err := s.pool.Query(ctx, selectCols+baseFrom+orderBy, listArgs...)
 	if err != nil {
-		return nil, 0, fmt.Errorf("query semantic search: %w", err)
+		return nil, 0, fmt.Errorf("query hybrid search: %w", err)
 	}
 	defer rows.Close()
 
@@ -109,6 +136,24 @@ func (s *Service) Semantic(ctx context.Context, query string, p Params) ([]store
 		events = append(events, e)
 	}
 	return events, total, rows.Err()
+}
+
+// IndexEvent embeds a single event and upserts its vector immediately, so a
+// newly created or edited event is semantically searchable without waiting
+// for the periodic backfill. Safe to call in a goroutine; errors are the
+// caller's to log. A nil service or client is a no-op.
+func (s *Service) IndexEvent(ctx context.Context, id uuid.UUID, in embedding.EventInput) error {
+	if s == nil || s.client == nil {
+		return nil
+	}
+	vecs, err := s.client.Embed(ctx, []string{in.String()})
+	if err != nil {
+		return fmt.Errorf("embed event: %w", err)
+	}
+	if err := s.embStore.UpsertEmbeddings(ctx, []uuid.UUID{id}, vecs); err != nil {
+		return fmt.Errorf("upsert event embedding: %w", err)
+	}
+	return nil
 }
 
 func nullText(t pgtype.Text) any {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/coltonsweeney/localevents/server/internal/embedding"
 	"github.com/coltonsweeney/localevents/server/internal/middleware"
 	"github.com/coltonsweeney/localevents/server/internal/notifier"
 	"github.com/coltonsweeney/localevents/server/internal/search"
@@ -142,12 +144,12 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	var events []store.Event
 
 	if search.Valid && h.searchSvc != nil {
-		// Semantic search: embed the query and rank by cosine similarity.
+		// Hybrid search: exact/lexical matches first, then semantic ranking.
 		// Falls back to ILIKE below if embedding fails.
 		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, limit, offset)
-		sem, count, semErr := h.searchSvc.Semantic(r.Context(), search.String, sp)
+		sem, count, semErr := h.searchSvc.Hybrid(r.Context(), search.String, sp)
 		if semErr != nil {
-			log.Printf("semantic search error, falling back to ILIKE: %v", semErr)
+			log.Printf("hybrid search error, falling back to ILIKE: %v", semErr)
 		} else {
 			events = sem
 			total = count
@@ -316,9 +318,9 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 
 	if search.Valid && h.searchSvc != nil {
 		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, 500, 0)
-		sem, _, semErr := h.searchSvc.Semantic(r.Context(), search.String, sp)
+		sem, _, semErr := h.searchSvc.Hybrid(r.Context(), search.String, sp)
 		if semErr != nil {
-			log.Printf("semantic search error (map), falling back to ILIKE: %v", semErr)
+			log.Printf("hybrid search error (map), falling back to ILIKE: %v", semErr)
 		} else {
 			events = sem
 		}
@@ -591,6 +593,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.alerter.NewEventSubmission(event.Title, location, user.Email.String)
+	h.indexEvent(event)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -756,6 +759,31 @@ func (h *EventHandler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(created)
 }
 
+// indexEvent embeds a freshly created or updated event so it becomes
+// semantically searchable right away, instead of waiting up to the scraper
+// cron interval for the backfill. Fire-and-forget: it runs in its own
+// goroutine with a background context so a slow embedding call never blocks
+// the HTTP response, and failures fall back to the periodic backfill.
+func (h *EventHandler) indexEvent(e store.Event) {
+	if h.searchSvc == nil || !e.ID.Valid {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		in := embedding.EventInput{
+			Title:       e.Title,
+			Description: e.Description.String,
+			Categories:  e.Categories,
+			VenueName:   e.VenueName.String,
+			City:        e.City.String,
+		}
+		if err := h.searchSvc.IndexEvent(ctx, uuid.UUID(e.ID.Bytes), in); err != nil {
+			log.Printf("index event %q: %v", e.Title, err)
+		}
+	}()
+}
+
 func searchParams(
 	lat, lng, radiusMeters float64,
 	startDate, endDate time.Time,
@@ -913,6 +941,8 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to update event"}`, http.StatusInternalServerError)
 		return
 	}
+
+	h.indexEvent(updated)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updated)
