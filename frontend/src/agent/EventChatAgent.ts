@@ -15,9 +15,10 @@ import { z } from "zod";
 // latency cost; revert to a flash model (e.g. @cf/zai-org/glm-4.7-flash) if too slow.
 const MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
-// Cap on how many events we hand back to the model per search, to keep the
-// context (and token cost) bounded.
-const MAX_EVENTS = 12;
+// Cap on how many events we hand back to the model per search (the model then
+// lists up to this many). When more match, the search tool returns a `moreUrl`
+// deep link to the full events list page instead of dumping everything here.
+const MAX_EVENTS = 10;
 
 /**
  * Compact projection of an event for the model. The full Event object from the
@@ -228,7 +229,8 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			`When the user asks for a specific MUSIC GENRE (e.g. jazz, metal, hip-hop, country, EDM), set the \`genre\` filter (one of: ${MUSIC_GENRES.join(", ")}) instead of category — it narrows to that style of concert. The tool falls back to music events if no genre-tagged matches are found, so present whatever it returns and mention the fallback if a \`note\` is included.`,
 			"The search_events tool already broadens automatically (it widens a too-narrow category and shows all nearby events instead), so ONE search is almost always enough. Do not call it repeatedly — if the first call returns events, present them. If a result includes a `note`, mention that you broadened the search.",
 			"To find a specific event, artist, or venue by name, use the `search` parameter — it matches across ALL upcoming events regardless of date. The result's `total` is the full count of matching events; when it exceeds the few you list, you can mention there are more and offer to narrow by date or category.",
-			"When recommending, be concise: a short intro line, then a handful of picks. For each pick give the title, venue, date/time (human-friendly), and price if known.",
+			"When recommending, be concise: a short intro line, then up to 10 picks. For each pick give the title, venue, date/time (human-friendly), and price if known.",
+			"If a search result includes a `moreUrl`, there are more matching events than you listed. After your picks, add a final line linking to the full list using the result's `total` for the count and the exact `moreUrl` value, e.g. [See all 34 events](moreUrl).",
 			"Always link each event with a relative markdown link whose visible text is the event's EXACT title from the search results: [Exact Title](/events/{id}). Take the id from the SAME search-result row as that title — never reuse an id from a different event or an earlier search, and never fabricate ids.",
 		].join("\n\n");
 
@@ -332,7 +334,8 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 		genre?: string;
 		search?: string;
 	}): Promise<
-		{ events: CompactEvent[]; total: number; note?: string } | { error: string }
+		| { events: CompactEvent[]; total: number; note?: string; moreUrl?: string }
+		| { error: string }
 	> {
 		const base = this.env.VITE_API_URL ?? "";
 		const today = new Date().toISOString().slice(0, 10);
@@ -401,26 +404,42 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			}),
 		);
 
+		// Deep link to the events list page reproducing this search's filters. When
+		// more events match than we hand back, finish() attaches it so the model can
+		// offer "see all N events" instead of the user missing the rest.
+		const moreUrl = this.eventsPageUrl(args, date, endDate);
+		const finish = (
+			events: CompactEvent[],
+			total: number,
+			note?: string,
+		): {
+			events: CompactEvent[];
+			total: number;
+			note?: string;
+			moreUrl?: string;
+		} => ({
+			events,
+			total,
+			...(total > events.length ? { moreUrl } : {}),
+			...(note ? { note } : {}),
+		});
+
 		// Genre is more specific than category — apply it first. Genre tags are
 		// only populated on freshly-scraped events, so a miss is expected for
 		// older rows; fall back to music events rather than returning nothing.
 		if (wantGenre) {
 			const filtered = all.filter((e) => matchesGenre(e.genre, wantGenre));
-			if (filtered.length > 0) {
-				return {
-					events: filtered.slice(0, MAX_EVENTS),
-					total: filtered.length,
-				};
-			}
+			if (filtered.length > 0)
+				return finish(filtered.slice(0, MAX_EVENTS), filtered.length);
 			const music = all.filter((e) => matchesCategory(e.categories, "music"));
 			const fallback = music.length > 0 ? music : all;
-			return {
-				events: fallback.slice(0, MAX_EVENTS),
-				total: fallback.length,
-				note: `No events tagged "${wantGenre}" were found nearby (genre data may be incomplete); showing ${
+			return finish(
+				fallback.slice(0, MAX_EVENTS),
+				fallback.length,
+				`No events tagged "${wantGenre}" were found nearby (genre data may be incomplete); showing ${
 					music.length > 0 ? "music events" : "all nearby events"
 				} instead.`,
-			};
+			);
 		}
 
 		if (wantCategory) {
@@ -429,23 +448,48 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			);
 			// Don't return empty just because the category didn't match — fall back
 			// to all nearby events so the model can present something in one call.
-			if (filtered.length > 0) {
-				return {
-					events: filtered.slice(0, MAX_EVENTS),
-					total: filtered.length,
-				};
-			}
-			return {
-				events: all.slice(0, MAX_EVENTS),
-				total: all.length,
-				note: `No events tagged "${wantCategory}" were found nearby; showing all nearby events instead.`,
-			};
+			if (filtered.length > 0)
+				return finish(filtered.slice(0, MAX_EVENTS), filtered.length);
+			return finish(
+				all.slice(0, MAX_EVENTS),
+				all.length,
+				`No events tagged "${wantCategory}" were found nearby; showing all nearby events instead.`,
+			);
 		}
 
-		return {
-			events: all.slice(0, MAX_EVENTS),
-			total: data.total ?? all.length,
-		};
+		return finish(all.slice(0, MAX_EVENTS), data.total ?? all.length);
+	}
+
+	/**
+	 * Build a relative deep link to the events list page (/events?view=list) that
+	 * reproduces the current search's filters, so "see all" lands on the same set.
+	 * The list page filters by category/text, not music genre, so a genre search
+	 * is approximated with the Music category.
+	 */
+	private eventsPageUrl(
+		args: {
+			lat: number;
+			lng: number;
+			radius?: number;
+			category?: string;
+			genre?: string;
+			search?: string;
+		},
+		date?: string,
+		endDate?: string,
+	): string {
+		const p = new URLSearchParams({
+			view: "list",
+			lat: String(args.lat),
+			lng: String(args.lng),
+		});
+		if (args.radius) p.set("radius", String(args.radius));
+		if (date) p.set("date", date);
+		if (endDate) p.set("endDate", endDate);
+		if (args.search) p.set("search", args.search);
+		if (args.category) p.set("category", args.category);
+		else if (args.genre) p.set("category", "Music");
+		return `/events?${p.toString()}`;
 	}
 
 	private async geocode(
