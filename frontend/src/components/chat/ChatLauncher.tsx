@@ -12,7 +12,7 @@ export function ChatLauncher() {
 	const [open, setOpen] = useState(false);
 
 	return (
-		<div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-3">
+		<div className="fixed right-4 bottom-4 z-[70] flex flex-col items-end gap-3">
 			{open && (
 				<div className="h-[min(40rem,calc(100vh-7rem))] w-[min(26rem,calc(100vw-2rem))]">
 					<EventChat onClose={() => setOpen(false)} />
