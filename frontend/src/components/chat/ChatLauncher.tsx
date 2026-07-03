@@ -28,7 +28,7 @@ export function ChatLauncher() {
 				}
 				aria-label={open ? "Close event assistant" : "Open event assistant"}
 				aria-expanded={open}
-				className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-(--lagoon-deep) text-white shadow-lg transition hover:brightness-110"
+				className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-transparent bg-[linear-gradient(to_bottom_right,var(--pill-from),var(--pill-to))] text-(--pill-on) shadow-[var(--pill-glow)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:scale-95"
 			>
 				{open ? <X size={22} /> : <MessageCircle size={22} />}
 			</button>
