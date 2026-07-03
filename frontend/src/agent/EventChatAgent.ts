@@ -10,8 +10,10 @@ import {
 import { createWorkersAI } from "workers-ai-provider";
 import { z } from "zod";
 
-// Tool-calling capable Workers AI model (multi-turn tool use).
-const MODEL = "@cf/zai-org/glm-4.7-flash";
+// Tool-calling capable Workers AI model (multi-turn tool use). Gemma 4 (Gemini 3
+// lineage) is a reasoning model — better recommendations/link-following at some
+// latency cost; revert to a flash model (e.g. @cf/zai-org/glm-4.7-flash) if too slow.
+const MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
 // Cap on how many events we hand back to the model per search, to keep the
 // context (and token cost) bounded.

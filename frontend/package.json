@@ -95,7 +95,7 @@
     "vite": "^7.1.7",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.5",
-    "wrangler": "^4.105.0"
+    "wrangler": "^4.107.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
