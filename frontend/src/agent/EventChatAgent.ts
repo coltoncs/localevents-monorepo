@@ -29,7 +29,9 @@ interface CompactEvent {
 	title: string;
 	venue?: string;
 	city?: string;
+	/** Human-friendly Eastern-time string (e.g. "Thu, Jul 3, 10:00 AM EDT"). */
 	start: string;
+	/** Human-friendly Eastern-time string, when the event has an end time. */
 	end?: string;
 	categories?: string[];
 	genre?: string[];
@@ -64,6 +66,40 @@ function formatPrice(
 	if (min == null && max == null) return undefined;
 	if (min != null && max != null && min !== max) return `$${min}–$${max}`;
 	return `$${min ?? max}`;
+}
+
+// The app is Eastern-centric (Raleigh/Durham/Richmond; the API also filters by
+// date in this zone) and the event pages render times in the user's local
+// (Eastern) time. The agent runs on Workers in UTC, so we must format explicitly
+// in this zone — otherwise raw UTC ISO strings reach the model and it reads the
+// UTC clock literally (a 10 AM ET event stored as 14:00Z is shown as "2 PM").
+const TIME_ZONE = "America/New_York";
+
+/** Today's date (YYYY-MM-DD) in the app's local (Eastern) timezone. */
+function easternToday(): string {
+	// en-CA formats as YYYY-MM-DD.
+	return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(
+		new Date(),
+	);
+}
+
+/**
+ * Format an event's ISO timestamp into a human-friendly Eastern-time string the
+ * model can repeat verbatim, e.g. "Thu, Jul 3, 10:00 AM EDT". Including the zone
+ * abbreviation keeps it unambiguous and matches what the event pages display.
+ */
+function formatEventTime(iso: string): string | undefined {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return undefined;
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: TIME_ZONE,
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+	}).format(d);
 }
 
 // Canonical categories (mirrors the app's filter list). The API stores these
@@ -215,7 +251,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			locationLabel?: string;
 		};
 
-		const today = new Date().toISOString().slice(0, 10);
+		const today = easternToday();
 		const knownLocation =
 			typeof ctx.lat === "number" && typeof ctx.lng === "number"
 				? `The user's current location is ${ctx.locationLabel ?? "their area"} (lat ${ctx.lat}, lng ${ctx.lng}). Use these coordinates for "near me" / unspecified-location searches.`
@@ -229,7 +265,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 			`When the user asks for a specific MUSIC GENRE (e.g. jazz, metal, hip-hop, country, EDM), set the \`genre\` filter (one of: ${MUSIC_GENRES.join(", ")}) instead of category — it narrows to that style of concert. The tool falls back to music events if no genre-tagged matches are found, so present whatever it returns and mention the fallback if a \`note\` is included.`,
 			"The search_events tool already broadens automatically (it widens a too-narrow category and shows all nearby events instead), so ONE search is almost always enough. Do not call it repeatedly — if the first call returns events, present them. If a result includes a `note`, mention that you broadened the search.",
 			"To find a specific event, artist, or venue by name, use the `search` parameter — it matches across ALL upcoming events regardless of date. The result's `total` is the full count of matching events; when it exceeds the few you list, you can mention there are more and offer to narrow by date or category.",
-			"When recommending, be concise: a short intro line, then up to 10 picks. For each pick give the title, venue, date/time (human-friendly), and price if known.",
+			"When recommending, be concise: a short intro line, then up to 10 picks. For each pick give the title, venue, date/time, and price if known. Each event's `start` (and `end`) is ALREADY a human-friendly local time string — present it as given; never reinterpret, convert, or shift the time zone.",
 			"If a search result includes a `moreUrl`, there are more matching events than you listed. After your picks, add a final line linking to the full list using the result's `total` for the count and the exact `moreUrl` value, e.g. [See all 34 events](moreUrl).",
 			"Always link each event with a relative markdown link whose visible text is the event's EXACT title from the search results: [Exact Title](/events/{id}). Take the id from the SAME search-result row as that title — never reuse an id from a different event or an earlier search, and never fabricate ids.",
 		].join("\n\n");
@@ -338,7 +374,7 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 		| { error: string }
 	> {
 		const base = this.env.VITE_API_URL ?? "";
-		const today = new Date().toISOString().slice(0, 10);
+		const today = easternToday();
 
 		// Resolve the date window. Only constrain by date when the caller actually
 		// specified one — when no timeframe is given we omit `date` entirely so the
@@ -389,8 +425,8 @@ export class EventChatAgent extends AIChatAgent<Cloudflare.Env> {
 				title: e.Title,
 				venue: e.VenueName ?? undefined,
 				city: e.City ?? undefined,
-				start: e.StartTime,
-				end: e.EndTime ?? undefined,
+				start: formatEventTime(e.StartTime) ?? e.StartTime,
+				end: e.EndTime ? formatEventTime(e.EndTime) : undefined,
 				categories: e.Categories ?? undefined,
 				genre: e.Genre ?? undefined,
 				price: formatPrice(
