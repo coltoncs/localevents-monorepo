@@ -20,9 +20,17 @@ export function isAllDay(event: Event): boolean {
 /**
  * Returns true if the event has fully ended. Uses EndTime when present,
  * falling back to StartTime so events without an end still flag once started.
+ * Events that cross midnight may store an end time earlier in the day than the
+ * start (e.g. 12 PM – 2 AM); treat that as ending the following day so an
+ * in-progress overnight event isn't flagged as past.
  */
 export function isPastEvent(event: Event): boolean {
-  return new Date(event.EndTime ?? event.StartTime) < new Date()
+  const start = new Date(event.StartTime)
+  let end = event.EndTime ? new Date(event.EndTime) : start
+  if (end < start) {
+    end = new Date(end.getTime() + 24 * 60 * 60 * 1000)
+  }
+  return end < new Date()
 }
 
 export function formatDate(iso: string) {

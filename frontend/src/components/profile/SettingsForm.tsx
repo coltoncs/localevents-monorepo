@@ -72,7 +72,7 @@ export function SettingsForm() {
 			<button
 				type="submit"
 				disabled={updateSettings.isPending}
-				className="rounded-md bg-[var(--lagoon-deep)] px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--lagoon)] disabled:opacity-50"
+				className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:cursor-pointer hover:bg-(--lagoon) disabled:opacity-50"
 			>
 				{updateSettings.isPending ? "Saving..." : "Save Settings"}
 			</button>

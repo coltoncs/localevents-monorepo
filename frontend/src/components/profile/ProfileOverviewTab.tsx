@@ -82,7 +82,7 @@ export function ProfileOverviewTab() {
 					<button
 						type="button"
 						onClick={toggleEditing}
-						className="inline-flex items-center gap-1.5 rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--surface-strong)"
+						className="inline-flex items-center gap-1.5 rounded-md border border-(--line) bg-(--surface) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:cursor-pointer hover:bg-(--link-bg-hover)"
 					>
 						{editing ? <X size={16} /> : <Pencil size={16} />}
 						{editing ? "Close" : "Edit profile"}
@@ -99,7 +99,7 @@ export function ProfileOverviewTab() {
 			</div>
 
 			{editing && (
-				<div className="overflow-x-auto rounded-lg border border-(--line) bg-(--surface-strong) p-4">
+				<div className="overflow-x-auto rounded-lg bg-none flex justify-center pt-8 pb-12">
 					<UserProfile
 						routing="virtual"
 						appearance={{

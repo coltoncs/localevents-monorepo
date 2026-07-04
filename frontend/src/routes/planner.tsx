@@ -196,7 +196,7 @@ function PlannerForm({
 								type="button"
 								onClick={() => toggleCategory(c)}
 								aria-pressed={active}
-								className={`rounded-full border px-3 py-1 text-sm transition ${
+								className={`rounded-full border px-3 py-1 text-sm transition hover:cursor-pointer ${
 									active
 										? "border-(--lagoon-deep) bg-[rgba(79,184,178,0.14)] text-(--lagoon-deep)"
 										: "border-(--line) text-(--sea-ink-soft) hover:border-(--lagoon)"
@@ -231,7 +231,7 @@ function PlannerForm({
 					type="button"
 					onClick={submit}
 					disabled={!location || submitting}
-					className="ml-auto rounded-md bg-(--lagoon-deep) px-5 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:bg-(--lagoon) disabled:cursor-not-allowed disabled:opacity-50"
+					className="ml-auto rounded-md bg-(--lagoon-deep) px-5 py-2 text-sm font-semibold text-white! no-underline shadow-sm hover:cursor-pointer hover:bg-(--lagoon) disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{submitting ? "Building…" : submitLabel}
 				</button>

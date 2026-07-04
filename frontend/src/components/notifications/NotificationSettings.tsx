@@ -183,7 +183,7 @@ export function NotificationSettings() {
 				<button
 					type="submit"
 					disabled={updatePrefs.isPending}
-					className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-(--lagoon) disabled:opacity-50"
+					className="rounded-md bg-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-white shadow-sm hover:cursor-pointer hover:bg-(--lagoon) disabled:opacity-50"
 				>
 					{updatePrefs.isPending ? "Saving..." : "Save Preferences"}
 				</button>
@@ -194,7 +194,7 @@ export function NotificationSettings() {
 							type="button"
 							disabled={!hasSubscription || triggerDigest.isPending}
 							onClick={() => triggerDigest.mutate()}
-							className="rounded-md border border-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-(--lagoon-deep) shadow-sm hover:bg-(--lagoon-deep) hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+							className="rounded-md border border-(--lagoon-deep) px-6 py-2 text-sm font-semibold text-(--lagoon-deep) shadow-sm hover:cursor-pointer hover:bg-(--lagoon-deep) hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{triggerDigest.isPending ? "Sending..." : "Send Digest Now"}
 						</button>
