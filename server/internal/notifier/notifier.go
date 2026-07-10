@@ -32,6 +32,7 @@ type Runner struct {
 	Queries        *store.Queries
 	Email          *EmailSender
 	SMS            *SMSSender
+	Push           *ExpoPushClient
 	FrontendURL    string
 	ClerkSecretKey string
 }
@@ -44,11 +45,15 @@ func (r *Runner) Run(ctx context.Context) {
 
 	log.Println("Digest: starting weekly digest run")
 
+	// Tracks users already pushed this run so someone subscribed to both email
+	// and SMS gets a single push notification.
+	pushed := make(map[pgtype.UUID]bool)
+
 	if r.Email != nil {
-		r.sendEmailDigests(ctx, startDate, endDate)
+		r.sendEmailDigests(ctx, startDate, endDate, pushed)
 	}
 	if r.SMS != nil {
-		r.sendSMSDigests(ctx, startDate, endDate)
+		r.sendSMSDigests(ctx, startDate, endDate, pushed)
 	}
 
 	log.Println("Digest: weekly digest run complete")
@@ -133,7 +138,7 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 	return nil
 }
 
-func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.Time) {
+func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.Time, pushed map[pgtype.UUID]bool) {
 	subscribers, err := r.Queries.ListEmailSubscribers(ctx)
 	if err != nil {
 		log.Printf("Digest: failed to list email subscribers: %v", err)
@@ -217,10 +222,14 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			Status:       status,
 			ErrorMessage: errMsg,
 		})
+
+		if status == "sent" {
+			r.sendDigestPush(ctx, sub.ID, len(events), pushed)
+		}
 	}
 }
 
-func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Time) {
+func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Time, pushed map[pgtype.UUID]bool) {
 	subscribers, err := r.Queries.ListSMSSubscribers(ctx)
 	if err != nil {
 		log.Printf("Digest: failed to list SMS subscribers: %v", err)
@@ -289,7 +298,44 @@ func (r *Runner) sendSMSDigests(ctx context.Context, startDate, endDate time.Tim
 			Status:       status,
 			ErrorMessage: errMsg,
 		})
+
+		if status == "sent" {
+			r.sendDigestPush(ctx, sub.ID, len(events), pushed)
+		}
 	}
+}
+
+// sendDigestPush sends one mobile push per user summarizing their weekly
+// digest. Best-effort: failures are logged, never fatal to the digest run.
+func (r *Runner) sendDigestPush(ctx context.Context, userID pgtype.UUID, eventCount int, pushed map[pgtype.UUID]bool) {
+	if r.Push == nil || pushed[userID] {
+		return
+	}
+
+	tokens, err := r.Queries.ListDeviceTokensByUser(ctx, userID)
+	if err != nil {
+		log.Printf("Digest: failed to list device tokens for user %s: %v", uuidToString(userID), err)
+		return
+	}
+	if len(tokens) == 0 {
+		return
+	}
+
+	messages := make([]ExpoPushMessage, 0, len(tokens))
+	for _, t := range tokens {
+		messages = append(messages, ExpoPushMessage{
+			To:    t.Token,
+			Title: "Your weekly 919Events digest",
+			Body:  fmt.Sprintf("%d events near you this week", eventCount),
+			Data:  map[string]any{"type": "weekly_digest"},
+		})
+	}
+
+	if err := r.Push.Send(ctx, messages); err != nil {
+		log.Printf("Digest: push send failed for user %s: %v", uuidToString(userID), err)
+		return
+	}
+	pushed[userID] = true
 }
 
 func composeSMSBody(events []store.Event, frontendURL string) string {

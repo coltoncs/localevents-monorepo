@@ -229,6 +229,11 @@ func main() {
 	} else {
 		log.Println("Twilio credentials not fully set, SMS digest disabled")
 	}
+	if cfg.PushEnabled {
+		digestRunner.Push = notifier.NewExpoPushClient(queries)
+	} else {
+		log.Println("PUSH_ENABLED=false, mobile push digest disabled")
+	}
 
 	// Admin alerts for user-initiated actions that need review. Nil (no-op) when
 	// Resend or ADMIN_ALERT_EMAIL is unset.

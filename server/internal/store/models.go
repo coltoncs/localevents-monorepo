@@ -44,6 +44,15 @@ type DeletedExternalEvent struct {
 	DeletedAt  pgtype.Timestamptz
 }
 
+type DeviceToken struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Token     string
+	Platform  string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
 type EditSuggestion struct {
 	ID              pgtype.UUID
 	TargetType      string

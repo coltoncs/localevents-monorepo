@@ -28,6 +28,7 @@ type Config struct {
 	TwilioFromNumber    string
 	DigestCronSchedule  string
 	DigestEnabled       bool
+	PushEnabled         bool
 	PlannerEnabled      bool
 	CleanupCronSchedule string
 	FrontendURL         string
@@ -68,6 +69,9 @@ func Load() *Config {
 		TwilioFromNumber:    getEnv("TWILIO_FROM_NUMBER", ""),
 		DigestCronSchedule:  getEnv("DIGEST_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 9 * * 5"),
 		DigestEnabled:       getEnv("DIGEST_ENABLED", "false") == "true",
+		// Mobile push via Expo's push API needs no credentials, so it defaults
+		// on; set PUSH_ENABLED=false to suppress digest push notifications.
+		PushEnabled: getEnv("PUSH_ENABLED", "true") == "true",
 		// Weekly daily-planner generation. Runs in the same Friday cron as the
 		// digest; defaults to the digest's enabled state.
 		PlannerEnabled: getEnv("PLANNER_ENABLED", getEnv("DIGEST_ENABLED", "false")) == "true",
