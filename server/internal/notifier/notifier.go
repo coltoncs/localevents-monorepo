@@ -46,6 +46,7 @@ func (r *Runner) Run(ctx context.Context) {
 
 	if r.Email != nil {
 		r.sendEmailDigests(ctx, startDate, endDate)
+		r.sendAnonymousEmailDigests(ctx, startDate, endDate)
 	}
 	if r.SMS != nil {
 		r.sendSMSDigests(ctx, startDate, endDate)
@@ -217,6 +218,76 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			Status:       status,
 			ErrorMessage: errMsg,
 		})
+	}
+}
+
+// sendAnonymousEmailDigests emails confirmed subscribers from the standalone
+// email_digest_subscribers table (people without a Clerk account). It mirrors
+// sendEmailDigests but has no saved events, no category affinities, and no
+// notification_log — dedupe is tracked via the subscriber's last_sent_at.
+func (r *Runner) sendAnonymousEmailDigests(ctx context.Context, startDate, endDate time.Time) {
+	subscribers, err := r.Queries.ListConfirmedAnonymousSubscribers(ctx)
+	if err != nil {
+		log.Printf("Digest: failed to list anonymous subscribers: %v", err)
+		return
+	}
+
+	log.Printf("Digest: found %d anonymous email subscribers", len(subscribers))
+
+	for _, sub := range subscribers {
+		// Guard against cron misfires: skip if we sent within the last 24 hours.
+		if sub.LastSentAt.Valid && time.Since(sub.LastSentAt.Time) < 24*time.Hour {
+			continue
+		}
+
+		emailStyle := sub.EmailStyle
+		if emailStyle == "" {
+			emailStyle = "detailed"
+		}
+
+		radiusMeters := float64(10) * 1609.34 // default 10 miles
+		if sub.RadiusMiles > 0 {
+			radiusMeters = float64(sub.RadiusMiles) * 1609.34
+		}
+
+		events, err := r.Queries.ListUpcomingEventsForDigest(ctx, store.ListUpcomingEventsForDigestParams{
+			Lng:          sub.Longitude,
+			Lat:          sub.Latitude,
+			RadiusMeters: radiusMeters,
+			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
+			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
+			MaxEvents:    digestLimit(emailStyle),
+		})
+		if err != nil {
+			log.Printf("Digest: failed to query events for subscriber %s: %v", sub.Email, err)
+			continue
+		}
+
+		if len(events) == 0 {
+			continue
+		}
+
+		digestFormat := sub.DigestFormat
+		if digestFormat == "" {
+			digestFormat = "daily"
+		}
+
+		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.UnsubscribeToken))
+		html, err := RenderDigestEmail(events, nil, sub.PreferredCategories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
+		if err != nil {
+			log.Printf("Digest: failed to render email for subscriber %s: %v", sub.Email, err)
+			continue
+		}
+
+		subject := fmt.Sprintf("%d events near you this week!", len(events))
+		if err := r.Email.Send(sub.Email, subject, html); err != nil {
+			log.Printf("Digest: email send failed for %s: %v", sub.Email, err)
+			continue
+		}
+
+		if err := r.Queries.MarkAnonymousSubscriberSent(ctx, sub.ID); err != nil {
+			log.Printf("Digest: failed to mark subscriber %s sent: %v", sub.Email, err)
+		}
 	}
 }
 

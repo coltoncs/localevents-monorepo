@@ -59,6 +59,23 @@ type EditSuggestion struct {
 	Reason          pgtype.Text
 }
 
+type EmailDigestSubscriber struct {
+	ID                  pgtype.UUID
+	Email               string
+	Latitude            float64
+	Longitude           float64
+	RadiusMiles         int32
+	PreferredCategories []string
+	DigestFormat        string
+	EmailStyle          string
+	Confirmed           bool
+	ConfirmToken        pgtype.UUID
+	UnsubscribeToken    pgtype.UUID
+	LastSentAt          pgtype.Timestamptz
+	CreatedAt           pgtype.Timestamptz
+	ConfirmedAt         pgtype.Timestamptz
+}
+
 type Event struct {
 	ID             pgtype.UUID
 	ExternalID     pgtype.Text
