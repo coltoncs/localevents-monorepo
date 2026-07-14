@@ -51,6 +51,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	imageHandler := handler.NewImageHandler(queries, r2)
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
+	subscribeHandler := handler.NewSubscribeHandler(queries, digestRunner.Email, cfg.FrontendURL, cfg.TurnstileSecretKey)
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	socialHandler := handler.NewSocialHandler(socialGen)
 	suggestionHandler := handler.NewSuggestionHandler(queries, alerter)
@@ -76,6 +77,10 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
 		r.Get("/unsubscribe/{token}", notificationHandler.Unsubscribe)
 		r.Post("/sms/incoming", smsWebhookHandler.Incoming)
+		// Public anonymous email-digest signup (double opt-in). Turnstile-gated in
+		// the handler; rate-limited per IP as a second layer against abuse.
+		r.With(middleware.RateLimit(10, time.Hour)).Post("/subscribe", subscribeHandler.Subscribe)
+		r.Get("/subscribe/confirm/{token}", subscribeHandler.Confirm)
 		// Public read of a shared itinerary snapshot.
 		r.Get("/planner/shared/{token}", plannerHandler.GetShared)
 

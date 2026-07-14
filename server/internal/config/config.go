@@ -41,6 +41,7 @@ type Config struct {
 	SocialRenderURL     string
 	SocialRenderSecret  string
 	SocialCities        string
+	TurnstileSecretKey  string
 }
 
 func Load() *Config {
@@ -95,6 +96,9 @@ func Load() *Config {
 		SocialRenderURL:    getEnv("SOCIAL_RENDER_URL", getEnv("FRONTEND_URL", "http://localhost:3000")+"/render/social-card"),
 		SocialRenderSecret: getEnv("SOCIAL_RENDER_SECRET", ""),
 		SocialCities:       getEnv("SOCIAL_CITIES", "Raleigh,Durham,Chapel Hill"),
+		// Cloudflare Turnstile secret used to verify the widget token on the
+		// public /api/subscribe endpoint. Empty disables verification (local dev).
+		TurnstileSecretKey: getEnv("TURNSTILE_SECRET_KEY", ""),
 	}
 }
 

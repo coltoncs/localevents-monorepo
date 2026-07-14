@@ -249,11 +249,11 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 
 	pgToken := pgtype.UUID{Bytes: token, Valid: true}
 
-	// Try email token first, then SMS
-	err = h.queries.UnsubscribeByEmailToken(r.Context(), pgToken)
-	if err != nil {
-		err = h.queries.UnsubscribeBySMSToken(r.Context(), pgToken)
-	}
+	// Try each token type; a given token only matches one. Anonymous digest
+	// subscribers (email_digest_subscribers) use their own unsubscribe token.
+	h.queries.UnsubscribeByEmailToken(r.Context(), pgToken)
+	h.queries.UnsubscribeBySMSToken(r.Context(), pgToken)
+	h.queries.UnsubscribeAnonymousByToken(r.Context(), pgToken)
 
 	// Always show success page (don't leak info about valid/invalid tokens)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
