@@ -174,6 +174,7 @@ function AnonymousBanner() {
 									label="Location"
 									value={location}
 									onChange={setLocation}
+									compact
 								/>
 							</div>
 							<button

@@ -19,6 +19,7 @@ interface LocationPickerProps {
 	label?: string;
 	initialLat?: number | null;
 	initialLng?: number | null;
+	compact?: boolean;
 }
 
 export function LocationPicker({
@@ -27,6 +28,7 @@ export function LocationPicker({
 	label = "Default Location",
 	initialLat,
 	initialLng,
+	compact = false
 }: LocationPickerProps) {
 	const [addressQuery, setAddressQuery] = useState("");
 	const [suggestions, setSuggestions] = useState<GeocodingFeature[]>([]);
@@ -102,7 +104,7 @@ export function LocationPicker({
 
 	return (
 		<div>
-			<label className="block text-sm font-medium text-[var(--sea-ink-soft)]">
+			<label className="block text-sm font-medium text-(--sea-ink-soft)">
 				{label}
 			</label>
 			<div ref={wrapperRef} className="relative mt-1">
@@ -112,16 +114,16 @@ export function LocationPicker({
 					onChange={(e) => handleAddressChange(e.target.value)}
 					onFocus={() => addressQuery.trim().length >= 3 && setOpen(true)}
 					placeholder={value?.name || "Enter an address or city..."}
-					className="block w-full rounded-md border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm shadow-sm focus:border-[var(--lagoon)] focus:ring-[var(--lagoon)] focus:outline-none"
+					className="block w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm shadow-sm focus:border-(--lagoon) focus:ring-(--lagoon) focus:outline-none"
 				/>
 				{open && suggestions.length > 0 && (
-					<ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--surface-strong)] py-1 shadow-lg">
+					<ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-(--line) bg-(--surface-strong) py-1 shadow-lg">
 						{suggestions.map((feature) => (
 							<li key={feature.place_name}>
 								<button
 									type="button"
 									onClick={() => handleSelect(feature)}
-									className="w-full px-3 py-2 text-left text-sm text-[var(--sea-ink-soft)] hover:bg-[rgba(79,184,178,0.08)] hover:text-[var(--lagoon-deep)]"
+									className="w-full px-3 py-2 text-left text-sm text-(--sea-ink-soft) hover:bg-[rgba(79,184,178,0.08)] hover:text-(--lagoon-deep)"
 								>
 									{feature.place_name}
 								</button>
@@ -130,8 +132,8 @@ export function LocationPicker({
 					</ul>
 				)}
 			</div>
-			{value?.name && (
-				<p className="mt-1.5 text-sm text-[var(--sea-ink-soft)]">
+			{value?.name && !compact && (
+				<p className="mt-1.5 text-sm text-(--sea-ink-soft)">
 					{value.name}
 				</p>
 			)}
