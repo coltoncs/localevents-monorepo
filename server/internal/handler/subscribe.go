@@ -73,13 +73,31 @@ func (h *SubscribeHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	radius := req.RadiusMiles
 	if radius <= 0 {
-		radius = 25
+		radius = defaultCoverageRadiusMiles
 	}
 
 	// Verify the Turnstile token unless verification is disabled (no secret set,
-	// e.g. local dev).
+	// e.g. local dev). Done before the coverage DB query so bots can't drive it.
 	if h.turnstileSecret != "" && !h.verifyTurnstile(r.Context(), req.TurnstileToken) {
 		http.Error(w, `{"error":"captcha verification failed"}`, http.StatusForbidden)
+		return
+	}
+
+	// Reject signups outside our coverage area: with no upcoming event within
+	// the subscriber's radius, the weekly digest would always be empty. This
+	// mirrors the client-side coverage filter and is the authoritative gate.
+	nearby, err := h.queries.CountUpcomingEventsWithinRadius(r.Context(), store.CountUpcomingEventsWithinRadiusParams{
+		Lng:          req.Longitude,
+		Lat:          req.Latitude,
+		RadiusMeters: float64(radius) * 1609.34,
+	})
+	if err != nil {
+		log.Printf("Subscribe: coverage check failed for %s: %v", req.Email, err)
+		http.Error(w, `{"error":"failed to subscribe"}`, http.StatusInternalServerError)
+		return
+	}
+	if nearby == 0 {
+		http.Error(w, `{"error":"we don't cover that area yet"}`, http.StatusUnprocessableEntity)
 		return
 	}
 

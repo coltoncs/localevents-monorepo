@@ -6,6 +6,8 @@ import {
 	type LocationValue,
 } from "#/components/maps/LocationPicker";
 import { Turnstile, turnstileEnabled } from "#/components/Turnstile";
+import { ApiError } from "#/lib/api";
+import { useCoverageCities } from "#/lib/hooks/useCoverage";
 import { useSubscribeToDigest } from "#/lib/hooks/useDigestSubscribe";
 import { useNotificationPreferences } from "#/lib/hooks/useNotifications";
 
@@ -100,8 +102,15 @@ function AnonymousBanner() {
 	const [token, setToken] = useState<string | null>(null);
 	const emailId = useId();
 	const subscribe = useSubscribeToDigest();
+	const { data: coverage } = useCoverageCities();
 
 	if (hidden) return null;
+
+	const coverageConstraint = coverage
+		? { cities: coverage.cities, radiusMiles: coverage.radius_miles }
+		: null;
+	const outOfArea =
+		subscribe.error instanceof ApiError && subscribe.error.status === 422;
 
 	const emailValid = EMAIL_RE.test(email.trim());
 	const canSubmit =
@@ -174,6 +183,7 @@ function AnonymousBanner() {
 									label="Location"
 									value={location}
 									onChange={setLocation}
+									coverage={coverageConstraint}
 									compact
 								/>
 							</div>
@@ -190,7 +200,9 @@ function AnonymousBanner() {
 						)}
 						{subscribe.isError && (
 							<p className="text-sm text-red-600">
-								Something went wrong. Please try again in a moment.
+								{outOfArea
+									? "We don't cover that area yet — pick a location closer to a city we serve."
+									: "Something went wrong. Please try again in a moment."}
 							</p>
 						)}
 					</form>

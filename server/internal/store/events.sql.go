@@ -110,6 +110,32 @@ func (q *Queries) CountMyFeaturedThisMonth(ctx context.Context, featuredBy pgtyp
 	return count, err
 }
 
+const countUpcomingEventsWithinRadius = `-- name: CountUpcomingEventsWithinRadius :one
+SELECT COUNT(*)
+FROM events
+WHERE start_time >= NOW()
+AND ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+`
+
+type CountUpcomingEventsWithinRadiusParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+}
+
+// Number of upcoming events within @radius_meters of the point. Used to verify
+// a digest signup falls inside our coverage area before accepting it.
+func (q *Queries) CountUpcomingEventsWithinRadius(ctx context.Context, arg CountUpcomingEventsWithinRadiusParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUpcomingEventsWithinRadius, arg.Lng, arg.Lat, arg.RadiusMeters)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (
     source, title, description, venue_name, address, city, state, zip,
@@ -367,6 +393,64 @@ func (q *Queries) GetEventsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([
 			&i.FeaturedAt,
 			&i.FeaturedBy,
 			&i.Genre,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCoverageCities = `-- name: ListCoverageCities :many
+SELECT
+    city,
+    state,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY latitude)::float AS latitude,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY longitude)::float AS longitude,
+    COUNT(*)::bigint AS event_count
+FROM events
+WHERE start_time >= NOW()
+  AND city IS NOT NULL
+  AND btrim(city) <> ''
+GROUP BY city, state
+HAVING COUNT(*) >= $1::int
+ORDER BY event_count DESC
+`
+
+type ListCoverageCitiesRow struct {
+	City       pgtype.Text
+	State      pgtype.Text
+	Latitude   float64
+	Longitude  float64
+	EventCount int64
+}
+
+// Cities that currently have upcoming events, with a representative centroid
+// (average of their events' coordinates) and an event count. Powers the digest
+// signup coverage picker: only these cities — and, via the radius, their
+// neighbors — are worth subscribing from. Cities with fewer than @min_events
+// upcoming events are excluded so one-off listings don't advertise coverage.
+// Uses the median coordinate (not the average) as the representative point so a
+// handful of events with garbage lat/lng can't drag a city's center into the
+// ocean and break the client-side coverage filter.
+func (q *Queries) ListCoverageCities(ctx context.Context, minEvents int32) ([]ListCoverageCitiesRow, error) {
+	rows, err := q.db.Query(ctx, listCoverageCities, minEvents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCoverageCitiesRow
+	for rows.Next() {
+		var i ListCoverageCitiesRow
+		if err := rows.Scan(
+			&i.City,
+			&i.State,
+			&i.Latitude,
+			&i.Longitude,
+			&i.EventCount,
 		); err != nil {
 			return nil, err
 		}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { distanceMiles } from "#/lib/geo";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
 
@@ -13,6 +14,13 @@ export interface LocationValue {
 	name: string;
 }
 
+// When supplied, suggestions are limited to locations within `radiusMiles` of a
+// city we have events in — so the picker only offers places our data covers.
+export interface CoverageConstraint {
+	cities: { latitude: number; longitude: number }[];
+	radiusMiles: number;
+}
+
 interface LocationPickerProps {
 	value: LocationValue | null;
 	onChange: (value: LocationValue) => void;
@@ -20,6 +28,7 @@ interface LocationPickerProps {
 	initialLat?: number | null;
 	initialLng?: number | null;
 	compact?: boolean;
+	coverage?: CoverageConstraint | null;
 }
 
 export function LocationPicker({
@@ -28,14 +37,28 @@ export function LocationPicker({
 	label = "Default Location",
 	initialLat,
 	initialLng,
-	compact = false
+	compact = false,
+	coverage,
 }: LocationPickerProps) {
 	const [addressQuery, setAddressQuery] = useState("");
 	const [suggestions, setSuggestions] = useState<GeocodingFeature[]>([]);
+	const [hiddenOutOfArea, setHiddenOutOfArea] = useState(false);
 	const [open, setOpen] = useState(false);
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const seededRef = useRef(false);
+
+	// A geocoding result is in-area if it's within the coverage radius of any
+	// covered city. With no constraint (or before coverage loads) everything
+	// passes; the backend re-validates on submit either way.
+	function isCovered([lng, lat]: [number, number]): boolean {
+		if (!coverage || coverage.cities.length === 0) return true;
+		return coverage.cities.some(
+			(c) =>
+				distanceMiles(lat, lng, c.latitude, c.longitude) <=
+				coverage.radiusMiles,
+		);
+	}
 
 	useEffect(() => {
 		if (seededRef.current) return;
@@ -81,6 +104,7 @@ export function LocationPicker({
 
 		if (next.trim().length < 3) {
 			setSuggestions([]);
+			setHiddenOutOfArea(false);
 			return;
 		}
 
@@ -89,8 +113,16 @@ export function LocationPicker({
 				`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(next)}.json?access_token=${MAPBOX_TOKEN}&types=address,place,locality,neighborhood,postcode&limit=5&country=us`,
 			)
 				.then((r) => r.json())
-				.then((data) => setSuggestions(data.features ?? []))
-				.catch(() => setSuggestions([]));
+				.then((data) => {
+					const features: GeocodingFeature[] = data.features ?? [];
+					const inArea = features.filter((f) => isCovered(f.center));
+					setSuggestions(inArea);
+					setHiddenOutOfArea(inArea.length < features.length);
+				})
+				.catch(() => {
+					setSuggestions([]);
+					setHiddenOutOfArea(false);
+				});
 		}, 300);
 	}
 
@@ -131,11 +163,14 @@ export function LocationPicker({
 						))}
 					</ul>
 				)}
+				{open && suggestions.length === 0 && hiddenOutOfArea && (
+					<div className="absolute z-10 mt-1 w-full rounded-md border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm text-(--sea-ink-soft) shadow-lg">
+						We don't cover that area yet — try a city near you.
+					</div>
+				)}
 			</div>
 			{value?.name && !compact && (
-				<p className="mt-1.5 text-sm text-(--sea-ink-soft)">
-					{value.name}
-				</p>
+				<p className="mt-1.5 text-sm text-(--sea-ink-soft)">{value.name}</p>
 			)}
 		</div>
 	);

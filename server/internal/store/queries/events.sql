@@ -64,6 +64,41 @@ ORDER BY (start_time AT TIME ZONE 'America/New_York')::date ASC,
     start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
 
+-- name: ListCoverageCities :many
+-- Cities that currently have upcoming events, with a representative centroid
+-- (average of their events' coordinates) and an event count. Powers the digest
+-- signup coverage picker: only these cities — and, via the radius, their
+-- neighbors — are worth subscribing from. Cities with fewer than @min_events
+-- upcoming events are excluded so one-off listings don't advertise coverage.
+-- Uses the median coordinate (not the average) as the representative point so a
+-- handful of events with garbage lat/lng can't drag a city's center into the
+-- ocean and break the client-side coverage filter.
+SELECT
+    city,
+    state,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY latitude)::float AS latitude,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY longitude)::float AS longitude,
+    COUNT(*)::bigint AS event_count
+FROM events
+WHERE start_time >= NOW()
+  AND city IS NOT NULL
+  AND btrim(city) <> ''
+GROUP BY city, state
+HAVING COUNT(*) >= @min_events::int
+ORDER BY event_count DESC;
+
+-- name: CountUpcomingEventsWithinRadius :one
+-- Number of upcoming events within @radius_meters of the point. Used to verify
+-- a digest signup falls inside our coverage area before accepting it.
+SELECT COUNT(*)
+FROM events
+WHERE start_time >= NOW()
+AND ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography,
+    @radius_meters::float
+);
+
 -- name: ListFeaturedEventsByLocation :many
 -- Upcoming featured events near a location, soonest first.
 SELECT *

@@ -66,6 +66,9 @@ export const queryKeys = {
 	notifications: {
 		preferences: ["notifications", "preferences"] as const,
 	},
+	coverage: {
+		cities: ["coverage", "cities"] as const,
+	},
 	suggestions: {
 		all: ["suggestions"] as const,
 		pending: ["suggestions", "pending"] as const,
