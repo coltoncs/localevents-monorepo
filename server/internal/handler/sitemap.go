@@ -11,6 +11,17 @@ import (
 
 const siteURL = "https://919events.com"
 
+// cityLandingSlugs mirrors the geo-scoped landing routes in the frontend
+// (frontend/src/lib/landingCities.ts -> /events/in/{slug}). Keep in sync when
+// adding or removing a landing city.
+var cityLandingSlugs = []string{
+	"raleigh",
+	"durham",
+	"cary",
+	"chapel-hill",
+	"richmond",
+}
+
 type SitemapHandler struct {
 	queries *store.Queries
 }
@@ -37,6 +48,13 @@ func (h *SitemapHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		{Loc: siteURL + "/", ChangeFreq: "weekly"},
 		{Loc: siteURL + "/events", ChangeFreq: "daily"},
 		{Loc: siteURL + "/about", ChangeFreq: "monthly"},
+	}
+
+	for _, slug := range cityLandingSlugs {
+		urls = append(urls, sitemapURL{
+			Loc:        siteURL + "/events/in/" + slug,
+			ChangeFreq: "daily",
+		})
 	}
 
 	events, err := h.queries.ListEventIDsForSitemap(r.Context())
