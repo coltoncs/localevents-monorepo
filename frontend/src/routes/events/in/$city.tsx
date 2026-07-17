@@ -90,7 +90,7 @@ function CityLandingPage() {
 						radius: city.radius,
 						view: "list",
 					}}
-					className="rounded-md bg-(--lagoon-deep) px-6 py-3 text-sm font-semibold text-(--foam) shadow-sm hover:opacity-90"
+					className="rounded-md bg-(--lagoon-deep) text-white! px-6 py-3 text-sm font-semibold text-(--foam) shadow-sm hover:opacity-90"
 				>
 					Browse all {city.name} events
 				</Link>
