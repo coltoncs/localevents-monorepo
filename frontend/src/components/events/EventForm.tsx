@@ -11,12 +11,13 @@ import {
 import { getSavedLocation } from "#/components/maps/LocationSearch";
 import { SimpleEditor } from "#/components/tiptap/templates/simple/simple-editor";
 import { VenueCombobox } from "#/components/venues/VenueCombobox";
+import { track } from "#/lib/analytics";
+import { ApiError } from "#/lib/api";
 import {
 	type CreateSeriesInstance,
 	useCreateEventSeries,
 } from "#/lib/hooks/useEvents";
 import { useCreateSuggestion } from "#/lib/hooks/useSuggestions";
-import { track } from "#/lib/analytics";
 import type { CreateEventInput, Venue } from "#/lib/types";
 import { CATEGORIES, GENRES } from "./EventFilters";
 import { pillBase, pillSelected, pillUnselected } from "./pill-styles";
@@ -486,7 +487,11 @@ export function EventForm({
 					navigate({ to: "/events" });
 				}
 			} catch (err) {
-				track("submit_event_error", { mode });
+				// Capture the HTTP status (or "network" for a failed fetch) so the
+				// error is diagnosable in GA4 without code archaeology. `status` is
+				// a registered custom dimension.
+				const status = err instanceof ApiError ? String(err.status) : "network";
+				track("submit_event_error", { mode, status });
 				throw err;
 			} finally {
 				setSubmitting(false);
