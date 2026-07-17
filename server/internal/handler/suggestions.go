@@ -30,6 +30,7 @@ var allowedEventFields = map[string]bool{
 	"address": true, "city": true, "state": true, "zip": true,
 	"latitude": true, "longitude": true,
 	"start_time": true, "end_time": true, "categories": true,
+	"genre": true,
 	"image_url": true, "ticket_url": true,
 	"price_min": true, "price_max": true, "is_free": true,
 }
@@ -995,6 +996,15 @@ func (h *SuggestionHandler) applyEventCreate(r *http.Request, clerkID string, ch
 			}
 		}
 		params.Categories = cats
+	}
+	if arr, ok := changes["genre"].([]interface{}); ok {
+		genre := make([]string, 0, len(arr))
+		for _, v := range arr {
+			if s, ok := v.(string); ok {
+				genre = append(genre, s)
+			}
+		}
+		params.Genre = genre
 	}
 	if f, ok := changes["price_min"].(float64); ok {
 		params.PriceMin = pgtype.Numeric{Int: big.NewInt(int64(f * 100)), Exp: -2, Valid: true}
