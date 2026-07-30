@@ -10,6 +10,7 @@ import { ApiError } from "#/lib/api";
 import { useCoverageCities } from "#/lib/hooks/useCoverage";
 import { useSubscribeToDigest } from "#/lib/hooks/useDigestSubscribe";
 import { useNotificationPreferences } from "#/lib/hooks/useNotifications";
+import { storageGet, storageSet } from "#/lib/storage";
 
 const STORAGE_KEY = "email-notif-banner-dismissed";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -27,11 +28,11 @@ function useBannerVisibility() {
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
 
 	useEffect(() => {
-		setDismissed(localStorage.getItem(STORAGE_KEY) === "1");
+		setDismissed(storageGet(STORAGE_KEY) === "1");
 	}, []);
 
 	function dismiss() {
-		localStorage.setItem(STORAGE_KEY, "1");
+		storageSet(STORAGE_KEY, "1");
 		setDismissed(true);
 	}
 

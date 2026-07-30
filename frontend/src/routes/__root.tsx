@@ -10,13 +10,15 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
 import { ClerkTokenProvider } from "../components/auth/ClerkTokenProvider";
 import { ChatLauncher } from "../components/chat/ChatLauncher";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
 import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
 import ClerkProvider from "../integrations/clerk/provider";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import TanStackQueryProvider from "../integrations/tanstack-query/root-provider";
-import { pageView } from "../lib/analytics";
+import { pageView, track } from "../lib/analytics";
+import { storageAvailable } from "../lib/storage";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -100,7 +102,37 @@ function RouteAnalytics() {
 	useEffect(() => {
 		return router.subscribe("onResolved", () => pageView());
 	}, [router]);
+
+	// One-shot environment probe. Storage-restricted in-app browsers are hard to
+	// reproduce locally, so record when we're in one — it explains classes of
+	// breakage that never show up on a normal device.
+	useEffect(() => {
+		if (!storageAvailable()) {
+			track("storage_unavailable", { ua: navigator.userAgent.slice(0, 100) });
+		}
+	}, []);
+
 	return null;
+}
+
+// Shown in place of the page content if a route subtree crashes, so the user
+// gets a way forward instead of an empty viewport.
+function PageCrashFallback() {
+	return (
+		<main className="mx-auto flex max-w-xl flex-col items-center gap-4 px-6 py-24 text-center">
+			<h1 className="font-semibold text-2xl">Something went wrong</h1>
+			<p className="text-(--sea-ink-soft)">
+				This page failed to load. Reloading usually fixes it.
+			</p>
+			<button
+				type="button"
+				onClick={() => window.location.reload()}
+				className="cursor-pointer rounded-full bg-[linear-gradient(to_bottom_right,var(--pill-from),var(--pill-to))] px-6 py-2.5 font-medium text-(--pill-on)"
+			>
+				Reload
+			</button>
+		</main>
+	);
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -115,11 +147,22 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					<ClerkTokenProvider>
 						<TanStackQueryProvider>
 							<RouteAnalytics />
-							<Header />
-							<EmailNotifBanner />
-							{children}
+							{/* Each chrome element gets its own boundary: a crash in the
+							    header, banner, or chat launcher must never take the page
+							    content down with it (the in-app-browser failure mode). */}
+							<ErrorBoundary name="header">
+								<Header />
+							</ErrorBoundary>
+							<ErrorBoundary name="email-notif-banner">
+								<EmailNotifBanner />
+							</ErrorBoundary>
+							<ErrorBoundary name="page" fallback={<PageCrashFallback />}>
+								{children}
+							</ErrorBoundary>
 							<Footer />
-							<ChatLauncher />
+							<ErrorBoundary name="chat-launcher">
+								<ChatLauncher />
+							</ErrorBoundary>
 							<TanStackDevtools
 								config={{
 									// bottom-left so it doesn't overlap the ChatLauncher (bottom-right)

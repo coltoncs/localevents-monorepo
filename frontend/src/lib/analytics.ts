@@ -100,6 +100,14 @@ export const EVENTS = {
 	submitEventStart: "submit_event_start",
 	submitEventSuccess: "submit_event_success",
 	submitEventError: "submit_event_error",
+	// diagnostics — fired by <ErrorBoundary> when a subtree crashes, so
+	// environment-specific breakage (in-app browsers, blocked storage) is
+	// visible in GA4 instead of only on the affected device.
+	clientError: "client_error",
+	// Fired once per load when localStorage is blocked — the signature of a
+	// restricted in-app browser (Facebook/Instagram referral drawer) or private
+	// mode. Confirms in aggregate how much traffic lands in that environment.
+	storageUnavailable: "storage_unavailable",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

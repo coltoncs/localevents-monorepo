@@ -15,6 +15,7 @@ import {
 } from "#/lib/cuisines";
 import { placeListOptions, usePlaces } from "#/lib/hooks/usePlaces";
 import { useUser } from "#/lib/hooks/useUser";
+import { storageGet, storageSet } from "#/lib/storage";
 import type { BarType, Cuisine } from "#/lib/types";
 
 type PlacesView = "food" | "drinks";
@@ -232,11 +233,11 @@ function PlacesBanner() {
 	const [dismissed, setDismissed] = useState(true);
 
 	useEffect(() => {
-		setDismissed(localStorage.getItem(BANNER_STORAGE_KEY) === "1");
+		setDismissed(storageGet(BANNER_STORAGE_KEY) === "1");
 	}, []);
 
 	const handleDismiss = useCallback(() => {
-		localStorage.setItem(BANNER_STORAGE_KEY, "1");
+		storageSet(BANNER_STORAGE_KEY, "1");
 		setDismissed(true);
 	}, []);
 

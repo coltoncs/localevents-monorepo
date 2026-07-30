@@ -11,16 +11,17 @@ import {
 	saveLocation,
 } from "#/components/maps/LocationSearch";
 import { track } from "#/lib/analytics";
+import { storageGet, storageSet } from "#/lib/storage";
 
 const SESSION_KEY = "events_chat_session";
 
 /** Stable per-browser session id so chat history persists across reloads. */
 function getSessionId(): string {
 	if (typeof window === "undefined") return "default";
-	let id = localStorage.getItem(SESSION_KEY);
+	let id = storageGet(SESSION_KEY);
 	if (!id) {
 		id = `s_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-		localStorage.setItem(SESSION_KEY, id);
+		storageSet(SESSION_KEY, id);
 	}
 	return id;
 }

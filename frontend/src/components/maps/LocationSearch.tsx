@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { storageGet, storageSet } from "#/lib/storage";
 
 export const NC_CITIES: Record<string, { lat: number; lng: number }> = {
 	Raleigh: { lat: 35.7796, lng: -78.6382 },
@@ -46,10 +47,9 @@ export interface SavedLocation {
 }
 
 export function getSavedLocation(): SavedLocation | null {
-	if (typeof window === "undefined") return null;
+	const raw = storageGet(STORAGE_KEY);
+	if (!raw) return null;
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (!raw) return null;
 		return JSON.parse(raw) as SavedLocation;
 	} catch {
 		return null;
@@ -57,12 +57,7 @@ export function getSavedLocation(): SavedLocation | null {
 }
 
 export function saveLocation(location: SavedLocation) {
-	if (typeof window === "undefined") return;
-	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
-	} catch {
-		// storage full or unavailable
-	}
+	storageSet(STORAGE_KEY, JSON.stringify(location));
 }
 
 export function LocationSearch({

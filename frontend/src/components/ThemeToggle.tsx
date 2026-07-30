@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { storageGet, storageSet } from '#/lib/storage'
 
 type ThemeMode = 'light' | 'dark' | 'auto'
 
@@ -7,7 +8,7 @@ function getInitialMode(): ThemeMode {
     return 'auto'
   }
 
-  const stored = window.localStorage.getItem('theme')
+  const stored = storageGet('theme')
   if (stored === 'light' || stored === 'dark' || stored === 'auto') {
     return stored
   }
@@ -59,7 +60,7 @@ export default function ThemeToggle() {
       mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light'
     setMode(nextMode)
     applyThemeMode(nextMode)
-    window.localStorage.setItem('theme', nextMode)
+    storageSet('theme', nextMode)
   }
 
   const label =

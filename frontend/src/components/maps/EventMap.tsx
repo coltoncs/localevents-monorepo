@@ -12,6 +12,7 @@ import {
 	STANDARD_SLOT_MIDDLE,
 	STANDARD_STYLE,
 } from "#/lib/mapUtils";
+import { storageSet } from "#/lib/storage";
 import type { Event } from "#/lib/types";
 import { type SavedLocation, STORAGE_KEY } from "./LocationSearch";
 
@@ -145,12 +146,7 @@ function popupHtml(events: PopupEvent[]): string {
 }
 
 function saveLocation(location: SavedLocation) {
-	if (typeof window === "undefined") return;
-	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
-	} catch {
-		// storage full or unavailable
-	}
+	storageSet(STORAGE_KEY, JSON.stringify(location));
 }
 
 interface EventMapProps {
