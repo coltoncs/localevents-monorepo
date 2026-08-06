@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -51,24 +52,40 @@ type subscribeRequest struct {
 	TurnstileToken string  `json:"turnstile_token"`
 }
 
+// fail records a signup failure against the digest_subscribe_total counter,
+// logs a single line carrying every field needed to reconstruct the attempt,
+// and writes the client response. Every non-success exit from Subscribe goes
+// through here so no failure mode can be silent — the generic "Something went
+// wrong" the user sees always has a matching, attributable server-side record.
+func failSubscribe(w http.ResponseWriter, r *http.Request, outcome string, status int, clientMsg, detail string) {
+	metrics.DigestSubscribeTotal.WithLabelValues(outcome).Inc()
+	log.Printf("Subscribe: rejected outcome=%s status=%d ip=%s ua=%q detail=%s",
+		outcome, status, clientIPForLog(r), r.UserAgent(), detail)
+	http.Error(w, fmt.Sprintf(`{"error":%q,"code":%q}`, clientMsg, outcome), status)
+}
+
 func (h *SubscribeHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	var req subscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		failSubscribe(w, r, "bad_body", http.StatusBadRequest,
+			"invalid request body", fmt.Sprintf("decode: %v", err))
 		return
 	}
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	if !emailRegex.MatchString(req.Email) {
-		http.Error(w, `{"error":"a valid email is required"}`, http.StatusBadRequest)
+		failSubscribe(w, r, "invalid_email", http.StatusBadRequest,
+			"a valid email is required", "email="+maskEmail(req.Email))
 		return
 	}
 	if req.Latitude == 0 && req.Longitude == 0 {
-		http.Error(w, `{"error":"a location is required"}`, http.StatusBadRequest)
+		failSubscribe(w, r, "missing_location", http.StatusBadRequest,
+			"a location is required", "email="+maskEmail(req.Email))
 		return
 	}
 	if req.Latitude < -90 || req.Latitude > 90 || req.Longitude < -180 || req.Longitude > 180 {
-		http.Error(w, `{"error":"invalid coordinates"}`, http.StatusBadRequest)
+		failSubscribe(w, r, "invalid_coords", http.StatusBadRequest, "invalid coordinates",
+			fmt.Sprintf("email=%s lat=%f lng=%f", maskEmail(req.Email), req.Latitude, req.Longitude))
 		return
 	}
 	radius := req.RadiusMiles
@@ -78,9 +95,13 @@ func (h *SubscribeHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the Turnstile token unless verification is disabled (no secret set,
 	// e.g. local dev). Done before the coverage DB query so bots can't drive it.
-	if h.turnstileSecret != "" && !h.verifyTurnstile(r.Context(), req.TurnstileToken) {
-		http.Error(w, `{"error":"captcha verification failed"}`, http.StatusForbidden)
-		return
+	if h.turnstileSecret != "" {
+		if reason := h.verifyTurnstile(r.Context(), req.TurnstileToken); reason != "" {
+			failSubscribe(w, r, "captcha_failed", http.StatusForbidden,
+				"captcha verification failed",
+				fmt.Sprintf("email=%s turnstile=%s", maskEmail(req.Email), reason))
+			return
+		}
 	}
 
 	// Reject signups outside our coverage area: with no upcoming event within
@@ -92,12 +113,13 @@ func (h *SubscribeHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		RadiusMeters: float64(radius) * 1609.34,
 	})
 	if err != nil {
-		log.Printf("Subscribe: coverage check failed for %s: %v", req.Email, err)
-		http.Error(w, `{"error":"failed to subscribe"}`, http.StatusInternalServerError)
+		failSubscribe(w, r, "coverage_db_error", http.StatusInternalServerError, "failed to subscribe",
+			fmt.Sprintf("email=%s err=%v", maskEmail(req.Email), err))
 		return
 	}
 	if nearby == 0 {
-		http.Error(w, `{"error":"we don't cover that area yet"}`, http.StatusUnprocessableEntity)
+		failSubscribe(w, r, "out_of_area", http.StatusUnprocessableEntity, "we don't cover that area yet",
+			fmt.Sprintf("email=%s lat=%f lng=%f radius=%d", maskEmail(req.Email), req.Latitude, req.Longitude, radius))
 		return
 	}
 
@@ -108,15 +130,18 @@ func (h *SubscribeHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		RadiusMiles: radius,
 	})
 	if err != nil {
-		log.Printf("Subscribe: failed to upsert subscriber %s: %v", req.Email, err)
-		http.Error(w, `{"error":"failed to subscribe"}`, http.StatusInternalServerError)
+		failSubscribe(w, r, "upsert_db_error", http.StatusInternalServerError, "failed to subscribe",
+			fmt.Sprintf("email=%s err=%v", maskEmail(req.Email), err))
 		return
 	}
 
 	// Already confirmed: this was just a location refresh, nothing to send.
 	// Otherwise (re)send the confirmation email.
 	if !sub.Confirmed {
+		metrics.DigestSubscribeTotal.WithLabelValues("confirmation_sent").Inc()
 		h.sendConfirmationEmail(sub.Email, uuidString(sub.ConfirmToken))
+	} else {
+		metrics.DigestSubscribeTotal.WithLabelValues("already_confirmed").Inc()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -163,10 +188,20 @@ func (h *SubscribeHandler) sendConfirmationEmail(email, confirmToken string) {
 	}
 }
 
-// verifyTurnstile validates the client token against Cloudflare's siteverify API.
-func (h *SubscribeHandler) verifyTurnstile(ctx context.Context, token string) bool {
+// verifyTurnstile validates the client token against Cloudflare's siteverify
+// API. It returns "" when the token is valid, otherwise a short machine-readable
+// reason. The reason matters: siteverify distinguishes a token the visitor
+// already spent or let expire (timeout-or-duplicate) from a misconfigured
+// deployment (invalid-input-secret) — identical 403s to the client, but the
+// first is one user's problem and the second means signup is down for everyone.
+func (h *SubscribeHandler) verifyTurnstile(ctx context.Context, token string) string {
+	record := func(reason string) string {
+		metrics.TurnstileVerifyTotal.WithLabelValues(reason).Inc()
+		return reason
+	}
+
 	if token == "" {
-		return false
+		return record("missing-input-response")
 	}
 
 	form := url.Values{}
@@ -177,25 +212,59 @@ func (h *SubscribeHandler) verifyTurnstile(ctx context.Context, token string) bo
 		"https://challenges.cloudflare.com/turnstile/v0/siteverify", strings.NewReader(form.Encode()))
 	if err != nil {
 		log.Printf("Subscribe: turnstile request build failed: %v", err)
-		return false
+		return record("request-build-failed")
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		log.Printf("Subscribe: turnstile verify request failed: %v", err)
-		return false
+		return record("siteverify-unreachable")
 	}
 	defer resp.Body.Close()
 
 	var out struct {
-		Success bool `json:"success"`
+		Success    bool     `json:"success"`
+		ErrorCodes []string `json:"error-codes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		log.Printf("Subscribe: turnstile response decode failed: %v", err)
-		return false
+		log.Printf("Subscribe: turnstile response decode failed (http %d): %v", resp.StatusCode, err)
+		return record("siteverify-decode-failed")
 	}
-	return out.Success
+	if out.Success {
+		metrics.TurnstileVerifyTotal.WithLabelValues("success").Inc()
+		return ""
+	}
+	if len(out.ErrorCodes) == 0 {
+		return record("unknown")
+	}
+	// Label on the first code only — the set is small and fixed, so cardinality
+	// stays bounded; the full set goes to the caller's log line.
+	metrics.TurnstileVerifyTotal.WithLabelValues(out.ErrorCodes[0]).Inc()
+	return strings.Join(out.ErrorCodes, ",")
+}
+
+// maskEmail keeps an address correlatable in logs without writing it in the
+// clear: "someone@example.com" becomes "s*****e@example.com".
+func maskEmail(email string) string {
+	at := strings.LastIndex(email, "@")
+	if at <= 0 {
+		return "(invalid)"
+	}
+	local, domain := email[:at], email[at+1:]
+	if len(local) <= 2 {
+		return strings.Repeat("*", len(local)) + "@" + domain
+	}
+	return string(local[0]) + strings.Repeat("*", len(local)-2) + string(local[len(local)-1]) + "@" + domain
+}
+
+// clientIPForLog returns the caller's IP as normalized by chi's RealIP
+// middleware, for correlating repeated failures from the same visitor.
+func clientIPForLog(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 func (h *SubscribeHandler) renderConfirmPage(w http.ResponseWriter, ok bool) {

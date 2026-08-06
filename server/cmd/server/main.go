@@ -243,6 +243,16 @@ func main() {
 		log.Println("Admin alerts enabled")
 	}
 
+	// Stated at startup because it is a cross-deployment contract: with
+	// enforcement on, the frontend must also be built with
+	// VITE_TURNSTILE_SITE_KEY (a Cloudflare Workers Builds variable) or every
+	// digest signup is rejected with no token to verify.
+	if cfg.TurnstileSecretKey != "" {
+		log.Println("Turnstile verification ENFORCED on /api/subscribe — the frontend build must set VITE_TURNSTILE_SITE_KEY")
+	} else {
+		log.Println("Turnstile verification disabled (TURNSTILE_SECRET_KEY not set)")
+	}
+
 	// Nightly user-preference vector recompute. Lazy-invalidates when users
 	// save/view events; this drains the queue.
 	if recsService != nil {

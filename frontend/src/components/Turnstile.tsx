@@ -9,6 +9,17 @@ const SCRIPT_SRC =
 // skips verification when no secret is set).
 export const turnstileEnabled = Boolean(SITE_KEY);
 
+// Without the key Vite constant-folds `turnstileEnabled` to false and tree-shakes
+// this whole widget out of the bundle, so a build that forgot the variable looks
+// identical to one that never wanted a captcha — while the server still rejects
+// every tokenless submission. Say so out loud in the browser.
+if (typeof window !== "undefined" && !SITE_KEY) {
+	console.warn(
+		"[turnstile] VITE_TURNSTILE_SITE_KEY is not set in this build; no captcha token will be sent. " +
+			"If the API reports turnstile_enforced=true (GET /api/health), every /api/subscribe request will fail with 403.",
+	);
+}
+
 interface TurnstileApi {
 	render: (
 		el: HTMLElement,
@@ -52,9 +63,15 @@ function loadScript(): Promise<void> {
 interface TurnstileProps {
 	onVerify: (token: string) => void;
 	onExpire?: () => void;
+	// Increment to discard the current token and re-run the challenge. Turnstile
+	// tokens are single-use and are spent by the first siteverify call, so a form
+	// that failed for any reason MUST reset before the visitor retries —
+	// otherwise the second submit fails with `timeout-or-duplicate` regardless of
+	// what the visitor changed, and they can never get through.
+	resetSignal?: number;
 }
 
-export function Turnstile({ onVerify, onExpire }: TurnstileProps) {
+export function Turnstile({ onVerify, onExpire, resetSignal }: TurnstileProps) {
 	const ref = useRef<HTMLDivElement>(null);
 	const widgetId = useRef<string | null>(null);
 	// Keep the latest callbacks in a ref so the widget renders exactly once.
@@ -90,6 +107,20 @@ export function Turnstile({ onVerify, onExpire }: TurnstileProps) {
 			}
 		};
 	}, []);
+
+	// Skip the initial render — only an actual bump should reset the widget.
+	const lastReset = useRef(resetSignal);
+	useEffect(() => {
+		if (resetSignal === lastReset.current) return;
+		lastReset.current = resetSignal;
+		if (!widgetId.current || !window.turnstile) return;
+		try {
+			window.turnstile.reset(widgetId.current);
+		} catch {
+			// widget already gone
+		}
+		cbRef.current.onExpire?.();
+	}, [resetSignal]);
 
 	if (!SITE_KEY) return null;
 	return <div ref={ref} className="mt-1" />;

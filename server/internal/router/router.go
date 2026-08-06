@@ -73,7 +73,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	}
 
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/health", handler.HealthCheck)
+		r.Get("/health", handler.NewHealthHandler(cfg.TurnstileSecretKey).Check)
 		r.Get("/sitemap.xml", sitemapHandler.Sitemap)
 		r.Get("/unsubscribe/{token}", notificationHandler.Unsubscribe)
 		r.Post("/sms/incoming", smsWebhookHandler.Incoming)

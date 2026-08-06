@@ -178,3 +178,33 @@ var (
 		[]string{"reason"},
 	)
 )
+
+// Digest signup metrics. The HTTP middleware already records status codes for
+// /api/subscribe, but a 400/403/500 there can mean several different things.
+// These break the funnel down by the specific outcome so a spike in "user says
+// signup is broken" reports can be attributed without reading logs.
+var (
+	DigestSubscribeTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "digest_subscribe_total",
+			Help: "Anonymous weekly-digest signup attempts by outcome.",
+		},
+		// outcome: bad_body, invalid_email, missing_location, invalid_coords,
+		// captcha_failed, out_of_area, coverage_db_error, upsert_db_error,
+		// confirmation_sent, already_confirmed
+		[]string{"outcome"},
+	)
+
+	// TurnstileVerifyTotal records the result of each siteverify call. Cloudflare
+	// returns a machine-readable reason on failure (timeout-or-duplicate,
+	// invalid-input-secret, invalid-input-response, ...) which distinguishes
+	// "user reused a token" from "our secret is misconfigured" — the two failure
+	// modes that look identical from the client.
+	TurnstileVerifyTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "turnstile_verify_total",
+			Help: "Cloudflare Turnstile siteverify results, labelled by reason.",
+		},
+		[]string{"result"},
+	)
+)

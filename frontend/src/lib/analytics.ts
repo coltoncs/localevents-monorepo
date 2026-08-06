@@ -100,6 +100,14 @@ export const EVENTS = {
 	submitEventStart: "submit_event_start",
 	submitEventSuccess: "submit_event_success",
 	submitEventError: "submit_event_error",
+	// digest signup funnel (anonymous banner). digestSubscribeError carries a
+	// `reason` param (http status, or the server's `code`, or "network") so a
+	// failure the visitor only sees as "Something went wrong" is attributable
+	// from GA4 alone, without correlating against server logs.
+	digestSubscribeStart: "digest_subscribe_start",
+	digestSubscribeSubmit: "digest_subscribe_submit",
+	digestSubscribeSuccess: "digest_subscribe_success",
+	digestSubscribeError: "digest_subscribe_error",
 	// diagnostics — fired by <ErrorBoundary> when a subtree crashes, so
 	// environment-specific breakage (in-app browsers, blocked storage) is
 	// visible in GA4 instead of only on the affected device.

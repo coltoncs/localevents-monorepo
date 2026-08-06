@@ -11,9 +11,22 @@
   //   Root directory:  frontend
   //   Build command:   pnpm build      (runs `vite build`)
   //   Deploy command:  npx wrangler deploy
-  // Build-time VITE_* vars (VITE_CLERK_PUBLISHABLE_KEY, VITE_MAPBOX_TOKEN, …)
-  // must be set as Build variables in those dashboard settings — Vite inlines
-  // them at build time, so Worker runtime secrets/.dev.vars do not cover them.
+  // Build-time VITE_* vars must be set as Build variables in those dashboard
+  // settings — Vite inlines them at build time, so Worker runtime
+  // secrets/.dev.vars and the `vars` block below do NOT cover them, and neither
+  // does a local .env.production.local (the CI builder never sees it). A var
+  // missing there is silent: Vite folds it to `undefined` and tree-shakes the
+  // feature away, so the site builds and deploys green while the feature is off.
+  // Keep this list complete and in sync with .env.production.local:
+  //   VITE_API_URL
+  //   VITE_CLERK_PUBLISHABLE_KEY
+  //   VITE_MAPBOX_TOKEN
+  //   VITE_GA_MEASUREMENT_ID
+  //   VITE_GOOGLE_ADS_ID
+  //   VITE_META_PIXEL_ID
+  //   VITE_TURNSTILE_SITE_KEY   (paired with the server's TURNSTILE_SECRET_KEY;
+  //     if the server enforces and this is unset, every digest signup 403s —
+  //     check `turnstile_enforced` on GET /api/health against the built bundle)
   // ─────────────────────────────────────────────────────────────────────────
   "name": "localevents",
   "compatibility_date": "2025-09-02",

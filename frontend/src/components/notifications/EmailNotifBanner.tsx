@@ -6,6 +6,7 @@ import {
 	type LocationValue,
 } from "#/components/maps/LocationPicker";
 import { Turnstile, turnstileEnabled } from "#/components/Turnstile";
+import { EVENTS, track } from "#/lib/analytics";
 import { ApiError } from "#/lib/api";
 import { useCoverageCities } from "#/lib/hooks/useCoverage";
 import { useSubscribeToDigest } from "#/lib/hooks/useDigestSubscribe";
@@ -14,6 +15,39 @@ import { storageGet, storageSet } from "#/lib/storage";
 
 const STORAGE_KEY = "email-notif-banner-dismissed";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// The server tags every rejection with a stable `code` alongside the status.
+// Pull it out for analytics so a failure is attributable to a specific branch
+// of the handler rather than a bare status code.
+function errorReason(error: unknown): string {
+	if (!(error instanceof ApiError)) return "network";
+	try {
+		const code = JSON.parse(error.message)?.code;
+		if (typeof code === "string") return code;
+	} catch {
+		// older deploy, or a non-JSON body (proxy/gateway error page)
+	}
+	return String(error.status);
+}
+
+// Failure copy that tells the visitor what to actually do. Everything used to
+// collapse into "Something went wrong", which is unactionable and — for the
+// recoverable captcha and rate-limit cases — actively misleading.
+function errorMessage(error: unknown): string {
+	const status = error instanceof ApiError ? error.status : 0;
+	switch (status) {
+		case 422:
+			return "We don't cover that area yet — pick a location closer to a city we serve.";
+		case 403:
+			return "That verification expired. We've reset the check below — please complete it and try again.";
+		case 429:
+			return "Too many attempts from your network. Please try again in an hour.";
+		case 400:
+			return "Please double-check your email address and location.";
+		default:
+			return "Something went wrong. Please try again in a moment.";
+	}
+}
 
 export function EmailNotifBanner() {
 	const { isSignedIn, isLoaded } = useAuth();
@@ -101,6 +135,8 @@ function AnonymousBanner() {
 	const [email, setEmail] = useState("");
 	const [location, setLocation] = useState<LocationValue | null>(null);
 	const [token, setToken] = useState<string | null>(null);
+	// Bumped after every failed submit to force a fresh Turnstile token.
+	const [captchaNonce, setCaptchaNonce] = useState(0);
 	const emailId = useId();
 	const subscribe = useSubscribeToDigest();
 	const { data: coverage } = useCoverageCities();
@@ -110,8 +146,6 @@ function AnonymousBanner() {
 	const coverageConstraint = coverage
 		? { cities: coverage.cities, radiusMiles: coverage.radius_miles }
 		: null;
-	const outOfArea =
-		subscribe.error instanceof ApiError && subscribe.error.status === 422;
 
 	const emailValid = EMAIL_RE.test(email.trim());
 	const canSubmit =
@@ -120,12 +154,28 @@ function AnonymousBanner() {
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
 		if (!canSubmit || location == null) return;
-		subscribe.mutate({
-			email: email.trim(),
-			latitude: location.lat,
-			longitude: location.lng,
-			turnstile_token: token ?? undefined,
-		});
+		track(EVENTS.digestSubscribeSubmit, { captcha: turnstileEnabled });
+		subscribe.mutate(
+			{
+				email: email.trim(),
+				latitude: location.lat,
+				longitude: location.lng,
+				turnstile_token: token ?? undefined,
+			},
+			{
+				onSuccess: () => track(EVENTS.digestSubscribeSuccess),
+				onError: (error) => {
+					track(EVENTS.digestSubscribeError, {
+						reason: errorReason(error),
+						status: error instanceof ApiError ? error.status : 0,
+					});
+					// The token was spent by the failed attempt. Without this the
+					// retry always fails as a duplicate, whatever the visitor fixes.
+					setToken(null);
+					setCaptchaNonce((n) => n + 1);
+				},
+			},
+		);
 	}
 
 	return (
@@ -146,7 +196,10 @@ function AnonymousBanner() {
 							needed.{" "}
 							<button
 								type="button"
-								onClick={() => setExpanded(true)}
+								onClick={() => {
+									track(EVENTS.digestSubscribeStart);
+									setExpanded(true);
+								}}
 								className="font-semibold text-(--lagoon-deep) hover:text-(--lagoon) underline"
 							>
 								Sign up with your email
@@ -197,13 +250,15 @@ function AnonymousBanner() {
 							</button>
 						</div>
 						{turnstileEnabled && (
-							<Turnstile onVerify={setToken} onExpire={() => setToken(null)} />
+							<Turnstile
+								onVerify={setToken}
+								onExpire={() => setToken(null)}
+								resetSignal={captchaNonce}
+							/>
 						)}
 						{subscribe.isError && (
 							<p className="text-sm text-red-600">
-								{outOfArea
-									? "We don't cover that area yet — pick a location closer to a city we serve."
-									: "Something went wrong. Please try again in a moment."}
+								{errorMessage(subscribe.error)}
 							</p>
 						)}
 					</form>
