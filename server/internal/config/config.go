@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -31,6 +32,7 @@ type Config struct {
 	PlannerEnabled      bool
 	CleanupCronSchedule string
 	FrontendURL         string
+	APIURL              string
 	OpenAIAPIKey        string
 	RecsRecomputeCron   string
 	AdminAlertEmail     string
@@ -76,6 +78,7 @@ func Load() *Config {
 		// images that will survive until the following week's cleanup.
 		CleanupCronSchedule: getEnv("CLEANUP_CRON_SCHEDULE", "CRON_TZ=America/New_York 0 8 * * 5"),
 		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3000"),
+		APIURL:              apiURL(),
 		OpenAIAPIKey:        getEnv("OPENAI_API_KEY", ""),
 		// Nightly at 3 AM ET — quiet window for vector recomputes.
 		RecsRecomputeCron: getEnv("RECS_RECOMPUTE_CRON", "CRON_TZ=America/New_York 0 3 * * *"),
@@ -96,6 +99,25 @@ func Load() *Config {
 		// public /api/subscribe endpoint. Empty disables verification (local dev).
 		TurnstileSecretKey: getEnv("TURNSTILE_SECRET_KEY", ""),
 	}
+}
+
+// apiURL is the publicly reachable base URL of THIS server. Links we mail out
+// that land on a backend route (digest confirm, unsubscribe) must use it rather
+// than FrontendURL: the frontend only proxies /api to :8080 in the Vite dev
+// server, so in production `FRONTEND_URL + /api/...` is served by the
+// Cloudflare Worker, which has no such route and answers 404.
+//
+// Railway injects RAILWAY_PUBLIC_DOMAIN, so production works with no new
+// variable to set; API_URL overrides it (e.g. once a custom API domain exists).
+// Locally we fall back to FRONTEND_URL, where the dev proxy makes /api work.
+func apiURL() string {
+	if v := os.Getenv("API_URL"); v != "" {
+		return strings.TrimSuffix(v, "/")
+	}
+	if domain := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); domain != "" {
+		return "https://" + domain
+	}
+	return strings.TrimSuffix(getEnv("FRONTEND_URL", "http://localhost:3000"), "/")
 }
 
 func getEnv(key, fallback string) string {

@@ -29,10 +29,13 @@ func digestLimit(emailStyle string) int32 {
 }
 
 type Runner struct {
-	Queries        *store.Queries
-	Email          *EmailSender
-	SMS            *SMSSender
-	FrontendURL    string
+	Queries     *store.Queries
+	Email       *EmailSender
+	SMS         *SMSSender
+	FrontendURL string
+	// APIURL is this server's public base URL — unsubscribe links hit a
+	// backend route, which FrontendURL does not serve in production.
+	APIURL         string
 	ClerkSecretKey string
 }
 
@@ -113,7 +116,7 @@ func (r *Runner) RunForUser(ctx context.Context, userID pgtype.UUID) error {
 		digestFormat = "daily"
 	}
 
-	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
+	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.APIURL, uuidToString(sub.EmailUnsubscribeToken))
 	html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
 	if err != nil {
 		return fmt.Errorf("rendering email: %w", err)
@@ -194,7 +197,7 @@ func (r *Runner) sendEmailDigests(ctx context.Context, startDate, endDate time.T
 			digestFormat = "daily"
 		}
 
-		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
+		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.APIURL, uuidToString(sub.EmailUnsubscribeToken))
 		html, err := RenderDigestEmail(events, savedEvents, categories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
 		if err != nil {
 			log.Printf("Digest: failed to render email for user %s: %v", uuidToString(sub.ID), err)
@@ -272,7 +275,7 @@ func (r *Runner) sendAnonymousEmailDigests(ctx context.Context, startDate, endDa
 			digestFormat = "daily"
 		}
 
-		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.FrontendURL, uuidToString(sub.UnsubscribeToken))
+		unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", r.APIURL, uuidToString(sub.UnsubscribeToken))
 		html, err := RenderDigestEmail(events, nil, sub.PreferredCategories, unsubscribeURL, r.FrontendURL, digestFormat, emailStyle)
 		if err != nil {
 			log.Printf("Digest: failed to render email for subscriber %s: %v", sub.Email, err)

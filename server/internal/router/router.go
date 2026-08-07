@@ -51,7 +51,7 @@ func New(queries *store.Queries, pool *pgxpool.Pool, cfg *config.Config, digestR
 	imageHandler := handler.NewImageHandler(queries, r2)
 	sitemapHandler := handler.NewSitemapHandler(queries)
 	notificationHandler := handler.NewNotificationHandler(queries, cfg.FrontendURL, cfg.ClerkSecretKey, digestRunner)
-	subscribeHandler := handler.NewSubscribeHandler(queries, digestRunner.Email, cfg.FrontendURL, cfg.TurnstileSecretKey)
+	subscribeHandler := handler.NewSubscribeHandler(queries, digestRunner.Email, cfg.FrontendURL, cfg.APIURL, cfg.TurnstileSecretKey)
 	coverageHandler := handler.NewCoverageHandler(queries)
 	digestHandler := handler.NewDigestHandler(digestRunner)
 	socialHandler := handler.NewSocialHandler(socialGen)

@@ -13,7 +13,7 @@ import (
 // The validation branches return before touching the database, so a handler
 // with nil queries exercises them safely.
 func newSubscribeHandler() *handler.SubscribeHandler {
-	return handler.NewSubscribeHandler(nil, nil, "https://919events.com", "")
+	return handler.NewSubscribeHandler(nil, nil, "https://919events.com", "https://api.919events.com", "")
 }
 
 func postSubscribe(t *testing.T, body any) *httptest.ResponseRecorder {

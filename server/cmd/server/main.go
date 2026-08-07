@@ -217,6 +217,7 @@ func main() {
 	digestRunner := &notifier.Runner{
 		Queries:        queries,
 		FrontendURL:    cfg.FrontendURL,
+		APIURL:         cfg.APIURL,
 		ClerkSecretKey: cfg.ClerkSecretKey,
 	}
 	if cfg.ResendAPIKey != "" {
@@ -286,6 +287,7 @@ func main() {
 		Recs:        recsService,
 		Email:       digestRunner.Email,
 		FrontendURL: cfg.FrontendURL,
+		APIURL:      cfg.APIURL,
 	}
 
 	// Social event-card generator (always created when R2 is configured so the

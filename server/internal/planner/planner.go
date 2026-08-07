@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	maxItemsPerDay = 5
+	maxItemsPerDay  = 5
 	defaultRadiusMi = 10.0
 	metersPerMile   = 1609.34
 
@@ -37,6 +37,8 @@ type Generator struct {
 	Recs        *recommend.Service
 	Email       *notifier.EmailSender
 	FrontendURL string
+	// APIURL is this server's public base URL (see notifier.Runner.APIURL).
+	APIURL string
 }
 
 // weekWindow returns the ET 7-day plan window [start, start+7) and the location.
@@ -156,7 +158,7 @@ func (g *Generator) generateForUser(ctx context.Context, sub store.ListEmailSubs
 		return nil
 	}
 
-	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", g.FrontendURL, uuidToString(sub.EmailUnsubscribeToken))
+	unsubscribeURL := fmt.Sprintf("%s/api/unsubscribe/%s", g.APIURL, uuidToString(sub.EmailUnsubscribeToken))
 	html, err := RenderPlannerEmail(plan, unsubscribeURL, g.FrontendURL)
 	if err != nil {
 		return fmt.Errorf("render planner email: %w", err)

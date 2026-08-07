@@ -25,18 +25,23 @@ import (
 // anonymous users. Signups are double opt-in: a subscriber only starts
 // receiving digests after clicking the confirmation link mailed at signup.
 type SubscribeHandler struct {
-	queries         *store.Queries
-	email           *notifier.EmailSender
-	frontendURL     string
+	queries     *store.Queries
+	email       *notifier.EmailSender
+	frontendURL string
+	// apiURL is this server's own public base URL. The confirmation link points
+	// at a backend route, and only the Vite dev server proxies /api to it — in
+	// production frontendURL is the Cloudflare Worker, which 404s that path.
+	apiURL          string
 	turnstileSecret string
 	httpClient      *http.Client
 }
 
-func NewSubscribeHandler(q *store.Queries, email *notifier.EmailSender, frontendURL, turnstileSecret string) *SubscribeHandler {
+func NewSubscribeHandler(q *store.Queries, email *notifier.EmailSender, frontendURL, apiURL, turnstileSecret string) *SubscribeHandler {
 	return &SubscribeHandler{
 		queries:         q,
 		email:           email,
 		frontendURL:     frontendURL,
+		apiURL:          apiURL,
 		turnstileSecret: turnstileSecret,
 		httpClient:      metrics.NewInstrumentedClient("turnstile", 10*time.Second),
 	}
@@ -162,7 +167,7 @@ func (h *SubscribeHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SubscribeHandler) sendConfirmationEmail(email, confirmToken string) {
-	confirmURL := fmt.Sprintf("%s/api/subscribe/confirm/%s", h.frontendURL, confirmToken)
+	confirmURL := fmt.Sprintf("%s/api/subscribe/confirm/%s", h.apiURL, confirmToken)
 	if h.email == nil {
 		// No Resend configured (local dev) — log the link so the flow is testable.
 		log.Printf("Subscribe: email sender not configured; confirmation URL for %s: %s", email, confirmURL)
