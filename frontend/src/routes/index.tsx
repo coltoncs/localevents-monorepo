@@ -124,6 +124,8 @@ function UpcomingSavedEvents() {
 function FeaturedAtLocation({ lat, lng }: { lat: number; lng: number }) {
   const { data } = useFeaturedEvents({ lat, lng, radius: 50, limit: 8 })
   const events = data?.events
+    ?.slice()
+    .sort((a, b) => new Date(a.StartTime).getTime() - new Date(b.StartTime).getTime())
   if (!events?.length) return null
 
   return (
