@@ -532,24 +532,43 @@ export function EventMap({
 	}, [getEventMarkerStyle, updateCircleColors]);
 
 	// Update center and radius circle
+	// radiusMiles is a re-run trigger only; the effect reads it through radiusRef
+	// so a deferred run writes the live value, not this render's snapshot.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger
 	useEffect(() => {
 		const map = mapRef.current;
 		if (!map) return;
 		map.setCenter([center.lng, center.lat]);
 
+		// Always read the live center/radius so a deferred run can't write a stale
+		// snapshot, and drop the pending listener on cleanup so a superseded run
+		// never fires at all.
+		const apply = () => {
+			updateRadiusCircle(
+				map,
+				centerRef.current.lng,
+				centerRef.current.lat,
+				radiusRef.current,
+			);
+		};
+
 		if (map.isStyleLoaded()) {
-			updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
-		} else {
-			// `idle` re-fires whenever the map settles; `style.load` only fires on a
-			// fresh style load, so it would miss this update when isStyleLoaded()
-			// flakily reports false without a style actually reloading.
-			map.once("idle", () => {
-				updateRadiusCircle(map, center.lng, center.lat, radiusMiles);
-			});
+			apply();
+			return;
 		}
+		// `idle` re-fires whenever the map settles; `style.load` only fires on a
+		// fresh style load, so it would miss this update when isStyleLoaded()
+		// flakily reports false without a style actually reloading.
+		map.once("idle", apply);
+		return () => {
+			map.off("idle", apply);
+		};
 	}, [center.lat, center.lng, radiusMiles, updateRadiusCircle]);
 
 	// Update the clustered events source (creating it on first run)
+	// events/center are re-run triggers only; the effect reads them through refs
+	// so a deferred run writes the live values, not this render's snapshot.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentional triggers
 	useEffect(() => {
 		const map = mapRef.current;
 		if (!map) return;
@@ -559,9 +578,12 @@ export function EventMap({
 		pointPopupRef.current?.remove();
 		pointPopupRef.current = null;
 
-		const data = buildEventFeatures(events);
-
+		// Build the features inside `apply` from the ref, never from this render's
+		// closure: a deferred run can fire long after the events it captured were
+		// replaced, and writing that stale snapshot would blank the markers.
 		const apply = () => {
+			const current = eventsRef.current;
+			const data = buildEventFeatures(current);
 			const source = map.getSource(EVENTS_SOURCE) as
 				| mapboxgl.GeoJSONSource
 				| undefined;
@@ -569,10 +591,10 @@ export function EventMap({
 			else addEventLayers(map, data);
 
 			// Fit map to show all events + the center point
-			if (events.length > 0) {
+			if (current.length > 0) {
 				const bounds = new mapboxgl.LngLatBounds();
-				bounds.extend([center.lng, center.lat]);
-				events.forEach((event) =>
+				bounds.extend([centerRef.current.lng, centerRef.current.lat]);
+				current.forEach((event) =>
 					bounds.extend([event.Longitude, event.Latitude]),
 				);
 				map.fitBounds(bounds, { padding: 50, maxZoom: 14 });
@@ -584,8 +606,16 @@ export function EventMap({
 		// Fall back to `idle` — which re-fires every time the map settles — rather
 		// than the one-shot `load` event, which only ever fires once per map and so
 		// would silently drop this update on every run after the first.
-		if (map.isStyleLoaded()) apply();
-		else map.once("idle", apply);
+		if (map.isStyleLoaded()) {
+			apply();
+			return;
+		}
+		map.once("idle", apply);
+		// Drop the pending listener when this run is superseded, so an older
+		// deferred apply can never land after a newer one has already written.
+		return () => {
+			map.off("idle", apply);
+		};
 	}, [events, addEventLayers, center.lat, center.lng]);
 
 	// Respond to external selection: open a popup at the selected event's
