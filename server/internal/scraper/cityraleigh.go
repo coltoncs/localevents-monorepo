@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 const (
@@ -28,7 +26,7 @@ type CityOfRaleigh struct {
 // NewCityOfRaleigh creates a new City of Raleigh event source.
 func NewCityOfRaleigh() *CityOfRaleigh {
 	return &CityOfRaleigh{
-		Client: metrics.NewInstrumentedClient("visitraleigh", 30*time.Second),
+		Client: newBrowserClient("visitraleigh", 30*time.Second),
 	}
 }
 

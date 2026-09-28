@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 const (
@@ -27,7 +25,7 @@ type VisitRichmond struct {
 
 func NewVisitRichmond() *VisitRichmond {
 	return &VisitRichmond{
-		Client: metrics.NewInstrumentedClient("visitrichmond", 30*time.Second),
+		Client: newBrowserClient("visitrichmond", 30*time.Second),
 	}
 }
 
@@ -246,9 +244,9 @@ type vrQuery struct {
 }
 
 type vrFilter struct {
-	Active    bool                     `json:"active"`
+	Active    bool             `json:"active"`
 	And       []map[string]any `json:"$and"`
-	DateRange vrDateRange              `json:"date_range"`
+	DateRange vrDateRange      `json:"date_range"`
 }
 
 type vrDateRange struct {

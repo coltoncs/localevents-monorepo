@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/coltonsweeney/localevents/server/internal/metrics"
 )
 
 const (
@@ -31,7 +29,7 @@ type VisitChapelHill struct {
 // NewVisitChapelHill creates a new Visit Chapel Hill event source.
 func NewVisitChapelHill() *VisitChapelHill {
 	return &VisitChapelHill{
-		Client: metrics.NewInstrumentedClient("visitchapelhill", 30*time.Second),
+		Client: newBrowserClient("visitchapelhill", 30*time.Second),
 	}
 }
 
@@ -124,13 +122,13 @@ func (c *VisitChapelHill) fetchPage(ctx context.Context, token, startDate, endDa
 			},
 		},
 		"options": map[string]any{
-			"limit":     chPageSize,
-			"skip":      skip,
-			"count":     true,
-			"castDocs":  false,
-			"fields":    chFields,
-			"hooks":     []string{},
-			"sort":      map[string]int{"date": 1, "rank": 1, "title_sort": 1},
+			"limit":    chPageSize,
+			"skip":     skip,
+			"count":    true,
+			"castDocs": false,
+			"fields":   chFields,
+			"hooks":    []string{},
+			"sort":     map[string]int{"date": 1, "rank": 1, "title_sort": 1},
 		},
 	}
 	jsonBytes, err := json.Marshal(query)
