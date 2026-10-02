@@ -8,6 +8,7 @@ import {
 	getCircleColors as getCircleColorsUtil,
 	getEventMarkerStyle as getEventMarkerStyleUtil,
 	getLightPreset,
+	getMapPerformanceOptions,
 	getResolvedTheme,
 	STANDARD_SLOT_MIDDLE,
 	STANDARD_STYLE,
@@ -417,6 +418,7 @@ export function EventMap({
 			style: STANDARD_STYLE,
 			center: [center.lng, center.lat],
 			zoom,
+			...getMapPerformanceOptions(),
 		});
 
 		// The Standard style re-resolves its imported basemap whenever the

@@ -8,6 +8,7 @@ import {
 	getCircleColors as getCircleColorsUtil,
 	getMarkerColor as getDrinkMarkerColor,
 	getLightPreset,
+	getMapPerformanceOptions,
 	getResolvedTheme,
 	STANDARD_SLOT_MIDDLE,
 	STANDARD_STYLE,
@@ -185,6 +186,7 @@ export function PlaceMap({
 			style: STANDARD_STYLE,
 			center: [center.lng, center.lat],
 			zoom,
+			...getMapPerformanceOptions(),
 		});
 
 		const initialTheme = themeRef.current;

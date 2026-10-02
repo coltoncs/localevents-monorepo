@@ -8,6 +8,7 @@ import {
 	DEFAULT_MAP_CENTER,
 	getCircleColors,
 	getLightPreset,
+	getMapPerformanceOptions,
 	getMarkerColor,
 	getResolvedTheme,
 	STANDARD_SLOT_MIDDLE,
@@ -97,6 +98,7 @@ export function LocationPickerMap({
 			style: STANDARD_STYLE,
 			center: [viewCenter.lng, viewCenter.lat],
 			zoom: 12,
+			...getMapPerformanceOptions(),
 		});
 		mapRef.current = map;
 

@@ -145,14 +145,23 @@ export function FullscreenMap({
 
   function handleSelectEvent(event: Event) {
     setSelectedEventId(event.ID);
-    mapInstanceRef.current?.flyTo({
-      center: [event.Longitude, event.Latitude],
-      zoom: 16.5,
-      pitch: 60,
-      bearing: -20,
-      duration: 1200,
-      essential: true,
-    });
+    const map = mapInstanceRef.current;
+    if (map) {
+      const center: [number, number] = [event.Longitude, event.Latitude];
+      // A moderate pitch/zoom keeps the horizon (and the extra tiles it pulls
+      // in) out of view. For targets already on screen, easeTo skips flyTo's
+      // zoom-out arc, which would load a whole new band of tiles mid-animation.
+      const camera = {
+        center,
+        zoom: 15.5,
+        pitch: 45,
+        bearing: -20,
+        duration: 1000,
+        essential: true,
+      };
+      if (map.getBounds()?.contains(center)) map.easeTo(camera);
+      else map.flyTo(camera);
+    }
     if (sheetSnap === "full") setSheetSnap("half");
     setMobileFiltersExpanded(false);
   }

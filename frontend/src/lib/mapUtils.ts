@@ -8,6 +8,21 @@ export function getLightPreset(theme: "light" | "dark"): LightPreset {
 	return theme === "dark" ? "night" : "day";
 }
 
+// Performance-related options shared by every map instance. Standard's
+// instanced 3D trees and landmark models are the heaviest to load and render
+// during camera animations, so they're disabled; plain building extrusions
+// stay on. Passed via the constructor so no style re-resolution is triggered.
+// The pixel ratio is capped since high-DPI screens multiply fill cost for
+// barely visible gains.
+export function getMapPerformanceOptions() {
+	return {
+		pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+		config: {
+			basemap: { show3dTrees: false, show3dLandmarks: false },
+		},
+	};
+}
+
 // Slot to place custom layers under labels/POI symbols in Standard style.
 export const STANDARD_SLOT_MIDDLE = "middle";
 
