@@ -670,6 +670,14 @@ function MobileSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const filtersId = useId();
+  // The dropdown clips its content only while animating; once fully open it
+  // must overflow so popovers inside (e.g. city search suggestions) aren't cut
+  // off.
+  const [filtersClipped, setFiltersClipped] = useState(!filtersOpen);
+
+  useEffect(() => {
+    if (!filtersOpen) setFiltersClipped(true);
+  }, [filtersOpen]);
   // Snap pixel offsets (translateY) for each state, recomputed on resize.
   const metricsRef = useRef({ fullPx: 0, peekY: 0, halfY: 0, fullY: 0 });
   // Mirror of the current snap so Draggable callbacks read the latest value.
@@ -888,11 +896,20 @@ function MobileSheet({
           content's natural height. */}
       <div
         id={filtersId}
-        className="grid shrink-0 transition-[grid-template-rows] duration-200 ease-out"
+        className="relative z-10 grid shrink-0 transition-[grid-template-rows] duration-200 ease-out"
         style={{ gridTemplateRows: filtersOpen ? "1fr" : "0fr" }}
         inert={!filtersOpen}
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && filtersOpen) {
+            setFiltersClipped(false);
+          }
+        }}
       >
-        <div className="min-h-0 overflow-hidden">{filters}</div>
+        <div
+          className={`min-h-0 ${filtersClipped ? "overflow-hidden" : "overflow-visible"}`}
+        >
+          {filters}
+        </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
