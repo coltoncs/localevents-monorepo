@@ -6,24 +6,9 @@ import { useGSAP } from "@gsap/react";
 import type { Event } from "#/lib/types";
 import { formatEventTime } from "#/lib/date-utils";
 import { FeaturedBadge } from "#/components/events/FeaturedBadge";
+import { formatPrice } from "#/lib/price";
 
 gsap.registerPlugin(ScrollTrigger);
-
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-
-// Returns a display price, "Free" only when the event is explicitly free, or
-// null when the price is unknown (no price data and not tagged free).
-function formatPrice(event: Event): string | null {
-  if (event.PriceMin != null || event.PriceMax != null) {
-    if (event.PriceMin != null && event.PriceMax != null) {
-      if (event.PriceMin === event.PriceMax) return usd.format(event.PriceMin);
-      return `${usd.format(event.PriceMin)} - ${usd.format(event.PriceMax)}`;
-    }
-    return usd.format((event.PriceMin ?? event.PriceMax)!);
-  }
-  if (event.IsFree) return "Free";
-  return null;
-}
 
 export function EventCard({
   event,

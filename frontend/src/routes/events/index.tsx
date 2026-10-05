@@ -1,15 +1,18 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import { Rows3, Table2 } from 'lucide-react'
 import { useEvents, eventListOptions, mapEventListOptions } from '#/lib/hooks/useEvents'
 import { useUser } from '#/lib/hooks/useUser'
 import { EventFilters } from '#/components/events/EventFilters'
 import { EventTable } from '#/components/events/EventTable'
+import { EventCardList } from '#/components/events/EventListCard'
 import { FullscreenMap, FullscreenMapSkeleton } from '#/components/maps/FullscreenMap'
 import { LocationSearch, getSavedLocation } from '#/components/maps/LocationSearch'
 import { Pagination } from '#/components/Pagination'
 import { Spinner } from '#/components/Spinner'
 import { DEFAULT_MAP_CENTER } from '#/lib/mapUtils'
+import { track } from '#/lib/analytics'
 
 interface EventsSearch {
   lat?: number
@@ -20,6 +23,7 @@ interface EventsSearch {
   category?: string
   search?: string
   view?: 'list'
+  layout?: 'compact'
   page?: number
 }
 
@@ -44,6 +48,7 @@ export const Route = createFileRoute('/events/')({
     category: search.category as string | undefined,
     search: (search.search as string) || undefined,
     view: search.view === 'list' ? 'list' : undefined,
+    layout: search.layout === 'compact' ? 'compact' : undefined,
     page: search.page ? Number(search.page) : undefined,
   }),
   loaderDeps: ({ search }) => ({
@@ -186,6 +191,16 @@ function EventsList({
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
 
+  function setLayout(layout: 'compact' | undefined) {
+    track('change_layout', { layout: layout ?? 'cards' })
+    navigate({
+      to: '/events',
+      search: (prev) => ({ ...prev, layout }),
+      replace: true,
+      resetScroll: false,
+    })
+  }
+
   function goToPage(p: number) {
     navigate({
       to: '/events',
@@ -256,15 +271,63 @@ function EventsList({
         </div>
       )}
 
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-(--sea-ink-soft)">
+          {isLoading ? '\u00a0' : `${total} ${total === 1 ? 'event' : 'events'}`}
+        </p>
+        <LayoutToggle layout={search.layout} onChange={setLayout} />
+      </div>
+
       {isLoading ? (
         <Spinner className="py-12" />
-      ) : (
+      ) : search.layout === 'compact' ? (
         <EventTable events={fetchedEvents} />
+      ) : (
+        <EventCardList events={fetchedEvents} />
       )}
 
       {totalPages > 1 && (
         <Pagination page={page} totalPages={totalPages} onPageChange={goToPage} />
       )}
     </div>
+  )
+}
+
+function LayoutToggle({
+  layout,
+  onChange,
+}: {
+  layout: 'compact' | undefined
+  onChange: (layout: 'compact' | undefined) => void
+}) {
+  const options = [
+    { value: undefined, label: 'Cards', Icon: Rows3 },
+    { value: 'compact' as const, label: 'Compact', Icon: Table2 },
+  ]
+  return (
+    <fieldset className="flex rounded-md border border-(--line)">
+      <legend className="sr-only">Layout</legend>
+      {options.map(({ value, label, Icon }, i) => {
+        const active = layout === value
+        return (
+          <button
+            key={label}
+            type="button"
+            onClick={() => !active && onChange(value)}
+            aria-pressed={active}
+            className={`flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-sm font-medium ${
+              i === 0 ? 'rounded-l-md' : 'rounded-r-md'
+            } ${
+              active
+                ? 'bg-(--lagoon-deep) text-white'
+                : 'bg-(--surface-strong) text-(--sea-ink-soft) hover:bg-(--surface)'
+            }`}
+          >
+            <Icon size={14} aria-hidden />
+            {label}
+          </button>
+        )
+      })}
+    </fieldset>
   )
 }

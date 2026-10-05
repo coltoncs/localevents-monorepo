@@ -73,6 +73,7 @@ export const EVENTS = {
 	plannerEnableDigestCta: "planner_enable_digest_cta",
 	// browse / discovery
 	filterEvents: "filter_events",
+	changeLayout: "change_layout",
 	search: "search",
 	viewEvent: "view_event",
 	ticketUrlClick: "ticket_url_click",

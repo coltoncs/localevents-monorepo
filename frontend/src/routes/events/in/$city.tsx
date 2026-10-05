@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { EventTable } from "#/components/events/EventTable";
+import { EventCardList } from "#/components/events/EventListCard";
 import { Spinner } from "#/components/Spinner";
 import { eventListOptions, useEvents } from "#/lib/hooks/useEvents";
 import { getLandingCity } from "#/lib/landingCities";
@@ -106,7 +106,7 @@ function CityLandingPage() {
 			{isLoading ? (
 				<Spinner className="py-12" />
 			) : events.length > 0 ? (
-				<EventTable events={events} />
+				<EventCardList events={events} />
 			) : (
 				<p className="py-12 text-center text-(--sea-ink-soft)">
 					No upcoming events found in {city.name} right now — check back soon.
