@@ -8,12 +8,12 @@ export const NC_CITIES: Record<string, { lat: number; lng: number }> = {
 	"Chapel Hill": { lat: 35.9132, lng: -79.0558 },
 	"Wake Forest": { lat: 35.97572981255188, lng: -78.51321038126592 },
 	Cary: { lat: 35.7915, lng: -78.7811 },
-	//   Clayton: { lat: 35.6507, lng: -78.4564 },
-	Charlotte: { lat: 35.2271, lng: -80.8431 },
-	Greensboro: { lat: 36.0726, lng: -79.792 },
+	Clayton: { lat: 35.6507, lng: -78.4564 },
+	// Charlotte: { lat: 35.2271, lng: -80.8431 },
+	// Greensboro: { lat: 36.0726, lng: -79.792 },
 	//   'Winston-Salem': { lat: 36.0999, lng: -80.2442 },
 	//   Fayetteville: { lat: 35.0527, lng: -78.8784 },
-	Asheville: { lat: 35.5951, lng: -82.5515 },
+	// Asheville: { lat: 35.5951, lng: -82.5515 },
 	//   Wilmington: { lat: 34.2257, lng: -77.9447 },
 };
 
