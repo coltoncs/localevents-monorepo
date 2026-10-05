@@ -18,33 +18,39 @@ function staticMapUrl(style: "light-v11" | "dark-v11", lng: number, lat: number)
   return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${lng},${lat},14/640x200@2x?attribution=false&logo=false&access_token=${MAPBOX_TOKEN}`;
 }
 
-// Decorative map snippet on the card's right half, faded in from the left.
+// Decorative map snippet. On desktop it fills the card's right half, faded in
+// from the middle. On mobile it covers the whole card but stays faint behind
+// the text; the image is 170% of the card's width and anchored left, so its
+// center (the event) lands near the right edge instead of behind the title.
 // One <img> per theme; the hidden one is display:none, so with lazy loading
 // the browser never fetches it.
+const mapImgClass =
+  "absolute inset-y-0 left-0 h-full w-[170%] max-w-none object-cover sm:w-full";
+
 function CardMap({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 overflow-hidden rounded-r-lg [mask-image:linear-gradient(to_right,transparent,black_45%)] sm:block"
+      className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg [mask-image:linear-gradient(to_right,rgb(0_0_0/0.2),rgb(0_0_0/0.35)_55%,black_85%)] sm:left-1/2 sm:rounded-l-none sm:[mask-image:linear-gradient(to_right,transparent,black_45%)]"
     >
       <img
         src={staticMapUrl("light-v11", lng, lat)}
         alt=""
         loading="lazy"
         decoding="async"
-        className="h-full w-full object-cover opacity-70 dark:hidden"
+        className={`${mapImgClass} opacity-70 dark:hidden`}
       />
       <img
         src={staticMapUrl("dark-v11", lng, lat)}
         alt=""
         loading="lazy"
         decoding="async"
-        className="hidden h-full w-full object-cover opacity-80 dark:block"
+        className={`${mapImgClass} hidden opacity-80 dark:block`}
       />
       <MapPin
         size={26}
         strokeWidth={1.75}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full fill-(--lagoon) text-(--surface-strong) drop-shadow"
+        className="absolute left-[85%] top-1/2 -translate-x-1/2 -translate-y-full fill-(--lagoon) text-(--surface-strong) drop-shadow sm:left-1/2"
       />
     </div>
   );
@@ -201,7 +207,7 @@ export function EventCardList({ events }: { events: Event[] }) {
       ))}
     </ul>
     {MAPBOX_TOKEN && (
-      <p className="mt-2 hidden text-right text-[0.65rem] text-(--sea-ink-soft) sm:block">
+      <p className="mt-2 text-right text-[0.65rem] text-(--sea-ink-soft)">
         Maps ©{" "}
         <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noreferrer" className="hover:underline">
           Mapbox
