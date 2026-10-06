@@ -8,7 +8,7 @@ import { EventFilters } from '#/components/events/EventFilters'
 import { EventTable } from '#/components/events/EventTable'
 import { EventCardList } from '#/components/events/EventListCard'
 import { FullscreenMap, FullscreenMapSkeleton } from '#/components/maps/FullscreenMap'
-import { LocationSearch, getSavedLocation } from '#/components/maps/LocationSearch'
+import { CityButtons, getSavedLocation } from '#/components/maps/LocationSearch'
 import { Pagination } from '#/components/Pagination'
 import { Spinner } from '#/components/Spinner'
 import { DEFAULT_MAP_CENTER } from '#/lib/mapUtils'
@@ -214,7 +214,7 @@ function EventsList({
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-(--sea-ink)">Explore Events</h1>
-        <LocationSearch compact />
+        <CityButtons lat={search.lat} lng={search.lng} />
       </div>
 
       <EventFilters

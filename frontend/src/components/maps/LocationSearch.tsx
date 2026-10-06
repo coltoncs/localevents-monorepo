@@ -212,3 +212,57 @@ export function LocationSearch({
 		</div>
 	);
 }
+
+export function CityButtons({
+	lat,
+	lng,
+	navigateTo,
+}: {
+	lat?: number;
+	lng?: number;
+	navigateTo?: string;
+}) {
+	const navigate = useNavigate();
+	const location = useLocation();
+
+	function go(name: string, cityLat: number, cityLng: number) {
+		saveLocation({ name, lat: cityLat, lng: cityLng });
+		navigate({
+			to: navigateTo ?? location.pathname,
+			search: (prev) => ({
+				...prev,
+				lat: cityLat,
+				lng: cityLng,
+				page: undefined,
+			}),
+		});
+	}
+
+	return (
+		<fieldset className="flex flex-wrap gap-2">
+			<legend className="sr-only">City</legend>
+			{Object.entries(NC_CITIES).map(([name, coords]) => {
+				const active =
+					lat !== undefined &&
+					lng !== undefined &&
+					Math.abs(lat - coords.lat) < 0.001 &&
+					Math.abs(lng - coords.lng) < 0.001;
+				return (
+					<button
+						key={name}
+						type="button"
+						onClick={() => !active && go(name, coords.lat, coords.lng)}
+						aria-pressed={active}
+						className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium ${
+							active
+								? "border-(--lagoon-deep) bg-(--lagoon-deep) text-white"
+								: "border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) hover:border-(--lagoon) hover:text-(--lagoon-deep)"
+						}`}
+					>
+						{name}
+					</button>
+				);
+			})}
+		</fieldset>
+	);
+}
