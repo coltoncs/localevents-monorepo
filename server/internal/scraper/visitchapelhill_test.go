@@ -1,6 +1,7 @@
 package scraper
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,58 +15,97 @@ func eastern(t *testing.T) *time.Location {
 	return loc
 }
 
-func TestParseCHRecurrence(t *testing.T) {
+// chTestWindow is [Mon 2026-10-05, Wed 2026-11-04) Eastern.
+func chTestWindow(t *testing.T) (*time.Location, time.Time, time.Time) {
 	loc := eastern(t)
+	start := time.Date(2026, 10, 5, 0, 0, 0, 0, loc)
+	return loc, start, start.AddDate(0, 0, 30)
+}
 
+func expandDates(t *testing.T, got []RawEvent, loc *time.Location) []string {
+	t.Helper()
+	var dates []string
+	for _, g := range got {
+		dates = append(dates, g.StartTime.In(loc).Format("2006-01-02"))
+	}
+	return dates
+}
+
+func assertDates(t *testing.T, got []RawEvent, loc *time.Location, want ...string) {
+	t.Helper()
+	gotDates := expandDates(t, got, loc)
+	if strings.Join(gotDates, ",") != strings.Join(want, ",") {
+		t.Fatalf("dates: got %v want %v", gotDates, want)
+	}
+}
+
+func TestParseCHEventPage(t *testing.T) {
+	page := []byte(`<html><script>
+console.log(` + "`data`" + `, {"title":"Open Mic Night","leisure_event_id":"31156","admission":"Free",` +
+		`"weburl":"https://example.com/cal","venue_name":"Steel String","latitude":35.9099,"longitude":-79.0725,` +
+		`"venue_address":{"address_line_1":"106A South Greensboro Street","city":"Carrboro","postal_code":"27510"},` +
+		`"categories":[{"label":"Food & Drink"}],"primary_image_url":"https://img/x.jpg",` +
+		`"date_rule_sets":[{"start_date_at":"2024-12-09T05:00:00.000Z","start_time":"18:00:00","interval":1,` +
+		`"recurrence_string":"Recurring weekly on Monday"}]});
+console.log("more");</script></html>`)
+
+	ev, err := parseCHEventPage(page)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ev.ID != "31156" || ev.Title != "Open Mic Night" || ev.VenueAddress.City != "Carrboro" {
+		t.Errorf("unexpected event: %+v", ev)
+	}
+	if len(ev.DateRuleSets) != 1 || ev.DateRuleSets[0].RecurrenceString != "Recurring weekly on Monday" {
+		t.Errorf("unexpected rule sets: %+v", ev.DateRuleSets)
+	}
+
+	raw := mapCHEvent(ev)
+	if raw.TicketURL != "https://example.com/cal" || !raw.IsFree || raw.Categories[0] != "Food & Drink" {
+		t.Errorf("unexpected mapping: %+v", raw)
+	}
+
+	if _, err := parseCHEventPage([]byte("<html>Access Denied</html>")); err == nil {
+		t.Error("want error for page without embedded data")
+	}
+}
+
+func TestParseCHRecurrence(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            string
-		wantNil          bool
-		wantErr          bool
-		wantInterval     int
-		wantWeekdays     []time.Weekday
-		wantUntilYMD     string // empty if no until
+		input   string
+		want    chRecurrence
+		wantErr bool
 	}{
-		{name: "empty", input: "", wantNil: true},
+		{input: "Single date", want: chRecurrence{freq: chSingle}},
+		{input: "Recurring daily, and ends on Nov 6, 2026", want: chRecurrence{freq: chDaily}},
+		{input: "Recurring weekly on Wednesday", want: chRecurrence{freq: chWeekly, weekdays: []time.Weekday{time.Wednesday}}},
 		{
-			name:         "weekly single day",
-			input:        "every week on Wednesday",
-			wantInterval: 1,
-			wantWeekdays: []time.Weekday{time.Wednesday},
+			input: "Recurring weekly on Saturday, Sunday, and ends on Nov 22, 2026",
+			want:  chRecurrence{freq: chWeekly, weekdays: []time.Weekday{time.Saturday, time.Sunday}},
 		},
 		{
-			name:         "every 2 weeks",
-			input:        "every 2 weeks on Thursday",
-			wantInterval: 2,
-			wantWeekdays: []time.Weekday{time.Thursday},
+			input: "Recurring weekly on Sunday, and ends after 4 occurrences",
+			want:  chRecurrence{freq: chWeekly, weekdays: []time.Weekday{time.Sunday}},
 		},
+		{input: "Recurring every other week on Wednesday", want: chRecurrence{freq: chWeekly, weekdays: []time.Weekday{time.Wednesday}}},
+		{input: "Recurring monthly on the second Friday", want: chRecurrence{freq: chMonthly, nth: 2, weekday: time.Friday}},
 		{
-			name:         "every 4 weeks",
-			input:        "every 4 weeks on Tuesday",
-			wantInterval: 4,
-			wantWeekdays: []time.Weekday{time.Tuesday},
+			input: "Recurring monthly on the third Friday, and ends on Nov 20, 2026",
+			want:  chRecurrence{freq: chMonthly, nth: 3, weekday: time.Friday},
 		},
+		{input: "Recurring monthly on the last Thursday", want: chRecurrence{freq: chMonthly, nth: -1, weekday: time.Thursday}},
 		{
-			name:         "weekly multi day with until",
-			input:        "every week on Wednesday, Thursday, Friday, Saturday until June 6, 2026",
-			wantInterval: 1,
-			wantWeekdays: []time.Weekday{time.Wednesday, time.Thursday, time.Friday, time.Saturday},
-			wantUntilYMD: "2026-06-06",
+			input: "Recurring yearly on the fourth Wednesday of November",
+			want:  chRecurrence{freq: chYearly, nth: 4, weekday: time.Wednesday, month: time.November},
 		},
-		{
-			name:         "weekly two days with until",
-			input:        "every week on Thursday, Friday until June 5, 2026",
-			wantInterval: 1,
-			wantWeekdays: []time.Weekday{time.Thursday, time.Friday},
-			wantUntilYMD: "2026-06-05",
-		},
-		{name: "garbage", input: "Tuesdays at 7pm", wantErr: true},
-		{name: "bad weekday", input: "every week on Funday", wantErr: true},
+		{input: "Tuesdays at 7pm", wantErr: true},
+		{input: "Recurring weekly on Funday", wantErr: true},
+		{input: "Recurring monthly on day 15", wantErr: true},
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := parseCHRecurrence(tc.input, loc)
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := parseCHRecurrence(tc.input)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("want error, got %+v", got)
@@ -75,54 +115,30 @@ func TestParseCHRecurrence(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if tc.wantNil {
-				if got != nil {
-					t.Fatalf("want nil rule, got %+v", got)
-				}
-				return
+			if got.freq != tc.want.freq || got.nth != tc.want.nth || got.weekday != tc.want.weekday || got.month != tc.want.month {
+				t.Errorf("got %+v want %+v", got, tc.want)
 			}
-			if got.intervalWeeks != tc.wantInterval {
-				t.Errorf("interval: got %d want %d", got.intervalWeeks, tc.wantInterval)
+			if len(got.weekdays) != len(tc.want.weekdays) {
+				t.Fatalf("weekdays: got %v want %v", got.weekdays, tc.want.weekdays)
 			}
-			if len(got.weekdays) != len(tc.wantWeekdays) {
-				t.Fatalf("weekdays len: got %v want %v", got.weekdays, tc.wantWeekdays)
-			}
-			for i, wd := range got.weekdays {
-				if wd != tc.wantWeekdays[i] {
-					t.Errorf("weekday[%d]: got %v want %v", i, wd, tc.wantWeekdays[i])
-				}
-			}
-			if tc.wantUntilYMD == "" {
-				if got.until != nil {
-					t.Errorf("want no until, got %v", *got.until)
-				}
-			} else {
-				if got.until == nil {
-					t.Fatalf("want until %s, got nil", tc.wantUntilYMD)
-				}
-				if got.until.In(loc).Format("2006-01-02") != tc.wantUntilYMD {
-					t.Errorf("until date: got %s want %s", got.until.In(loc).Format("2006-01-02"), tc.wantUntilYMD)
+			for i := range got.weekdays {
+				if got.weekdays[i] != tc.want.weekdays[i] {
+					t.Errorf("weekdays: got %v want %v", got.weekdays, tc.want.weekdays)
 				}
 			}
 		})
 	}
 }
 
-func TestExpandCHEvent_OneOff(t *testing.T) {
-	loc := eastern(t)
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
+func TestExpandCHEvent_SingleDate(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "35356", Title: "Fallfest 2026", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-10T04:00:00.000Z",
+		StartTime:        "14:00:00",
+		EndTime:          "17:00:00",
+		RecurrenceString: "Single date",
+	}}}
 
-	ev := chEvent{
-		RecID:     "1",
-		Title:     "Wine Tasting",
-		Location:  "Rocks & Acid",
-		StartDate: "2026-06-18T04:00:00.000Z", // midnight Eastern Jun 18
-		EndDate:   "2026-06-19T03:59:59.000Z",
-		StartTime: "16:00:00",
-		EndTime:   "19:00:00",
-		RecurType: 0,
-	}
 	got, err := expandCHEvent(ev, loc, winStart, winEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -130,167 +146,254 @@ func TestExpandCHEvent_OneOff(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 instance, got %d", len(got))
 	}
-	want := time.Date(2026, 6, 18, 20, 0, 0, 0, time.UTC) // 16:00 EDT
-	if !got[0].StartTime.Equal(want) {
-		t.Errorf("start: got %s want %s", got[0].StartTime, want)
+	if got[0].ExternalID != "35356" {
+		t.Errorf("external_id: got %q want bare id", got[0].ExternalID)
+	}
+	wantStart := time.Date(2026, 10, 10, 18, 0, 0, 0, time.UTC) // 14:00 EDT
+	if !got[0].StartTime.Equal(wantStart) {
+		t.Errorf("start: got %s want %s", got[0].StartTime, wantStart)
+	}
+	if got[0].EndTime == nil || !got[0].EndTime.Equal(wantStart.Add(3*time.Hour)) {
+		t.Errorf("end: got %v want %s", got[0].EndTime, wantStart.Add(3*time.Hour))
 	}
 }
 
-func TestExpandCHEvent_DropsPastOneOff(t *testing.T) {
-	loc := eastern(t)
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
-
-	ev := chEvent{
-		RecID:     "1",
-		Title:     "Old Event",
-		StartDate: "2024-11-26T05:00:00.000Z",
-		StartTime: "18:30:00",
-		RecurType: 0,
-	}
-	got, err := expandCHEvent(ev, loc, winStart, winEnd)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("expected 0 instances, got %d (start=%s)", len(got), got[0].StartTime)
-	}
-}
-
-func TestExpandCHEvent_WeeklyRecurring(t *testing.T) {
-	loc := eastern(t)
-	// 2026-05-25 is a Monday; window May 25 - Jun 24.
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
-
-	ev := chEvent{
-		RecID:      "100",
-		Title:      "Drop-In Life Drawing",
-		Location:   "Thomas Stevens Gallery",
-		StartDate:  "2025-01-28T05:00:00.000Z", // Jan 28 2025 — far in the past
-		StartTime:  "18:30:00",
-		EndTime:    "20:30:00",
-		RecurType:  3,
-		Recurrence: "every week on Tuesday",
-	}
-	got, err := expandCHEvent(ev, loc, winStart, winEnd)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Tuesdays in [May 25, Jun 24]: May 26, Jun 2, 9, 16, 23 — 5 instances.
-	if len(got) != 5 {
-		t.Fatalf("expected 5 instances, got %d", len(got))
-	}
-	wantDates := []string{"2026-05-26", "2026-06-02", "2026-06-09", "2026-06-16", "2026-06-23"}
-	for i, ymd := range wantDates {
-		if got[i].StartTime.In(loc).Format("2006-01-02") != ymd {
-			t.Errorf("instance[%d]: got %s want %s", i, got[i].StartTime.In(loc), ymd)
+func TestExpandCHEvent_SingleDateOutsideWindow(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	for _, startDateAt := range []string{"2026-09-01T04:00:00.000Z", "2026-12-04T05:00:00.000Z"} {
+		ev := chEvent{ID: "1", DateRuleSets: []chDateRuleSet{{
+			StartDateAt:      startDateAt,
+			StartTime:        "18:00:00",
+			RecurrenceString: "Single date",
+		}}}
+		got, err := expandCHEvent(ev, loc, winStart, winEnd)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-		if got[i].StartTime.In(loc).Hour() != 18 || got[i].StartTime.In(loc).Minute() != 30 {
-			t.Errorf("instance[%d]: time = %s want 18:30 local", i, got[i].StartTime.In(loc))
-		}
-		wantID := "100:" + ymd
-		if got[i].ExternalID != wantID {
-			t.Errorf("instance[%d]: external_id %q want %q", i, got[i].ExternalID, wantID)
+		if len(got) != 0 {
+			t.Errorf("%s: expected no instances, got %v", startDateAt, expandDates(t, got, loc))
 		}
 	}
 }
 
-func TestExpandCHEvent_EveryTwoWeeks(t *testing.T) {
-	loc := eastern(t)
-	// Anchor: 2026-04-29 (Wednesday). Window May 25 - Jun 24.
-	// Anchor week: Mon 2026-04-27. Bi-weekly Wednesdays from anchor:
-	//   Apr 29 (week 0), May 13 (week 2), May 27 (week 4), Jun 10 (week 6), Jun 24 (week 8).
-	// In window: May 27, Jun 10, Jun 24 = 3 instances.
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
+func TestExpandCHEvent_MultipleSingleDates(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	// A film screened on two nights is two one-date rule sets.
+	ev := chEvent{ID: "500", DateRuleSets: []chDateRuleSet{
+		{StartDateAt: "2026-10-11T04:00:00.000Z", IsAllDay: true, StartTime: "00:00:00", RecurrenceString: "Single date"},
+		{StartDateAt: "2026-10-13T04:00:00.000Z", IsAllDay: true, StartTime: "00:00:00", RecurrenceString: "Single date"},
+	}}
 
-	ev := chEvent{
-		RecID:      "200",
-		Title:      "Biweekly Run Club",
-		StartDate:  "2026-04-29T04:00:00.000Z", // Wed Apr 29 midnight Eastern
-		StartTime:  "07:00:00",
-		RecurType:  3,
-		Recurrence: "every 2 weeks on Wednesday",
-	}
 	got, err := expandCHEvent(ev, loc, winStart, winEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	wantDates := []string{"2026-05-27", "2026-06-10", "2026-06-24"}
-	if len(got) != len(wantDates) {
-		var gotDates []string
-		for _, g := range got {
-			gotDates = append(gotDates, g.StartTime.In(loc).Format("2006-01-02"))
-		}
-		t.Fatalf("got %d instances %v, want %d %v", len(got), gotDates, len(wantDates), wantDates)
+	assertDates(t, got, loc, "2026-10-11", "2026-10-13")
+	if got[0].ExternalID != "500:2026-10-11" || got[1].ExternalID != "500:2026-10-13" {
+		t.Errorf("external_ids: got %q, %q", got[0].ExternalID, got[1].ExternalID)
 	}
-	for i, ymd := range wantDates {
-		if got[i].StartTime.In(loc).Format("2006-01-02") != ymd {
-			t.Errorf("instance[%d]: got %s want %s", i, got[i].StartTime.In(loc), ymd)
-		}
+	if got[0].StartTime.In(loc).Hour() != 0 || got[0].EndTime != nil {
+		t.Errorf("all-day: want local midnight and no end, got %s / %v", got[0].StartTime.In(loc), got[0].EndTime)
 	}
 }
 
-func TestExpandCHEvent_MultiDayWithUntil(t *testing.T) {
-	loc := eastern(t)
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
+func TestExpandCHEvent_Weekly(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "31156", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2024-12-09T05:00:00.000Z", // far in the past
+		StartTime:        "18:00:00",
+		Interval:         1,
+		RecurrenceString: "Recurring weekly on Monday",
+	}}}
 
-	ev := chEvent{
-		RecID:      "300",
-		Title:      "Pop-Up Market",
-		StartDate:  "2025-01-01T05:00:00.000Z",
-		StartTime:  "10:00:00",
-		EndTime:    "18:00:00",
-		RecurType:  3,
-		Recurrence: "every week on Thursday, Friday until June 5, 2026",
-	}
 	got, err := expandCHEvent(ev, loc, winStart, winEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// In [May 25, Jun 24] with until June 5, 2026 inclusive:
-	//   Thu May 28, Fri May 29, Thu Jun 4, Fri Jun 5 = 4 instances.
-	wantDates := []string{"2026-05-28", "2026-05-29", "2026-06-04", "2026-06-05"}
-	if len(got) != len(wantDates) {
-		var gotDates []string
-		for _, g := range got {
-			gotDates = append(gotDates, g.StartTime.In(loc).Format("2006-01-02"))
+	assertDates(t, got, loc, "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02")
+	for _, g := range got {
+		if g.StartTime.In(loc).Hour() != 18 {
+			t.Errorf("start: got %s want 18:00 local", g.StartTime.In(loc))
 		}
-		t.Fatalf("got %d instances %v, want %d %v", len(got), gotDates, len(wantDates), wantDates)
+		if g.EndTime != nil {
+			t.Errorf("end: want nil without end_time, got %s", g.EndTime)
+		}
 	}
+	if got[0].ExternalID != "31156:2026-10-05" {
+		t.Errorf("external_id: got %q", got[0].ExternalID)
+	}
+}
+
+func TestExpandCHEvent_EveryOtherWeek(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	// Anchor Wed 2026-04-29; every other Wednesday from then lands on
+	// Sep 30 (before the window), Oct 14, Oct 28 and Nov 11 (after it).
+	ev := chEvent{ID: "200", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-04-29T04:00:00.000Z",
+		StartTime:        "19:00:00",
+		EndTime:          "22:00:00",
+		Interval:         2,
+		RecurrenceString: "Recurring every other week on Wednesday",
+	}}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertDates(t, got, loc, "2026-10-14", "2026-10-28")
+}
+
+func TestExpandCHEvent_WeeklyEndsAfterOccurrences(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	// "ends after 4 occurrences": last_occurrence_at carries the bound.
+	ev := chEvent{ID: "300", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-18T04:00:00.000Z",
+		LastOccurrenceAt: "2026-10-25T16:30:00.000Z",
+		StartTime:        "12:30:00",
+		Interval:         1,
+		RecurrenceString: "Recurring weekly on Sunday, and ends after 2 occurrences",
+	}}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertDates(t, got, loc, "2026-10-18", "2026-10-25")
+}
+
+func TestExpandCHEvent_WeeklyMultiDayEndsOn(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "301", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-24T04:00:00.000Z",
+		EndDateAt:        "2026-11-01T04:00:00.000Z",
+		StartTime:        "13:00:00",
+		EndTime:          "13:30:00",
+		Interval:         1,
+		RecurrenceString: "Recurring weekly on Saturday, Sunday, and ends on Nov 1, 2026",
+	}}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertDates(t, got, loc, "2026-10-24", "2026-10-25", "2026-10-31", "2026-11-01")
+	// Nov 1 is after the DST change; wall-clock time must stay 13:00.
+	if h := got[3].StartTime.In(loc).Hour(); h != 13 {
+		t.Errorf("post-DST start hour: got %d want 13", h)
+	}
+}
+
+func TestExpandCHEvent_Daily(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "400", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-15T04:00:00.000Z",
+		EndDateAt:        "2026-10-17T04:00:00.000Z",
+		LastOccurrenceAt: "2026-10-17T04:00:00.000Z",
+		StartTime:        "00:00:00",
+		Interval:         1,
+		RecurrenceString: "Recurring daily, and ends on Oct 17, 2026",
+	}}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertDates(t, got, loc, "2026-10-15", "2026-10-16", "2026-10-17")
+}
+
+func TestExpandCHEvent_MonthlyNthWeekday(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	tests := []struct {
+		recurrence string
+		want       string
+	}{
+		{"Recurring monthly on the second Friday", "2026-10-09"},
+		{"Recurring monthly on the fourth Monday", "2026-10-26"},
+		{"Recurring monthly on the last Friday", "2026-10-30"},
+		{"Recurring monthly on the first Sunday", "2026-11-01"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.recurrence, func(t *testing.T) {
+			ev := chEvent{ID: "600", DateRuleSets: []chDateRuleSet{{
+				StartDateAt:      "2026-08-01T04:00:00.000Z",
+				StartTime:        "18:00:00",
+				Interval:         1,
+				RecurrenceString: tc.recurrence,
+			}}}
+			got, err := expandCHEvent(ev, loc, winStart, winEnd)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertDates(t, got, loc, tc.want)
+		})
+	}
+}
+
+func TestExpandCHEvent_Yearly(t *testing.T) {
+	loc := eastern(t)
+	winStart := time.Date(2027, 11, 1, 0, 0, 0, 0, loc)
+	winEnd := winStart.AddDate(0, 0, 30)
+	ev := chEvent{ID: "700", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-11-25T05:00:00.000Z",
+		StartTime:        "16:00:00",
+		Interval:         1,
+		RecurrenceString: "Recurring yearly on the fourth Wednesday of November",
+	}}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertDates(t, got, loc, "2027-11-24")
 }
 
 func TestExpandCHEvent_OvernightWrap(t *testing.T) {
-	loc := eastern(t)
-	winStart := time.Date(2026, 5, 25, 0, 0, 0, 0, loc)
-	winEnd := winStart.AddDate(0, 0, 30)
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "800", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-17T04:00:00.000Z",
+		StartTime:        "22:00:00",
+		EndTime:          "02:00:00",
+		RecurrenceString: "Single date",
+	}}}
 
-	ev := chEvent{
-		RecID:      "400",
-		Title:      "Late Show",
-		StartDate:  "2025-01-01T05:00:00.000Z",
-		StartTime:  "22:00:00",
-		EndTime:    "02:00:00",
-		RecurType:  3,
-		Recurrence: "every week on Saturday",
-	}
 	got, err := expandCHEvent(ev, loc, winStart, winEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(got) == 0 {
-		t.Fatal("expected instances, got none")
+	if len(got) != 1 || got[0].EndTime == nil {
+		t.Fatalf("expected 1 instance with an end time, got %+v", got)
 	}
-	first := got[0]
-	if first.EndTime == nil {
-		t.Fatal("expected end time set")
+	if d := got[0].EndTime.Sub(got[0].StartTime); d != 4*time.Hour {
+		t.Errorf("duration: got %s want 4h", d)
 	}
-	if !first.EndTime.After(first.StartTime) {
-		t.Errorf("end (%s) should be after start (%s)", first.EndTime, first.StartTime)
+}
+
+func TestExpandCHEvent_UnparseableRule(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "900", DateRuleSets: []chDateRuleSet{{
+		StartDateAt:      "2026-10-10T04:00:00.000Z",
+		RecurrenceString: "Recurring monthly on day 15",
+	}}}
+	if _, err := expandCHEvent(ev, loc, winStart, winEnd); err == nil {
+		t.Error("want error for unrecognized recurrence")
 	}
-	if first.EndTime.Sub(first.StartTime) != 4*time.Hour {
-		t.Errorf("duration: got %s want 4h", first.EndTime.Sub(first.StartTime))
+}
+
+func TestExpandCHEvent_SameDayShowtimesKeepsEarliest(t *testing.T) {
+	loc, winStart, winEnd := chTestWindow(t)
+	ev := chEvent{ID: "1000", DateRuleSets: []chDateRuleSet{
+		{StartDateAt: "2026-10-18T04:00:00.000Z", StartTime: "19:00:00", RecurrenceString: "Single date"},
+		{StartDateAt: "2026-10-18T04:00:00.000Z", StartTime: "14:30:00", RecurrenceString: "Single date"},
+	}}
+
+	got, err := expandCHEvent(ev, loc, winStart, winEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 instance, got %d", len(got))
+	}
+	if h, m := got[0].StartTime.In(loc).Hour(), got[0].StartTime.In(loc).Minute(); h != 14 || m != 30 {
+		t.Errorf("start: got %02d:%02d want 14:30", h, m)
 	}
 }

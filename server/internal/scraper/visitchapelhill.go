@@ -1,27 +1,34 @@
 package scraper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
+	"log"
 	"net/http"
-	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
 
 const (
-	chTokenURL = "https://www.visitchapelhill.org/plugins/core/get_simple_token/"
-	chBaseURL  = "https://www.visitchapelhill.org/includes/rest_v2/plugins_events_events_by_date/find/"
-	chPageSize = 100
+	chSitemapURL = "https://www.visitchapelhill.org/sitemap.xml"
+	// chCrawlDelay honors the Crawl-delay in visitchapelhill.org/robots.txt.
+	chCrawlDelay = 2 * time.Second
+	chWindowDays = 30
 )
 
-// VisitChapelHill implements EventSource for the Visit Chapel Hill events API.
-// Same Simpleview backend as Visit Raleigh, but the rest_v2 endpoint takes
-// the query as a single URL-encoded `json` parameter and wraps the result
-// in an extra `docs` envelope.
+// VisitChapelHill implements EventSource for visitchapelhill.org.
+//
+// The site's Simpleview JSON API (/includes/rest_v2/...) now returns an
+// Akamai 403 to non-browser clients, so instead we read the event URLs from
+// the sitemap and parse each event page. Every page embeds the full event
+// record (times, admission, recurrence rules) as a JSON literal passed to
+// console.log, which is far richer than the page's schema.org JSON-LD.
 type VisitChapelHill struct {
 	Client *http.Client
 }
@@ -42,162 +49,130 @@ func (c *VisitChapelHill) FetchEvents(ctx context.Context, loc Location) ([]RawE
 		return nil, nil
 	}
 
-	token, err := c.fetchToken(ctx)
+	eventURLs, err := c.fetchEventURLs(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fetching chapelhillevents token: %w", err)
+		return nil, fmt.Errorf("fetching sitemap: %w", err)
 	}
 
-	// The API rejects date_range boundaries unless they sit at 00:00 in the
-	// client's local timezone. Compute today's midnight in Eastern (Chapel
-	// Hill's tz) and serialize as UTC.
+	// Only keep occurrences starting within the next chWindowDays days,
+	// measured from today's midnight in Eastern (Chapel Hill's tz).
 	eastern, err := time.LoadLocation("America/New_York")
 	if err != nil {
 		return nil, fmt.Errorf("loading eastern timezone: %w", err)
 	}
 	nowEast := time.Now().In(eastern)
-	startLocal := time.Date(nowEast.Year(), nowEast.Month(), nowEast.Day(), 0, 0, 0, 0, eastern)
-	endLocal := startLocal.AddDate(0, 0, 30)
-	startDate := startLocal.UTC().Format("2006-01-02T15:04:05.000Z")
-	endDate := endLocal.UTC().Format("2006-01-02T15:04:05.000Z")
+	windowStart := time.Date(nowEast.Year(), nowEast.Month(), nowEast.Day(), 0, 0, 0, 0, eastern)
+	windowEnd := windowStart.AddDate(0, 0, chWindowDays)
 
 	var allEvents []RawEvent
-	skip := 0
-	for {
-		body, total, err := c.fetchPage(ctx, token, startDate, endDate, skip)
-		if err != nil {
-			return nil, err
+	var failures int
+	var lastErr error
+	for i, u := range eventURLs {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(chCrawlDelay):
+			}
 		}
 
-		for _, ev := range body {
-			instances, err := expandCHEvent(ev, eastern, startLocal, endLocal)
-			if err != nil {
-				continue
-			}
+		ev, err := c.fetchEventPage(ctx, u)
+		if err == nil {
+			var instances []RawEvent
+			instances, err = expandCHEvent(ev, eastern, windowStart, windowEnd)
 			allEvents = append(allEvents, instances...)
 		}
-
-		skip += chPageSize
-		if skip >= total {
-			break
+		if err != nil {
+			failures++
+			lastErr = fmt.Errorf("%s: %w", u, err)
 		}
-		time.Sleep(200 * time.Millisecond)
 	}
 
+	// A page-format change would make every page fail; surface that as an
+	// error rather than silently reporting zero events.
+	if len(eventURLs) > 0 && failures == len(eventURLs) {
+		return nil, fmt.Errorf("all %d event pages failed, last: %w", failures, lastErr)
+	}
+	if failures > 0 {
+		log.Printf("[visitchapelhill] skipped %d of %d event pages, last error: %v", failures, len(eventURLs), lastErr)
+	}
 	return allEvents, nil
 }
 
-func (c *VisitChapelHill) fetchToken(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, chTokenURL, nil)
-	if err != nil {
-		return "", err
-	}
+var chSitemapEventRe = regexp.MustCompile(`<loc>(https://www\.visitchapelhill\.org/event/[^<]+)</loc>`)
 
-	resp, err := c.Client.Do(req)
+// fetchEventURLs returns every event page URL listed in the sitemap.
+func (c *VisitChapelHill) fetchEventURLs(ctx context.Context) ([]string, error) {
+	body, err := c.get(ctx, chSitemapURL)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	var urls []string
+	for _, m := range chSitemapEventRe.FindAllSubmatch(body, -1) {
+		urls = append(urls, html.UnescapeString(string(m[1])))
 	}
-
-	token := strings.TrimSpace(string(body))
-	if len(token) != 32 {
-		return "", fmt.Errorf("unexpected token format: %q", token)
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("no event URLs in sitemap")
 	}
-	return token, nil
+	return urls, nil
 }
 
-// fetchPage retrieves one page of events and returns the events plus the
-// reported total count.
-func (c *VisitChapelHill) fetchPage(ctx context.Context, token, startDate, endDate string, skip int) ([]chEvent, int, error) {
-	query := map[string]any{
-		"filter": map[string]any{
-			"active": true,
-			"date_range": map[string]any{
-				"start": map[string]string{"$date": startDate},
-				"end":   map[string]string{"$date": endDate},
-			},
-		},
-		"options": map[string]any{
-			"limit":    chPageSize,
-			"skip":     skip,
-			"count":    true,
-			"castDocs": false,
-			"fields":   chFields,
-			"hooks":    []string{},
-			"sort":     map[string]int{"date": 1, "rank": 1, "title_sort": 1},
-		},
-	}
-	jsonBytes, err := json.Marshal(query)
+func (c *VisitChapelHill) fetchEventPage(ctx context.Context, pageURL string) (chEvent, error) {
+	body, err := c.get(ctx, pageURL)
 	if err != nil {
-		return nil, 0, fmt.Errorf("encoding query: %w", err)
+		return chEvent{}, err
 	}
+	return parseCHEventPage(body)
+}
 
-	params := url.Values{}
-	params.Set("json", string(jsonBytes))
-	params.Set("token", token)
-	reqURL := chBaseURL + "?" + params.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+func (c *VisitChapelHill) get(ctx context.Context, target string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("creating request: %w", err)
+		return nil, err
 	}
-
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("fetching page at skip=%d: %w", skip, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, 0, fmt.Errorf("reading response: %w", err)
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
-
-	var envelope chResponse
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, 0, fmt.Errorf("parsing response: %w", err)
-	}
-	return envelope.Docs.Docs, envelope.Docs.Count, nil
+	return body, nil
 }
 
-// chFields is the projection passed to the Simpleview API. Mirrors the set
-// the official site requests, plus description and address fields we use.
-var chFields = map[string]int{
-	"_id":         1,
-	"title":       1,
-	"description": 1,
-	"location":    1,
-	"address1":    1,
-	"city":        1,
-	"region":      1,
-	"zip":         1,
-	"latitude":    1,
-	"longitude":   1,
-	"date":        1,
-	"startDate":   1,
-	"endDate":     1,
-	"startTime":   1,
-	"endTime":     1,
-	"recurrence":  1,
-	"recurType":   1,
-	"categories":  1,
-	"media_raw":   1,
-	"recid":       1,
-	"url":         1,
-	"absoluteUrl": 1,
-	"linkUrl":     1,
-	"admission":   1,
+// chDataMarker precedes the event record embedded in each event page:
+//
+//	console.log(`data`, {"title":"...","leisure_event_id":"31156",...});
+var chDataMarker = []byte("console.log(`data`, ")
+
+// parseCHEventPage extracts the embedded event record from an event page.
+func parseCHEventPage(body []byte) (chEvent, error) {
+	i := bytes.Index(body, chDataMarker)
+	if i < 0 {
+		return chEvent{}, fmt.Errorf("embedded event data not found")
+	}
+	// The decoder stops at the end of the object literal, ignoring the
+	// trailing ");" and the rest of the page.
+	var ev chEvent
+	dec := json.NewDecoder(bytes.NewReader(body[i+len(chDataMarker):]))
+	if err := dec.Decode(&ev); err != nil {
+		return chEvent{}, fmt.Errorf("decoding embedded event data: %w", err)
+	}
+	if ev.ID == "" {
+		return chEvent{}, fmt.Errorf("embedded event data has no leisure_event_id")
+	}
+	return ev, nil
 }
 
 // parseCHTimeOfDay parses a "HH:MM:SS" or "HH:MM" string from the Chapel Hill
-// API into an hour/minute pair. Returns nil if the string is empty or malformed.
+// event data into an hour/minute pair. Returns nil if the string is empty or
+// malformed.
 func parseCHTimeOfDay(s string) *crTimeOfDay {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -215,18 +190,36 @@ func parseCHTimeOfDay(s string) *crTimeOfDay {
 	return &crTimeOfDay{hour: h, min: m}
 }
 
-// chRecurrenceRule represents a parsed Visit Chapel Hill recurrence string.
-// Only weekly recurrence (recurType=3) has been observed; the rule encodes the
-// interval in weeks, the weekdays on which the event repeats, and an optional
-// final date (inclusive).
-type chRecurrenceRule struct {
-	intervalWeeks int
-	weekdays      []time.Weekday
-	until         *time.Time // inclusive, midnight Eastern of the final date
+// chFrequency is how often a date rule set repeats.
+type chFrequency int
+
+const (
+	chSingle chFrequency = iota
+	chDaily
+	chWeekly
+	chMonthly
+	chYearly
+)
+
+// chRecurrence is the part of a date rule set that only its human-readable
+// recurrence_string carries: the frequency and which day(s) it lands on. The
+// interval and end bound come from the rule set's structured fields.
+type chRecurrence struct {
+	freq     chFrequency
+	weekdays []time.Weekday // chWeekly
+	// nth is the week-of-month ordinal (1–5) for chMonthly / chYearly, or -1
+	// for "last".
+	nth     int
+	weekday time.Weekday // chMonthly / chYearly
+	month   time.Month   // chYearly
 }
 
-var chRecurrenceRe = regexp.MustCompile(
-	`(?i)^every\s+(?:(\d+)\s+)?weeks?\s+on\s+(.+?)(?:\s+until\s+(.+))?$`,
+var (
+	chRecurrenceRe = regexp.MustCompile(
+		`(?i)^recurring (daily|weekly|every other week|monthly|yearly)(?: on (.+?))?(?:,? and ends (?:on .+|after \d+ occurrences?))?$`,
+	)
+	chNthWeekdayRe = regexp.MustCompile(`(?i)^the (first|second|third|fourth|fifth|last) (\w+)(?: of (\w+))?$`)
+	chListSepRe    = regexp.MustCompile(`(?i),\s*(?:and\s+)?|\s+and\s+`)
 )
 
 var chWeekdayNames = map[string]time.Weekday{
@@ -239,169 +232,120 @@ var chWeekdayNames = map[string]time.Weekday{
 	"saturday":  time.Saturday,
 }
 
-// parseCHRecurrence parses strings like:
+var chOrdinals = map[string]int{
+	"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "last": -1,
+}
+
+// parseCHRecurrence parses a rule set's recurrence_string, e.g.:
 //
-//	"every week on Wednesday"
-//	"every 2 weeks on Thursday"
-//	"every week on Wednesday, Thursday, Friday, Saturday until June 6, 2026"
-//
-// Returns nil, nil for an empty input (caller should treat as one-off).
-// Returns an error for malformed input the caller cannot expand.
-func parseCHRecurrence(s string, loc *time.Location) (*chRecurrenceRule, error) {
+//	"Single date"
+//	"Recurring daily, and ends on Nov 6, 2026"
+//	"Recurring weekly on Saturday, Sunday, and ends on Nov 22, 2026"
+//	"Recurring every other week on Wednesday"
+//	"Recurring monthly on the last Friday"
+//	"Recurring yearly on the fourth Wednesday of November"
+func parseCHRecurrence(s string) (chRecurrence, error) {
 	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil, nil
+	if s == "" || strings.EqualFold(s, "single date") {
+		return chRecurrence{freq: chSingle}, nil
 	}
 	m := chRecurrenceRe.FindStringSubmatch(s)
 	if m == nil {
-		return nil, fmt.Errorf("unrecognized recurrence: %q", s)
+		return chRecurrence{}, fmt.Errorf("unrecognized recurrence: %q", s)
 	}
+	on := strings.TrimSpace(m[2])
 
-	rule := &chRecurrenceRule{intervalWeeks: 1}
-	if m[1] != "" {
-		n := atoiOr(m[1], 0)
-		if n <= 0 {
-			return nil, fmt.Errorf("invalid recurrence interval: %q", s)
-		}
-		rule.intervalWeeks = n
-	}
+	switch strings.ToLower(m[1]) {
+	case "daily":
+		return chRecurrence{freq: chDaily}, nil
 
-	for _, part := range strings.Split(m[2], ",") {
-		name := strings.ToLower(strings.TrimSpace(part))
-		wd, ok := chWeekdayNames[name]
-		if !ok {
-			return nil, fmt.Errorf("unrecognized weekday %q in recurrence: %q", part, s)
-		}
-		rule.weekdays = append(rule.weekdays, wd)
-	}
-	if len(rule.weekdays) == 0 {
-		return nil, fmt.Errorf("no weekdays parsed from recurrence: %q", s)
-	}
-
-	if m[3] != "" {
-		until, err := time.ParseInLocation("January 2, 2006", strings.TrimSpace(m[3]), loc)
-		if err != nil {
-			return nil, fmt.Errorf("parsing until date %q: %w", m[3], err)
-		}
-		// Inclusive — treat as end-of-day so a same-day instance still emits.
-		untilEOD := until.Add(24*time.Hour - time.Nanosecond)
-		rule.until = &untilEOD
-	}
-
-	return rule, nil
-}
-
-// expandCHEvent turns a raw API event into one or more RawEvents, expanding
-// recurType=3 weekly recurrences into per-occurrence instances within the
-// [windowStart, windowEnd) Eastern-local window. Each expanded instance gets
-// a unique ExternalID derived from the master recid plus its date so that
-// upserts identify each occurrence distinctly.
-func expandCHEvent(ev chEvent, loc *time.Location, windowStart, windowEnd time.Time) ([]RawEvent, error) {
-	base, err := mapCHEvent(ev)
-	if err != nil {
-		return nil, err
-	}
-
-	// recurType 0 (one-off) and 99 (multi-day span) need no expansion.
-	// recurType 3 with a null/blank recurrence behaves like a one-off.
-	if ev.RecurType != 3 {
-		if base.StartTime.Before(windowStart) {
-			return nil, nil
-		}
-		return []RawEvent{base}, nil
-	}
-
-	rule, err := parseCHRecurrence(ev.Recurrence, loc)
-	if err != nil {
-		return nil, err
-	}
-	if rule == nil {
-		if base.StartTime.Before(windowStart) {
-			return nil, nil
-		}
-		return []RawEvent{base}, nil
-	}
-
-	// Anchor week = the calendar week (Mon–Sun) containing the master's
-	// original startDate. "Every N weeks" counts whole-week offsets from
-	// that anchor, regardless of which weekday in the rule each instance lands on.
-	startTOD := parseCHTimeOfDay(ev.StartTime)
-	endTOD := parseCHTimeOfDay(ev.EndTime)
-
-	originDay, err := chOriginDayLocal(ev, loc)
-	if err != nil {
-		return nil, err
-	}
-	anchorWeekStart := chStartOfWeek(originDay)
-
-	scanStart := windowStart
-	if originDay.After(scanStart) {
-		scanStart = originDay
-	}
-	scanEnd := windowEnd
-	if rule.until != nil && rule.until.Before(scanEnd) {
-		scanEnd = *rule.until
-	}
-
-	weekdaySet := make(map[time.Weekday]bool, len(rule.weekdays))
-	for _, wd := range rule.weekdays {
-		weekdaySet[wd] = true
-	}
-
-	var instances []RawEvent
-	for d := time.Date(scanStart.Year(), scanStart.Month(), scanStart.Day(), 0, 0, 0, 0, loc); !d.After(scanEnd); d = d.AddDate(0, 0, 1) {
-		if !weekdaySet[d.Weekday()] {
-			continue
-		}
-		weeksSinceAnchor := int(chStartOfWeek(d).Sub(anchorWeekStart).Hours()/24) / 7
-		if weeksSinceAnchor < 0 || weeksSinceAnchor%rule.intervalWeeks != 0 {
-			continue
-		}
-
-		inst := base
-		inst.ExternalID = fmt.Sprintf("%s:%s", ev.RecID, d.Format("2006-01-02"))
-
-		if startTOD != nil {
-			inst.StartTime = time.Date(d.Year(), d.Month(), d.Day(),
-				startTOD.hour, startTOD.min, 0, 0, loc).UTC()
-		} else {
-			inst.StartTime = d.UTC()
-		}
-		if endTOD != nil {
-			endT := time.Date(d.Year(), d.Month(), d.Day(),
-				endTOD.hour, endTOD.min, 0, 0, loc)
-			if !endT.After(time.Date(d.Year(), d.Month(), d.Day(), startTOD.hour, startTOD.min, 0, 0, loc)) {
-				endT = endT.Add(24 * time.Hour)
+	case "weekly", "every other week":
+		rec := chRecurrence{freq: chWeekly}
+		for _, part := range chListSepRe.Split(on, -1) {
+			wd, ok := chWeekdayNames[strings.ToLower(strings.TrimSpace(part))]
+			if !ok {
+				return chRecurrence{}, fmt.Errorf("unrecognized weekday %q in recurrence: %q", part, s)
 			}
-			endU := endT.UTC()
-			inst.EndTime = &endU
-		} else {
-			inst.EndTime = nil
+			rec.weekdays = append(rec.weekdays, wd)
 		}
-		instances = append(instances, inst)
+		return rec, nil
+
+	default: // monthly, yearly
+		nm := chNthWeekdayRe.FindStringSubmatch(on)
+		if nm == nil {
+			return chRecurrence{}, fmt.Errorf("unrecognized recurrence: %q", s)
+		}
+		wd, ok := chWeekdayNames[strings.ToLower(nm[2])]
+		if !ok {
+			return chRecurrence{}, fmt.Errorf("unrecognized weekday %q in recurrence: %q", nm[2], s)
+		}
+		rec := chRecurrence{freq: chMonthly, nth: chOrdinals[strings.ToLower(nm[1])], weekday: wd}
+		if strings.EqualFold(m[1], "yearly") {
+			month, err := time.Parse("January", nm[3])
+			if err != nil {
+				return chRecurrence{}, fmt.Errorf("unrecognized month in recurrence: %q", s)
+			}
+			rec.freq = chYearly
+			rec.month = month.Month()
+		}
+		return rec, nil
 	}
-	return instances, nil
 }
 
-// chOriginDayLocal returns the master event's original start date as Eastern
-// midnight (date-only, no time-of-day component).
-func chOriginDayLocal(ev chEvent, loc *time.Location) (time.Time, error) {
-	src := ev.StartDate
-	if src == "" {
-		src = ev.Date
+// matches reports whether local date d (midnight, Eastern) is an occurrence
+// of the rule, given the rule's first date and interval.
+func (r chRecurrence) matches(d, first time.Time, interval int) bool {
+	switch r.freq {
+	case chSingle:
+		return d.Equal(first)
+	case chDaily:
+		return chDaysBetween(first, d)%interval == 0
+	case chWeekly:
+		if !weekdayIn(d.Weekday(), r.weekdays) {
+			return false
+		}
+		// "Every N weeks" counts whole-week offsets from the calendar week
+		// (Mon–Sun) containing the first date, regardless of which weekday
+		// in the rule each instance lands on.
+		weeks := chDaysBetween(chStartOfWeek(first), chStartOfWeek(d)) / 7
+		return weeks%interval == 0
+	case chMonthly, chYearly:
+		if d.Weekday() != r.weekday || !isNthWeekday(d, r.nth) {
+			return false
+		}
+		if r.freq == chYearly {
+			return d.Month() == r.month && (d.Year()-first.Year())%interval == 0
+		}
+		months := (d.Year()-first.Year())*12 + int(d.Month()) - int(first.Month())
+		return months%interval == 0
 	}
-	if src == "" {
-		return time.Time{}, fmt.Errorf("event %s has no start date", ev.RecID)
-	}
-	t, err := time.Parse(time.RFC3339Nano, src)
-	if err != nil {
-		t, err = time.Parse("2006-01-02T15:04:05.000Z", src)
-		if err != nil {
-			return time.Time{}, err
+	return false
+}
+
+func weekdayIn(wd time.Weekday, set []time.Weekday) bool {
+	for _, w := range set {
+		if w == wd {
+			return true
 		}
 	}
-	local := t.In(loc)
-	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc), nil
+	return false
+}
+
+// isNthWeekday reports whether d is the nth occurrence of its weekday in its
+// month (nth = -1 means the last).
+func isNthWeekday(d time.Time, nth int) bool {
+	if nth == -1 {
+		return d.AddDate(0, 0, 7).Month() != d.Month()
+	}
+	return (d.Day()-1)/7+1 == nth
+}
+
+// chDaysBetween counts calendar days from a to b (both local midnights),
+// robust to DST-shortened or -lengthened days.
+func chDaysBetween(a, b time.Time) int {
+	ua := time.Date(a.Year(), a.Month(), a.Day(), 0, 0, 0, 0, time.UTC)
+	ub := time.Date(b.Year(), b.Month(), b.Day(), 0, 0, 0, 0, time.UTC)
+	return int(ub.Sub(ua).Hours() / 24)
 }
 
 // chStartOfWeek returns the Monday at-or-before t (preserving t's location).
@@ -410,61 +354,129 @@ func chStartOfWeek(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, -offset)
 }
 
-func mapCHEvent(ev chEvent) (RawEvent, error) {
+// chLocalDate parses one of the API's UTC timestamps and returns the Eastern
+// calendar date it falls on, as local midnight.
+func chLocalDate(s string, loc *time.Location) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Time{}, err
+	}
+	t = t.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc), nil
+}
+
+// expandCHEvent turns an event record into one RawEvent per occurrence whose
+// date falls in [windowStart, windowEnd), across all of its date rule sets.
+//
+// An event with a single one-date rule set keeps the bare leisure_event_id as
+// its ExternalID. Anything else — recurring rules, or several one-date rule
+// sets (e.g. a film screening on three nights) — yields one instance per date
+// with ExternalID "<id>:<YYYY-MM-DD>" so upserts identify each occurrence.
+func expandCHEvent(ev chEvent, loc *time.Location, windowStart, windowEnd time.Time) ([]RawEvent, error) {
+	if len(ev.DateRuleSets) == 0 {
+		return nil, fmt.Errorf("event %s has no date rule sets", ev.ID)
+	}
+	base := mapCHEvent(ev)
+	singleOccurrence := len(ev.DateRuleSets) == 1 &&
+		strings.EqualFold(strings.TrimSpace(ev.DateRuleSets[0].RecurrenceString), "single date")
+
+	var instances []RawEvent
+	seen := make(map[string]int) // ExternalID -> index in instances
+	for _, rs := range ev.DateRuleSets {
+		rec, err := parseCHRecurrence(rs.RecurrenceString)
+		if err != nil {
+			return nil, err
+		}
+		first, err := chLocalDate(rs.StartDateAt, loc)
+		if err != nil {
+			return nil, fmt.Errorf("event %s: parsing start_date_at: %w", ev.ID, err)
+		}
+		interval := max(rs.Interval, 1)
+
+		// Bounded rules report their final occurrence; fall back to the
+		// rule's end date. Neither is set for open-ended rules.
+		last := windowEnd
+		for _, bound := range []string{rs.LastOccurrenceAt, rs.EndDateAt} {
+			if bound == "" {
+				continue
+			}
+			if t, err := chLocalDate(bound, loc); err == nil {
+				if t.Before(last) {
+					last = t.AddDate(0, 0, 1) // inclusive
+				}
+				break
+			}
+		}
+
+		scanStart := windowStart
+		if first.After(scanStart) {
+			scanStart = first
+		}
+		for d := scanStart; d.Before(last) && d.Before(windowEnd); d = d.AddDate(0, 0, 1) {
+			if !rec.matches(d, first, interval) {
+				continue
+			}
+			inst := base
+			if !singleOccurrence {
+				inst.ExternalID = fmt.Sprintf("%s:%s", ev.ID, d.Format("2006-01-02"))
+			}
+			inst.StartTime, inst.EndTime = chOccurrenceTimes(d, rs, loc)
+			// Matinee and evening showings on one date share an ExternalID;
+			// list the earlier one.
+			if i, ok := seen[inst.ExternalID]; ok {
+				if inst.StartTime.Before(instances[i].StartTime) {
+					instances[i] = inst
+				}
+				continue
+			}
+			seen[inst.ExternalID] = len(instances)
+			instances = append(instances, inst)
+		}
+	}
+	// Rule sets aren't listed chronologically.
+	sort.SliceStable(instances, func(i, j int) bool {
+		return instances[i].StartTime.Before(instances[j].StartTime)
+	})
+	return instances, nil
+}
+
+// chOccurrenceTimes returns the start and optional end instant of an
+// occurrence on local date d. All-day occurrences start at local midnight
+// with no end.
+func chOccurrenceTimes(d time.Time, rs chDateRuleSet, loc *time.Location) (time.Time, *time.Time) {
+	startTOD := parseCHTimeOfDay(rs.StartTime)
+	if rs.IsAllDay || startTOD == nil {
+		return d.UTC(), nil
+	}
+	start := time.Date(d.Year(), d.Month(), d.Day(), startTOD.hour, startTOD.min, 0, 0, loc)
+
+	endTOD := parseCHTimeOfDay(rs.EndTime)
+	if endTOD == nil {
+		return start.UTC(), nil
+	}
+	end := time.Date(d.Year(), d.Month(), d.Day(), endTOD.hour, endTOD.min, 0, 0, loc)
+	// Handle events that end past midnight by rolling to the next day.
+	if !end.After(start) {
+		end = end.AddDate(0, 0, 1)
+	}
+	endU := end.UTC()
+	return start.UTC(), &endU
+}
+
+// mapCHEvent fills in every RawEvent field except the per-occurrence times.
+func mapCHEvent(ev chEvent) RawEvent {
 	raw := RawEvent{
-		ExternalID: ev.RecID,
-		Source:     "visitchapelhill",
-		Title:      ev.Title,
-	}
-
-	if ev.Description != "" {
-		raw.Description = stripHTML(ev.Description)
-	}
-
-	// Parse start date — midnight local-as-UTC, same pattern as Visit Raleigh.
-	switch {
-	case ev.StartDate != "":
-		t, err := time.Parse(time.RFC3339Nano, ev.StartDate)
-		if err != nil {
-			t, err = time.Parse("2006-01-02T15:04:05.000Z", ev.StartDate)
-			if err != nil {
-				return RawEvent{}, fmt.Errorf("parsing start date: %w", err)
-			}
-		}
-		raw.StartTime = t
-	case ev.Date != "":
-		t, err := time.Parse(time.RFC3339Nano, ev.Date)
-		if err != nil {
-			return RawEvent{}, fmt.Errorf("parsing date: %w", err)
-		}
-		raw.StartTime = t
-	default:
-		return RawEvent{}, fmt.Errorf("no date for event %s", ev.RecID)
-	}
-
-	if ev.EndDate != "" {
-		t, err := time.Parse(time.RFC3339Nano, ev.EndDate)
-		if err == nil {
-			raw.EndTime = &t
-		}
-	}
-
-	// Refine with structured time-of-day fields. startDate is midnight local
-	// expressed in UTC, so adding the parsed hours yields the correct UTC moment.
-	if startTOD := parseCHTimeOfDay(ev.StartTime); startTOD != nil {
-		base := raw.StartTime
-		raw.StartTime = base.Add(time.Duration(startTOD.hour)*time.Hour + time.Duration(startTOD.min)*time.Minute)
-		if endTOD := parseCHTimeOfDay(ev.EndTime); endTOD != nil {
-			endT := base.Add(time.Duration(endTOD.hour)*time.Hour + time.Duration(endTOD.min)*time.Minute)
-			// Handle events that end past midnight by rolling to the next day.
-			if !endT.After(raw.StartTime) {
-				endT = endT.Add(24 * time.Hour)
-			}
-			raw.EndTime = &endT
-		} else {
-			// Clear the misleading 23:59:59 end time when we have no real end.
-			raw.EndTime = nil
-		}
+		ExternalID:  ev.ID,
+		Source:      "visitchapelhill",
+		Title:       ev.Title,
+		Description: stripHTML(ev.Description),
+		VenueName:   ev.VenueName,
+		Address:     ev.VenueAddress.AddressLine1,
+		City:        ev.VenueAddress.City,
+		Zip:         ev.VenueAddress.PostalCode,
+		// Visit Chapel Hill covers Orange County, NC.
+		State:    "NC",
+		ImageURL: ev.PrimaryImageURL,
 	}
 
 	if ev.Latitude != 0 && ev.Longitude != 0 {
@@ -472,68 +484,60 @@ func mapCHEvent(ev chEvent) (RawEvent, error) {
 		raw.Longitude = ev.Longitude
 	}
 
-	raw.VenueName = ev.Location
-	raw.Address = ev.Address1
-	raw.City = ev.City
-	raw.Zip = ev.Zip
-	// The API doesn't return state. Visit Chapel Hill covers Orange County, NC.
-	raw.State = "NC"
-
 	if len(ev.Categories) > 0 {
-		raw.Categories = []string{ev.Categories[0].CatName}
+		raw.Categories = []string{ev.Categories[0].Label}
 	}
 
-	if len(ev.MediaRaw) > 0 && ev.MediaRaw[0].MediaURL != "" {
-		raw.ImageURL = ev.MediaRaw[0].MediaURL
-	}
-
-	if ev.LinkURL != "" {
-		raw.TicketURL = ev.LinkURL
-	} else if ev.AbsoluteURL != "" {
+	if ev.WebURL != "" {
+		raw.TicketURL = ev.WebURL
+	} else {
 		raw.TicketURL = ev.AbsoluteURL
 	}
 
 	// Price / free admission from the free-text "admission" field. Copied into
-	// every expanded recurrence instance via the base RawEvent.
+	// every expanded occurrence via the base RawEvent.
 	raw.PriceMin, raw.PriceMax, raw.IsFree = parseAdmission(ev.Admission)
 
-	return raw, nil
+	return raw
 }
 
-// Visit Chapel Hill API response types — note the extra envelope around
-// the docs array compared to Visit Raleigh's rest endpoint.
-
-type chResponse struct {
-	Docs chDocs `json:"docs"`
-}
-
-type chDocs struct {
-	Count int       `json:"count"`
-	Docs  []chEvent `json:"docs"`
-}
-
+// chEvent is the event record embedded in each Visit Chapel Hill event page.
 type chEvent struct {
-	ID          string       `json:"_id"`
-	RecID       string       `json:"recid"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Date        string       `json:"date"`
-	StartDate   string       `json:"startDate"`
-	EndDate     string       `json:"endDate"`
-	StartTime   string       `json:"startTime"`
-	EndTime     string       `json:"endTime"`
-	Address1    string       `json:"address1"`
-	City        string       `json:"city"`
-	Zip         string       `json:"zip"`
-	Latitude    float64      `json:"latitude"`
-	Longitude   float64      `json:"longitude"`
-	Location    string       `json:"location"`
-	Categories  []crCategory `json:"categories"`
-	MediaRaw    []crMedia    `json:"media_raw"`
-	Admission   string       `json:"admission"`
-	URL         string       `json:"url"`
-	AbsoluteURL string       `json:"absoluteUrl"`
-	LinkURL     string       `json:"linkUrl"`
-	Recurrence  string       `json:"recurrence"`
-	RecurType   int          `json:"recurType"`
+	ID              string          `json:"leisure_event_id"`
+	Title           string          `json:"title"`
+	Description     string          `json:"description"`
+	Admission       string          `json:"admission"`
+	WebURL          string          `json:"weburl"`
+	AbsoluteURL     string          `json:"absoluteUrl"`
+	VenueName       string          `json:"venue_name"`
+	VenueAddress    chAddress       `json:"venue_address"`
+	Latitude        float64         `json:"latitude"`
+	Longitude       float64         `json:"longitude"`
+	PrimaryImageURL string          `json:"primary_image_url"`
+	Categories      []chCategory    `json:"categories"`
+	DateRuleSets    []chDateRuleSet `json:"date_rule_sets"`
+}
+
+type chAddress struct {
+	AddressLine1 string `json:"address_line_1"`
+	City         string `json:"city"`
+	PostalCode   string `json:"postal_code"`
+}
+
+type chCategory struct {
+	Label string `json:"label"`
+}
+
+// chDateRuleSet describes one schedule for an event. Timestamps are UTC;
+// start_date_at / end_date_at are Eastern midnights, and start_time /
+// end_time are Eastern wall-clock "HH:MM:SS".
+type chDateRuleSet struct {
+	StartDateAt      string `json:"start_date_at"`
+	EndDateAt        string `json:"end_date_at"`
+	LastOccurrenceAt string `json:"last_occurrence_at"`
+	StartTime        string `json:"start_time"`
+	EndTime          string `json:"end_time"`
+	IsAllDay         bool   `json:"is_all_day_event"`
+	Interval         int    `json:"interval"`
+	RecurrenceString string `json:"recurrence_string"`
 }
