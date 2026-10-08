@@ -155,6 +155,8 @@ func main() {
 		// TODO: re-enable once Discover Durham scraper is fixed
 		// sources = append(sources, scraper.NewDiscoverDurham())
 		sources = append(sources, scraper.NewVisitRichmond())
+		sources = append(sources, scraper.NewPinhook())
+		sources = append(sources, scraper.NewMotorco())
 		if cfg.TicketmasterAPIKey != "" {
 			sources = append(sources, scraper.NewTicketmaster(cfg.TicketmasterAPIKey))
 		} else {

@@ -55,7 +55,7 @@ Full-stack application for discovering and managing local events. Monorepo with 
 - `internal/handler/` — HTTP handlers (events, users, venues, applications, images, suggestions, notifications, digest, sitemap, health, sms_webhook).
 - `internal/middleware/` — Auth (Clerk JWT), RBAC roles, CORS.
 - `internal/store/` — SQLC-generated query code + models.
-- `internal/scraper/` — Cron-based event scrapers (Ticketmaster, SeatGeek, Bandsintown, City of Raleigh, Discover Durham, Visit Richmond).
+- `internal/scraper/` — Cron-based event scrapers (Ticketmaster, SeatGeek, Bandsintown, City of Raleigh, Discover Durham, Visit Richmond, The Pinhook, Motorco).
 - `internal/notifier/` — Email (Resend) and SMS (Twilio) weekly digests.
 - `internal/storage/r2.go` — Cloudflare R2 image storage (presigned uploads, mirroring).
 - `internal/billing/clerk.go` — Clerk subscription/billing checks.

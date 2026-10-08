@@ -79,6 +79,8 @@ var prioritySources = map[string]bool{
 	"visitchapelhill": true,
 	"discoverdurham":  true,
 	"visitrichmond":   true,
+	"pinhook":         true,
+	"motorco":         true,
 }
 
 // Run collects events from all sources, deduplicates across sources

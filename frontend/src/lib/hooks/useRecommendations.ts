@@ -48,8 +48,12 @@ export function useRecordEventView() {
 			apiClient<void>(`/api/me/event-views/${eventId}`, { method: "POST" }),
 		onSuccess: () => {
 			// View counts toward signal — invalidate so cold-start state can flip.
+			// Only mark stale: impressions fire while the carousel drifts, and
+			// refetching would re-rank and rebuild the row under the visitor.
+			// Fresh rankings load the next time the section mounts.
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.recommendations.all,
+				refetchType: "none",
 			});
 		},
 	});

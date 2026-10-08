@@ -7,6 +7,10 @@ import type { Event } from "#/lib/types";
 
 gsap.registerPlugin(useGSAP);
 
+// At or below this many cards the row sits still, centered, instead of
+// looping — a loop of so few cards mostly shows the wrap-around gap.
+const MAX_STATIC_CARDS = 3;
+
 interface Props {
 	events: Event[];
 	// Override how each card renders.
@@ -28,9 +32,7 @@ export function EventCarousel({ events, renderItem, speed = 0.5 }: Props) {
 			if (!track) return;
 
 			const items = gsap.utils.toArray<HTMLElement>(track.children);
-			// Need enough items to fill the row, otherwise a loop has nothing to
-			// wrap and the gaps look broken.
-			if (items.length < 2) return;
+			if (items.length <= MAX_STATIC_CARDS) return;
 
 			const loop: LoopTimeline = horizontalLoop(items, {
 				speed,
@@ -58,7 +60,10 @@ export function EventCarousel({ events, renderItem, speed = 0.5 }: Props) {
 				loop.revertLoop();
 			};
 		},
-		{ scope: viewportRef, dependencies: [depKey] },
+		// revertOnUpdate: without it, useGSAP only reverts on unmount, so a
+		// depKey change would leave the old loop running alongside the new one
+		// and the two would fight over each card's xPercent.
+		{ scope: viewportRef, dependencies: [depKey], revertOnUpdate: true },
 	);
 
 	if (events.length === 0) return null;
@@ -66,6 +71,19 @@ export function EventCarousel({ events, renderItem, speed = 0.5 }: Props) {
 	const render =
 		renderItem ??
 		((event: Event) => <EventCard event={event} animateOnScroll={false} />);
+
+	if (events.length <= MAX_STATIC_CARDS) {
+		// Wraps so the cards stack on narrow screens instead of being clipped.
+		return (
+			<div className="flex w-full flex-wrap justify-center gap-4">
+				{events.map((event) => (
+					<div key={event.ID} className="w-72 shrink-0">
+						{render(event)}
+					</div>
+				))}
+			</div>
+		);
+	}
 
 	return (
 		<div
