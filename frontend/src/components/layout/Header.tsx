@@ -91,8 +91,8 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-(--line) bg-(--header-bg) px-4 backdrop-blur-lg">
-      <nav className="page-wrap flex items-center gap-x-3 py-3 sm:py-4">
+    <header className="sticky top-0 z-50 border-b border-(--line) bg-(--header-bg) backdrop-blur-lg sm:px-4">
+      <nav className="page-wrap flex items-center gap-x-2 py-3 sm:gap-x-3 sm:py-4">
         <Link
           to="/"
           className="shrink-0 text-base font-bold tracking-tight text-(--sea-ink) no-underline"
@@ -107,7 +107,7 @@ export default function Header() {
         <button
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
-          className="ml-2 inline-flex items-center justify-center rounded-md p-2 text-(--sea-ink-soft) hover:bg-(--surface) sm:hidden"
+          className="inline-flex items-center justify-center rounded-md p-2 text-(--sea-ink-soft) hover:bg-(--surface) sm:hidden"
           aria-label="Toggle navigation menu"
         >
           <svg
@@ -138,7 +138,7 @@ export default function Header() {
           {navLinks}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
           {onEventsList && (
             <button
               type="button"
@@ -153,11 +153,11 @@ export default function Header() {
                   replace: true,
                 })
               }
-              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover)"
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-2.5 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) sm:px-3"
               aria-label="Switch to map view"
             >
               <MapIcon size={14} strokeWidth={1.5} />
-              Map
+              <span className="hidden sm:inline">Map</span>
             </button>
           )}
           <ThemeToggle />
