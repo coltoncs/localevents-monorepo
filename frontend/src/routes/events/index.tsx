@@ -51,7 +51,9 @@ export const Route = createFileRoute('/events/')({
     category: search.category as string | undefined,
     search: (search.search as string) || undefined,
     sort:
-      search.sort === 'price_asc' || search.sort === 'price_desc'
+      search.sort === 'distance' ||
+      search.sort === 'price_asc' ||
+      search.sort === 'price_desc'
         ? search.sort
         : undefined,
     view: search.view === 'list' ? 'list' : undefined,
@@ -224,7 +226,7 @@ function EventsList({
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-(--sea-ink)">Explore Events</h1>
-        <CityButtons lat={search.lat} lng={search.lng} />
+        <CityButtons lat={search.lat} lng={search.lng} radius={search.radius} />
       </div>
 
       <EventFilters

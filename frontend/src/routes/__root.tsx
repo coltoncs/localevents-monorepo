@@ -12,6 +12,7 @@ import { ClerkTokenProvider } from "../components/auth/ClerkTokenProvider";
 import { ChatLauncher } from "../components/chat/ChatLauncher";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import Footer from "../components/layout/Footer";
+import { Toaster } from "../components/Toaster";
 import Header from "../components/layout/Header";
 import { EmailNotifBanner } from "../components/notifications/EmailNotifBanner";
 import ClerkProvider from "../integrations/clerk/provider";
@@ -160,6 +161,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 								{children}
 							</ErrorBoundary>
 							<Footer />
+							<Toaster />
 							<ErrorBoundary name="chat-launcher">
 								<ChatLauncher />
 							</ErrorBoundary>

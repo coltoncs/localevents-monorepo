@@ -245,6 +245,7 @@ export function EventFilters({
           className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">Sort: Recommended</option>
+          <option value="distance">Distance: Nearest</option>
           <option value="price_asc">Price: Low to High</option>
           <option value="price_desc">Price: High to Low</option>
         </select>

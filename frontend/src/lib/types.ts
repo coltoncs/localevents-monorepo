@@ -103,7 +103,7 @@ export interface EventFilters {
 	page?: number;
 }
 
-export type EventSort = "price_asc" | "price_desc";
+export type EventSort = "distance" | "price_asc" | "price_desc";
 
 export interface CreateEventInput {
 	title: string;

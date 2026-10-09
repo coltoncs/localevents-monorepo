@@ -1,6 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { LocateFixed } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { getCurrentPosition } from "#/lib/geolocation";
+import { eventListOptions } from "#/lib/hooks/useEvents";
 import { storageGet, storageSet } from "#/lib/storage";
+import { toast } from "#/lib/toast";
+import type { EventSort } from "#/lib/types";
 
 export const NC_CITIES: Record<string, { lat: number; lng: number }> = {
 	Raleigh: { lat: 35.7796, lng: -78.6382 },
@@ -39,6 +45,12 @@ const ALL_CITIES: Record<string, { lat: number; lng: number }> = {
 };
 
 export const STORAGE_KEY = "localevents_location";
+
+// Saved-location name for browser geolocation (shared with LocationSearch).
+const MY_LOCATION = "My Location";
+
+// City used when the user's own location has no events nearby.
+const FALLBACK_CITY = "Raleigh";
 
 export interface SavedLocation {
 	name: string;
@@ -101,7 +113,7 @@ export function LocationSearch({
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
 				setGeolocating(false);
-				go("My Location", pos.coords.latitude, pos.coords.longitude);
+				go(MY_LOCATION, pos.coords.latitude, pos.coords.longitude);
 			},
 			() => {
 				setGeolocating(false);
@@ -213,19 +225,44 @@ export function LocationSearch({
 	);
 }
 
+function sameCoords(aLat: number, aLng: number, bLat: number, bLng: number) {
+	return Math.abs(aLat - bLat) < 0.001 && Math.abs(aLng - bLng) < 0.001;
+}
+
 export function CityButtons({
 	lat,
 	lng,
+	radius,
 	navigateTo,
 }: {
 	lat?: number;
 	lng?: number;
+	radius?: number;
 	navigateTo?: string;
 }) {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const queryClient = useQueryClient();
+	const [locating, setLocating] = useState(false);
+	// Read after mount: storage isn't available during SSR.
+	const [saved, setSaved] = useState<SavedLocation | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-read storage whenever the location changes, since go() saves before navigating
+	useEffect(() => {
+		setSaved(getSavedLocation());
+	}, [lat, lng]);
 
-	function go(name: string, cityLat: number, cityLng: number) {
+	const nearMeActive =
+		saved?.name === MY_LOCATION &&
+		lat !== undefined &&
+		lng !== undefined &&
+		sameCoords(lat, lng, saved.lat, saved.lng);
+
+	function go(
+		name: string,
+		cityLat: number,
+		cityLng: number,
+		sort?: EventSort,
+	) {
 		saveLocation({ name, lat: cityLat, lng: cityLng });
 		navigate({
 			to: navigateTo ?? location.pathname,
@@ -234,19 +271,77 @@ export function CityButtons({
 				lat: cityLat,
 				lng: cityLng,
 				page: undefined,
+				...(sort ? { sort } : {}),
 			}),
 		});
+	}
+
+	// Geolocates the user, then lists events nearest-first. If nothing is within
+	// the current radius (e.g. they're outside our coverage area), falls back to
+	// Raleigh rather than showing an empty list.
+	async function goNearMe() {
+		setLocating(true);
+		try {
+			const coords = await getCurrentPosition();
+			// ~100m precision: plenty for sorting, and keeps exact coordinates out
+			// of shareable URLs.
+			const myLat = Math.round(coords.latitude * 1000) / 1000;
+			const myLng = Math.round(coords.longitude * 1000) / 1000;
+
+			const { total } = await queryClient.fetchQuery(
+				eventListOptions({ lat: myLat, lng: myLng, radius, limit: 1 }),
+			);
+			if (total === 0) {
+				const city = NC_CITIES[FALLBACK_CITY];
+				toast(
+					`No events near your location yet, so we're showing ${FALLBACK_CITY} instead.`,
+				);
+				go(FALLBACK_CITY, city.lat, city.lng);
+				return;
+			}
+			go(MY_LOCATION, myLat, myLng, "distance");
+		} catch (err) {
+			const denied =
+				typeof GeolocationPositionError !== "undefined" &&
+				err instanceof GeolocationPositionError &&
+				err.code === err.PERMISSION_DENIED;
+			toast(
+				denied
+					? "Location access is blocked. Allow it in your browser settings to see events near you."
+					: "Couldn't get your location. Please try again.",
+			);
+		} finally {
+			setLocating(false);
+		}
 	}
 
 	return (
 		<fieldset className="flex flex-wrap gap-2">
 			<legend className="sr-only">City</legend>
+			<button
+				type="button"
+				onClick={() => !nearMeActive && !locating && goNearMe()}
+				aria-pressed={nearMeActive}
+				aria-busy={locating}
+				disabled={locating}
+				className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium disabled:cursor-wait disabled:opacity-70 ${
+					nearMeActive
+						? "border-(--lagoon-deep) bg-(--lagoon-deep) text-white"
+						: "border-(--line) bg-(--surface-strong) text-(--sea-ink-soft) hover:border-(--lagoon) hover:text-(--lagoon-deep)"
+				}`}
+			>
+				<LocateFixed
+					size={14}
+					aria-hidden="true"
+					className={locating ? "animate-pulse" : undefined}
+				/>
+				{locating ? "Locating…" : "Near Me"}
+			</button>
 			{Object.entries(NC_CITIES).map(([name, coords]) => {
 				const active =
 					lat !== undefined &&
 					lng !== undefined &&
-					Math.abs(lat - coords.lat) < 0.001 &&
-					Math.abs(lng - coords.lng) < 0.001;
+					sameCoords(lat, lng, coords.lat, coords.lng);
 				return (
 					<button
 						key={name}
