@@ -98,9 +98,12 @@ export interface EventFilters {
 	venueName?: string;
 	venueId?: string;
 	search?: string;
+	sort?: EventSort;
 	limit?: number;
 	page?: number;
 }
+
+export type EventSort = "price_asc" | "price_desc";
 
 export interface CreateEventInput {
 	title: string;

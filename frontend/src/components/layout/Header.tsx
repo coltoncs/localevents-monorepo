@@ -1,5 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Map as MapIcon } from "lucide-react";
 import { useState } from "react";
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import ClerkHeader from "../../integrations/clerk/header-user.tsx";
@@ -9,6 +10,14 @@ export default function Header() {
   const { isSignedIn } = useAuth();
   const { canCreateEvent, canManageAuthors } = useUserRole();
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  // The map view renders its own navbar with a "List" button; this is the
+  // list view's counterpart.
+  const onEventsList = useRouterState({
+    select: (s) =>
+      s.location.pathname === "/events" &&
+      (s.location.search as { view?: string }).view === "list",
+  });
 
   const navLinks = (
     <>
@@ -130,6 +139,27 @@ export default function Header() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {onEventsList && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate({
+                  to: "/events",
+                  search: (prev) => ({
+                    ...prev,
+                    view: undefined,
+                    page: undefined,
+                  }),
+                  replace: true,
+                })
+              }
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-(--line) bg-(--surface-strong) px-3 py-1.5 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover)"
+              aria-label="Switch to map view"
+            >
+              <MapIcon size={14} strokeWidth={1.5} />
+              Map
+            </button>
+          )}
           <ThemeToggle />
           <ClerkHeader />
         </div>

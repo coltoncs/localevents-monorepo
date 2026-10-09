@@ -64,6 +64,31 @@ ORDER BY (start_time AT TIME ZONE 'America/New_York')::date ASC,
     start_time ASC
 LIMIT @event_limit OFFSET @event_offset;
 
+-- name: ListEventsByLocationPriceSorted :many
+-- Sorts by starting price, matching the frontend's formatPrice precedence:
+-- price data wins, then is_free counts as 0. Events with no price at all sort
+-- last in both directions, since an unknown price isn't cheap or expensive.
+SELECT *
+FROM events
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(@lng::float, @lat::float), 4326)::geography,
+    @radius_meters::float
+)
+AND start_time >= @start_date::timestamptz
+AND start_time < @end_date::timestamptz
+AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
+AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
+AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
+AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR venue_name ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY
+    CASE WHEN NOT @descending::bool THEN COALESCE(price_min, price_max, CASE WHEN is_free THEN 0 END) END ASC NULLS LAST,
+    CASE WHEN @descending::bool THEN COALESCE(price_min, price_max, CASE WHEN is_free THEN 0 END) END DESC NULLS LAST,
+    start_time ASC,
+    id ASC
+LIMIT @event_limit OFFSET @event_offset;
+
 -- name: ListCoverageCities :many
 -- Cities that currently have upcoming events, with a representative centroid
 -- (average of their events' coordinates) and an event count. Powers the digest

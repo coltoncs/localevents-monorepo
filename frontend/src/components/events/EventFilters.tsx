@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { track } from '#/lib/analytics'
+import type { EventSort } from '#/lib/types'
 
 export const CATEGORIES = [
   'Music',
@@ -51,6 +52,7 @@ interface EventFiltersProps {
   endDate?: string
   radius?: number
   search?: string
+  sort?: EventSort
   lat: number
   lng: number
 }
@@ -73,6 +75,7 @@ export function EventFilters({
   endDate,
   radius,
   search,
+  sort,
   lat,
   lng,
 }: EventFiltersProps) {
@@ -102,32 +105,10 @@ export function EventFilters({
   }
 
   const filterCount =
-    (date ? 1 : 0) + (category ? 1 : 0) + (radius && radius !== 10 ? 1 : 0)
-
-  const viewToggle = (
-    <div className="flex rounded-md border border-(--line)">
-      <button
-        type="button"
-        disabled
-        className="cursor-default rounded-l-md bg-(--lagoon-deep) px-3 py-2 text-sm font-medium text-white"
-      >
-        List
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          navigate({
-            to: '/events',
-            search: (prev) => ({ ...prev, lat, lng, view: undefined, page: undefined }),
-            replace: true,
-          })
-        }
-        className="cursor-pointer rounded-r-md bg-(--surface-strong) px-3 py-2 text-sm font-medium text-(--sea-ink-soft) hover:bg-(--surface)"
-      >
-        Map
-      </button>
-    </div>
-  )
+    (date ? 1 : 0) +
+    (category ? 1 : 0) +
+    (radius && radius !== 10 ? 1 : 0) +
+    (sort ? 1 : 0)
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-(--line) bg-(--surface-strong) p-4">
@@ -191,7 +172,6 @@ export function EventFilters({
             <path d="M2 4l4 4 4-4" />
           </svg>
         </button>
-        {viewToggle}
       </div>
 
       <div
@@ -251,9 +231,23 @@ export function EventFilters({
             </option>
           ))}
         </select>
+
+        <select
+          value={sort ?? ''}
+          onChange={(e) => {
+            if (e.target.value)
+              track('sort_events', { sort: e.target.value })
+            updateSearch({ sort: e.target.value || undefined })
+          }}
+          aria-label="Sort events"
+          className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
+        >
+          <option value="">Sort: Recommended</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+        </select>
       </div>
 
-      <div className="hidden sm:ml-auto sm:block">{viewToggle}</div>
     </div>
   )
 }

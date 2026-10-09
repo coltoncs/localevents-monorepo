@@ -666,6 +666,113 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 	return items, nil
 }
 
+const listEventsByLocationPriceSorted = `-- name: ListEventsByLocationPriceSorted :many
+SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by, genre
+FROM events
+WHERE ST_DWithin(
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+    ST_SetSRID(ST_MakePoint($1::float, $2::float), 4326)::geography,
+    $3::float
+)
+AND start_time >= $4::timestamptz
+AND start_time < $5::timestamptz
+AND ($6::text IS NULL OR $6::text = ANY(categories))
+AND ($7::text IS NULL OR $7::text = ANY(genre))
+AND ($8::text IS NULL OR venue_name = $8::text)
+AND ($9::uuid IS NULL OR venue_id = $9::uuid)
+AND ($10::text IS NULL OR title ILIKE '%' || $10::text || '%' OR venue_name ILIKE '%' || $10::text || '%')
+ORDER BY
+    CASE WHEN NOT $11::bool THEN COALESCE(price_min, price_max, CASE WHEN is_free THEN 0 END) END ASC NULLS LAST,
+    CASE WHEN $11::bool THEN COALESCE(price_min, price_max, CASE WHEN is_free THEN 0 END) END DESC NULLS LAST,
+    start_time ASC,
+    id ASC
+LIMIT $13 OFFSET $12
+`
+
+type ListEventsByLocationPriceSortedParams struct {
+	Lng          float64
+	Lat          float64
+	RadiusMeters float64
+	StartDate    pgtype.Timestamptz
+	EndDate      pgtype.Timestamptz
+	Category     pgtype.Text
+	Genre        pgtype.Text
+	VenueName    pgtype.Text
+	VenueID      pgtype.UUID
+	Search       pgtype.Text
+	Descending   bool
+	EventOffset  int32
+	EventLimit   int32
+}
+
+// Sorts by starting price, matching the frontend's formatPrice precedence:
+// price data wins, then is_free counts as 0. Events with no price at all sort
+// last in both directions, since an unknown price isn't cheap or expensive.
+func (q *Queries) ListEventsByLocationPriceSorted(ctx context.Context, arg ListEventsByLocationPriceSortedParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsByLocationPriceSorted,
+		arg.Lng,
+		arg.Lat,
+		arg.RadiusMeters,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Category,
+		arg.Genre,
+		arg.VenueName,
+		arg.VenueID,
+		arg.Search,
+		arg.Descending,
+		arg.EventOffset,
+		arg.EventLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExternalID,
+			&i.Source,
+			&i.Title,
+			&i.Description,
+			&i.VenueName,
+			&i.Address,
+			&i.City,
+			&i.State,
+			&i.Zip,
+			&i.Latitude,
+			&i.Longitude,
+			&i.StartTime,
+			&i.EndTime,
+			&i.ImageUrl,
+			&i.TicketUrl,
+			&i.PriceMin,
+			&i.PriceMax,
+			&i.SubmittedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManuallyEdited,
+			&i.VenueID,
+			&i.Categories,
+			&i.SeriesID,
+			&i.IsFree,
+			&i.IsFeatured,
+			&i.FeaturedAt,
+			&i.FeaturedBy,
+			&i.Genre,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEventsBySeries = `-- name: ListEventsBySeries :many
 SELECT id, external_id, source, title, description, venue_name, address, city, state, zip, latitude, longitude, start_time, end_time, image_url, ticket_url, price_min, price_max, submitted_by, created_at, updated_at, manually_edited, venue_id, categories, series_id, is_free, is_featured, featured_at, featured_by, genre FROM events
 WHERE series_id = $1

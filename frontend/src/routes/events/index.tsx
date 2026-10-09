@@ -13,6 +13,7 @@ import { Pagination } from '#/components/Pagination'
 import { Spinner } from '#/components/Spinner'
 import { DEFAULT_MAP_CENTER } from '#/lib/mapUtils'
 import { track } from '#/lib/analytics'
+import type { EventSort } from '#/lib/types'
 
 interface EventsSearch {
   lat?: number
@@ -22,6 +23,7 @@ interface EventsSearch {
   endDate?: string
   category?: string
   search?: string
+  sort?: EventSort
   view?: 'list'
   layout?: 'compact'
   page?: number
@@ -47,6 +49,10 @@ export const Route = createFileRoute('/events/')({
     endDate: (search.endDate as string) || undefined,
     category: search.category as string | undefined,
     search: (search.search as string) || undefined,
+    sort:
+      search.sort === 'price_asc' || search.sort === 'price_desc'
+        ? search.sort
+        : undefined,
     view: search.view === 'list' ? 'list' : undefined,
     layout: search.layout === 'compact' ? 'compact' : undefined,
     page: search.page ? Number(search.page) : undefined,
@@ -59,6 +65,7 @@ export const Route = createFileRoute('/events/')({
     endDate: search.endDate,
     category: search.category,
     search: search.search,
+    sort: search.sort,
     page: search.page,
     view: search.view,
   }),
@@ -74,6 +81,7 @@ export const Route = createFileRoute('/events/')({
           endDate: deps.endDate,
           category: deps.category,
           search: deps.search,
+          sort: deps.sort,
           page: deps.page,
         }),
       )
@@ -182,6 +190,7 @@ function EventsList({
     endDate: search.endDate,
     category: search.category,
     search: search.search,
+    sort: search.sort,
     page,
   }
 
@@ -223,6 +232,7 @@ function EventsList({
         endDate={search.endDate}
         radius={search.radius}
         search={search.search}
+        sort={search.sort}
         lat={search.lat}
         lng={search.lng}
       />

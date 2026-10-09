@@ -140,10 +140,16 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// sort: "" (default distance/date ordering), "price_asc", or "price_desc".
+	sortBy := r.URL.Query().Get("sort")
+	priceSort := sortBy == "price_asc" || sortBy == "price_desc"
+
 	var total int64
 	var events []store.Event
 
-	if search.Valid && h.searchSvc != nil {
+	// Hybrid search orders by relevance, so an explicit price sort skips it and
+	// uses the ILIKE path below, which can order the full result set by price.
+	if search.Valid && h.searchSvc != nil && !priceSort {
 		// Hybrid search: exact/lexical matches first, then semantic ranking.
 		// Falls back to ILIKE below if embedding fails.
 		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, limit, offset)
@@ -193,7 +199,23 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 
 		multiDay := dateStr == "" || endDateStr != ""
-		if multiDay {
+		if priceSort {
+			events, err = h.queries.ListEventsByLocationPriceSorted(r.Context(), store.ListEventsByLocationPriceSortedParams{
+				Lng:          listParams.Lng,
+				Lat:          listParams.Lat,
+				RadiusMeters: listParams.RadiusMeters,
+				StartDate:    listParams.StartDate,
+				EndDate:      listParams.EndDate,
+				Category:     listParams.Category,
+				Genre:        listParams.Genre,
+				VenueName:    listParams.VenueName,
+				VenueID:      listParams.VenueID,
+				Search:       listParams.Search,
+				Descending:   sortBy == "price_desc",
+				EventLimit:   listParams.EventLimit,
+				EventOffset:  listParams.EventOffset,
+			})
+		} else if multiDay {
 			events, err = h.queries.ListEventsByLocationDateSorted(r.Context(), store.ListEventsByLocationDateSortedParams{
 				Lng:          listParams.Lng,
 				Lat:          listParams.Lat,
