@@ -22,6 +22,8 @@ function staticMapUrl(style: "light-v11" | "dark-v11", lng: number, lat: number)
 // from the middle. On mobile it covers the whole card but stays faint behind
 // the text; the image is 170% of the card's width and anchored left, so its
 // center (the event) lands near the right edge instead of behind the title.
+// Text may overlap the pin there, so in dark mode the pin uses --palm rather
+// than --lagoon to stay distinct from the cyan title/link text.
 // One <img> per theme; the hidden one is display:none, so with lazy loading
 // the browser never fetches it.
 const mapImgClass =
@@ -50,7 +52,7 @@ function CardMap({ lat, lng }: { lat: number; lng: number }) {
       <MapPin
         size={26}
         strokeWidth={1.75}
-        className="absolute left-[85%] top-1/2 -translate-x-1/2 -translate-y-full fill-(--lagoon) text-(--surface-strong) drop-shadow sm:left-1/2"
+        className="absolute left-[85%] top-1/2 -translate-x-1/2 -translate-y-full fill-(--lagoon) text-(--surface-strong) drop-shadow dark:fill-(--palm) sm:left-1/2"
       />
     </div>
   );
@@ -119,7 +121,7 @@ export function EventListCard({ event }: { event: Event }) {
           <Link
             to="/events/$eventId"
             params={{ eventId: event.ID }}
-            className="rounded-lg after:absolute after:inset-0 hover:text-(--lagoon-deep)"
+            className="rounded-lg after:absolute after:inset-0 hover:text-(--lagoon-deep) bg-white/50 dark:bg-black/25 pt-2 pr-2 pb-2"
           >
             {event.Title}
           </Link>
