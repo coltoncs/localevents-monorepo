@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -96,10 +97,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 		endDate = startDate.AddDate(1, 0, 0)
 	}
 
-	var category pgtype.Text
-	if c := r.URL.Query().Get("category"); c != "" {
-		category = pgtype.Text{String: c, Valid: true}
-	}
+	categories := parseCategories(r)
 
 	var genre pgtype.Text
 	if g := r.URL.Query().Get("genre"); g != "" {
@@ -152,7 +150,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	if search.Valid && h.searchSvc != nil && !priceSort {
 		// Hybrid search: exact/lexical matches first, then semantic ranking.
 		// Falls back to ILIKE below if embedding fails.
-		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, limit, offset)
+		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, categories, genre, venueName, venueID, limit, offset)
 		sem, count, semErr := h.searchSvc.Hybrid(r.Context(), search.String, sp)
 		if semErr != nil {
 			log.Printf("hybrid search error, falling back to ILIKE: %v", semErr)
@@ -169,7 +167,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			RadiusMeters: radiusMeters,
 			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
-			Category:     category,
+			Categories:   categories,
 			Genre:        genre,
 			VenueName:    venueName,
 			VenueID:      venueID,
@@ -189,7 +187,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 			RadiusMeters: locParams.RadiusMeters,
 			StartDate:    locParams.StartDate,
 			EndDate:      locParams.EndDate,
-			Category:     locParams.Category,
+			Categories:   locParams.Categories,
 			Genre:        locParams.Genre,
 			VenueName:    locParams.VenueName,
 			VenueID:      locParams.VenueID,
@@ -206,7 +204,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 				RadiusMeters: listParams.RadiusMeters,
 				StartDate:    listParams.StartDate,
 				EndDate:      listParams.EndDate,
-				Category:     listParams.Category,
+				Categories:   listParams.Categories,
 				Genre:        listParams.Genre,
 				VenueName:    listParams.VenueName,
 				VenueID:      listParams.VenueID,
@@ -222,7 +220,7 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 				RadiusMeters: listParams.RadiusMeters,
 				StartDate:    listParams.StartDate,
 				EndDate:      listParams.EndDate,
-				Category:     listParams.Category,
+				Categories:   listParams.Categories,
 				Genre:        listParams.Genre,
 				VenueName:    listParams.VenueName,
 				VenueID:      listParams.VenueID,
@@ -308,10 +306,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 		endDate = startDate.AddDate(1, 0, 0)
 	}
 
-	var category pgtype.Text
-	if c := r.URL.Query().Get("category"); c != "" {
-		category = pgtype.Text{String: c, Valid: true}
-	}
+	categories := parseCategories(r)
 
 	var genre pgtype.Text
 	if g := r.URL.Query().Get("genre"); g != "" {
@@ -339,7 +334,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 	var events []store.Event
 
 	if search.Valid && h.searchSvc != nil {
-		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, category, genre, venueName, venueID, 500, 0)
+		sp := searchParams(lat, lng, radiusMeters, startDate, endDate, categories, genre, venueName, venueID, 500, 0)
 		sem, _, semErr := h.searchSvc.Hybrid(r.Context(), search.String, sp)
 		if semErr != nil {
 			log.Printf("hybrid search error (map), falling back to ILIKE: %v", semErr)
@@ -355,7 +350,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 			RadiusMeters: radiusMeters,
 			StartDate:    pgtype.Timestamptz{Time: startDate, Valid: true},
 			EndDate:      pgtype.Timestamptz{Time: endDate, Valid: true},
-			Category:     category,
+			Categories:   categories,
 			Genre:        genre,
 			VenueName:    venueName,
 			VenueID:      venueID,
@@ -373,7 +368,7 @@ func (h *EventHandler) ListMap(w http.ResponseWriter, r *http.Request) {
 				RadiusMeters: listParams.RadiusMeters,
 				StartDate:    listParams.StartDate,
 				EndDate:      listParams.EndDate,
-				Category:     listParams.Category,
+				Categories:   listParams.Categories,
 				Genre:        listParams.Genre,
 				VenueName:    listParams.VenueName,
 				VenueID:      listParams.VenueID,
@@ -806,10 +801,30 @@ func (h *EventHandler) indexEvent(e store.Event) {
 	}()
 }
 
+// parseCategories reads the category filter, accepting repeated params
+// (?category=Music&category=Arts) and comma-separated values
+// (?category=Music,Arts). Returns nil when no category is set, which the
+// queries treat as "no filter"; otherwise events matching any category pass.
+func parseCategories(r *http.Request) []string {
+	var cats []string
+	seen := map[string]bool{}
+	for _, v := range r.URL.Query()["category"] {
+		for _, c := range strings.Split(v, ",") {
+			c = strings.TrimSpace(c)
+			if c != "" && !seen[c] {
+				seen[c] = true
+				cats = append(cats, c)
+			}
+		}
+	}
+	return cats
+}
+
 func searchParams(
 	lat, lng, radiusMeters float64,
 	startDate, endDate time.Time,
-	category, genre, venueName pgtype.Text,
+	categories []string,
+	genre, venueName pgtype.Text,
 	venueID pgtype.UUID,
 	limit, offset int32,
 ) search.Params {
@@ -819,7 +834,7 @@ func searchParams(
 		RadiusMeters: radiusMeters,
 		StartDate:    startDate,
 		EndDate:      endDate,
-		Category:     category,
+		Categories:   categories,
 		Genre:        genre,
 		VenueName:    venueName,
 		VenueID:      venueID,

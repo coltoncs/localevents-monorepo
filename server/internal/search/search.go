@@ -29,7 +29,7 @@ type Params struct {
 	RadiusMeters float64
 	StartDate    time.Time
 	EndDate      time.Time
-	Category     pgtype.Text
+	Categories   []string // matches events in any of these; nil = no filter
 	Genre        pgtype.Text
 	VenueName    pgtype.Text
 	VenueID      pgtype.UUID
@@ -47,7 +47,7 @@ const baseFrom = `
 	)
 	AND e.start_time >= $4
 	AND e.start_time < $5
-	AND ($6::text IS NULL OR $6::text = ANY(e.categories))
+	AND ($6::text[] IS NULL OR e.categories && $6::text[])
 	AND ($7::text IS NULL OR $7::text = ANY(e.genre))
 	AND ($8::text IS NULL OR e.venue_name = $8::text)
 	AND ($9::uuid IS NULL OR e.venue_id = $9::uuid)
@@ -72,7 +72,7 @@ func (s *Service) Hybrid(ctx context.Context, query string, p Params) ([]store.E
 	args := []any{
 		p.Lng, p.Lat, p.RadiusMeters,
 		p.StartDate, p.EndDate,
-		nullText(p.Category),
+		p.Categories,
 		nullText(p.Genre),
 		nullText(p.VenueName),
 		nullUUID(p.VenueID),

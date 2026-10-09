@@ -14,7 +14,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('categories')::text[] IS NULL OR categories && sqlc.narg('categories')::text[])
 AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
@@ -30,7 +30,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('categories')::text[] IS NULL OR categories && sqlc.narg('categories')::text[])
 AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
@@ -51,7 +51,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('categories')::text[] IS NULL OR categories && sqlc.narg('categories')::text[])
 AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)
@@ -77,7 +77,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= @start_date::timestamptz
 AND start_time < @end_date::timestamptz
-AND (sqlc.narg('category')::text IS NULL OR sqlc.narg('category')::text = ANY(categories))
+AND (sqlc.narg('categories')::text[] IS NULL OR categories && sqlc.narg('categories')::text[])
 AND (sqlc.narg('genre')::text IS NULL OR sqlc.narg('genre')::text = ANY(genre))
 AND (sqlc.narg('venue_name')::text IS NULL OR venue_name = sqlc.narg('venue_name')::text)
 AND (sqlc.narg('venue_id')::uuid IS NULL OR venue_id = sqlc.narg('venue_id')::uuid)

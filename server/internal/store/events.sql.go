@@ -34,7 +34,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR $6::text = ANY(categories))
+AND ($6::text[] IS NULL OR categories && $6::text[])
 AND ($7::text IS NULL OR $7::text = ANY(genre))
 AND ($8::text IS NULL OR venue_name = $8::text)
 AND ($9::uuid IS NULL OR venue_id = $9::uuid)
@@ -47,7 +47,7 @@ type CountEventsByLocationParams struct {
 	RadiusMeters float64
 	StartDate    pgtype.Timestamptz
 	EndDate      pgtype.Timestamptz
-	Category     pgtype.Text
+	Categories   []string
 	Genre        pgtype.Text
 	VenueName    pgtype.Text
 	VenueID      pgtype.UUID
@@ -61,7 +61,7 @@ func (q *Queries) CountEventsByLocation(ctx context.Context, arg CountEventsByLo
 		arg.RadiusMeters,
 		arg.StartDate,
 		arg.EndDate,
-		arg.Category,
+		arg.Categories,
 		arg.Genre,
 		arg.VenueName,
 		arg.VenueID,
@@ -472,7 +472,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR $6::text = ANY(categories))
+AND ($6::text[] IS NULL OR categories && $6::text[])
 AND ($7::text IS NULL OR $7::text = ANY(genre))
 AND ($8::text IS NULL OR venue_name = $8::text)
 AND ($9::uuid IS NULL OR venue_id = $9::uuid)
@@ -490,7 +490,7 @@ type ListEventsByLocationParams struct {
 	RadiusMeters float64
 	StartDate    pgtype.Timestamptz
 	EndDate      pgtype.Timestamptz
-	Category     pgtype.Text
+	Categories   []string
 	Genre        pgtype.Text
 	VenueName    pgtype.Text
 	VenueID      pgtype.UUID
@@ -506,7 +506,7 @@ func (q *Queries) ListEventsByLocation(ctx context.Context, arg ListEventsByLoca
 		arg.RadiusMeters,
 		arg.StartDate,
 		arg.EndDate,
-		arg.Category,
+		arg.Categories,
 		arg.Genre,
 		arg.VenueName,
 		arg.VenueID,
@@ -573,7 +573,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR $6::text = ANY(categories))
+AND ($6::text[] IS NULL OR categories && $6::text[])
 AND ($7::text IS NULL OR $7::text = ANY(genre))
 AND ($8::text IS NULL OR venue_name = $8::text)
 AND ($9::uuid IS NULL OR venue_id = $9::uuid)
@@ -593,7 +593,7 @@ type ListEventsByLocationDateSortedParams struct {
 	RadiusMeters float64
 	StartDate    pgtype.Timestamptz
 	EndDate      pgtype.Timestamptz
-	Category     pgtype.Text
+	Categories   []string
 	Genre        pgtype.Text
 	VenueName    pgtype.Text
 	VenueID      pgtype.UUID
@@ -609,7 +609,7 @@ func (q *Queries) ListEventsByLocationDateSorted(ctx context.Context, arg ListEv
 		arg.RadiusMeters,
 		arg.StartDate,
 		arg.EndDate,
-		arg.Category,
+		arg.Categories,
 		arg.Genre,
 		arg.VenueName,
 		arg.VenueID,
@@ -676,7 +676,7 @@ WHERE ST_DWithin(
 )
 AND start_time >= $4::timestamptz
 AND start_time < $5::timestamptz
-AND ($6::text IS NULL OR $6::text = ANY(categories))
+AND ($6::text[] IS NULL OR categories && $6::text[])
 AND ($7::text IS NULL OR $7::text = ANY(genre))
 AND ($8::text IS NULL OR venue_name = $8::text)
 AND ($9::uuid IS NULL OR venue_id = $9::uuid)
@@ -695,7 +695,7 @@ type ListEventsByLocationPriceSortedParams struct {
 	RadiusMeters float64
 	StartDate    pgtype.Timestamptz
 	EndDate      pgtype.Timestamptz
-	Category     pgtype.Text
+	Categories   []string
 	Genre        pgtype.Text
 	VenueName    pgtype.Text
 	VenueID      pgtype.UUID
@@ -715,7 +715,7 @@ func (q *Queries) ListEventsByLocationPriceSorted(ctx context.Context, arg ListE
 		arg.RadiusMeters,
 		arg.StartDate,
 		arg.EndDate,
-		arg.Category,
+		arg.Categories,
 		arg.Genre,
 		arg.VenueName,
 		arg.VenueID,

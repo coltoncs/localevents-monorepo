@@ -4,6 +4,11 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { track } from '#/lib/analytics'
 import type { EventSort } from '#/lib/types'
+import {
+  CategoryMultiSelect,
+  parseCategoryParam,
+  serializeCategories,
+} from '#/components/events/CategoryMultiSelect'
 
 export const CATEGORIES = [
   'Music',
@@ -47,7 +52,7 @@ export const GENRES = [
 ]
 
 interface EventFiltersProps {
-  category?: string
+  category?: string // comma-separated, see parseCategoryParam
   date?: string
   endDate?: string
   radius?: number
@@ -104,9 +109,11 @@ export function EventFilters({
     updateSearch(updates)
   }
 
+  const selectedCategories = parseCategoryParam(category)
+
   const filterCount =
     (date ? 1 : 0) +
-    (category ? 1 : 0) +
+    selectedCategories.length +
     (radius && radius !== 10 ? 1 : 0) +
     (sort ? 1 : 0)
 
@@ -194,25 +201,20 @@ export function EventFilters({
           calendarClassName="event-datepicker"
         />
 
-        <select
-          value={category ?? ''}
-          onChange={(e) => {
-            if (e.target.value)
-              track('filter_events', {
-                filter_type: 'category',
-                filter_value: e.target.value,
-              })
-            updateSearch({ category: e.target.value || undefined })
+        <CategoryMultiSelect
+          value={selectedCategories}
+          onChange={(next) => {
+            for (const c of next) {
+              if (!selectedCategories.includes(c))
+                track('filter_events', {
+                  filter_type: 'category',
+                  filter_value: c,
+                })
+            }
+            updateSearch({ category: serializeCategories(next) })
           }}
-          className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-auto"
-        >
-          <option value="">All Categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          className="w-full rounded-md border border-(--line) px-3 py-2 text-sm sm:w-48"
+        />
 
         <select
           value={radius ?? 10}

@@ -14,7 +14,12 @@ import { isAllDay } from "#/lib/date-utils";
 import { useMapEvents } from "#/lib/hooks/useEvents";
 import { useUserRole } from "#/lib/hooks/useUserRole";
 import type { Event } from "#/lib/types";
-import { CATEGORIES } from "../events/EventFilters";
+import {
+	CategoryMultiSelect,
+	formatCategoryLabel,
+	parseCategoryParam,
+	serializeCategories,
+} from "../events/CategoryMultiSelect";
 import { LocationSearch } from "./LocationSearch";
 
 gsap.registerPlugin(Draggable, InertiaPlugin);
@@ -190,7 +195,7 @@ export function FullscreenMap({
       radius={radius}
       onShiftDate={shiftDate}
       onDateChange={(v) => updateSearch({ date: v || undefined })}
-      onCategoryChange={(v) => updateSearch({ category: v || undefined })}
+      onCategoryChange={(v) => updateSearch({ category: serializeCategories(v) })}
       onRadiusChange={(v) => updateSearch({ radius: v })}
     />
   );
@@ -385,7 +390,7 @@ function FiltersRow({
   radius?: number;
   onShiftDate: (n: number) => void;
   onDateChange: (v: string) => void;
-  onCategoryChange: (v: string) => void;
+  onCategoryChange: (v: string[]) => void;
   onRadiusChange: (v: string) => void;
 }) {
   return (
@@ -431,18 +436,11 @@ function FiltersRow({
       </div>
       <LocationSearch navigateTo="/events" compact />
       <div className="flex items-center gap-1.5">
-        <select
-          value={category ?? ""}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          className="flex-1 cursor-pointer rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
-        >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        <CategoryMultiSelect
+          value={parseCategoryParam(category)}
+          onChange={onCategoryChange}
+          className="min-w-0 flex-1 rounded-lg border border-(--line) bg-(--chip-bg) px-3 py-2 text-sm text-(--sea-ink) hover:border-(--lagoon)"
+        />
         <select
           value={radius ?? 10}
           onChange={(e) => onRadiusChange(e.target.value)}
@@ -845,7 +843,7 @@ function MobileSheet({
           <div className="truncate text-xs text-(--sea-ink-soft)">
             {[
               date ? formatDateLabel(date) : null,
-              category,
+              category ? formatCategoryLabel(parseCategoryParam(category)) : null,
               `${radius ?? 10} mi`,
             ]
               .filter(Boolean)

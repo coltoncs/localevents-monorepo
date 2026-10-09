@@ -94,7 +94,7 @@ export interface EventFilters {
 	radius?: number;
 	date?: string;
 	endDate?: string;
-	category?: string; // single category for filtering
+	category?: string; // comma-separated; events matching any are returned
 	venueName?: string;
 	venueId?: string;
 	search?: string;

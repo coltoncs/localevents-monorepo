@@ -648,6 +648,16 @@ a {
   }
 }
 
+/* Native <select> popups. Preflight makes selects transparent with inherited
+   text color, so on Windows/Linux Chrome the option list falls back to a light
+   system background while keeping our light dark-mode text. Paint options
+   from the theme tokens so every native dropdown follows light/dark. */
+select option,
+select optgroup {
+  background-color: var(--surface-strong);
+  color: var(--sea-ink);
+}
+
 /* disable ios input zoom */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
   input, select, textarea {

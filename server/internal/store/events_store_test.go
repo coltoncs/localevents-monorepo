@@ -104,20 +104,38 @@ func TestListEventsByLocation_CategoryFilter(t *testing.T) {
 	food := testutil.CreateEvent(t, q, testutil.EventOpts{
 		Title: "Food Fest", StartTime: now.Add(time.Hour), Categories: []string{"food"},
 	})
-
-	results, err := q.ListEventsByLocation(ctx, store.ListEventsByLocationParams{
-		Lng: raleighLng, Lat: raleighLat, RadiusMeters: 50 * 1609.34,
-		StartDate:   pgtype.Timestamptz{Time: now.Add(-time.Hour), Valid: true},
-		EndDate:     pgtype.Timestamptz{Time: now.Add(72 * time.Hour), Valid: true},
-		Category:    pgtype.Text{String: "music", Valid: true},
-		EventOffset: 0, EventLimit: 50,
+	art := testutil.CreateEvent(t, q, testutil.EventOpts{
+		Title: "Gallery Walk", StartTime: now.Add(2 * time.Hour), Categories: []string{"art"},
 	})
-	if err != nil {
-		t.Fatalf("list: %v", err)
+
+	list := func(categories []string) []string {
+		t.Helper()
+		results, err := q.ListEventsByLocation(ctx, store.ListEventsByLocationParams{
+			Lng: raleighLng, Lat: raleighLat, RadiusMeters: 50 * 1609.34,
+			StartDate:   pgtype.Timestamptz{Time: now.Add(-time.Hour), Valid: true},
+			EndDate:     pgtype.Timestamptz{Time: now.Add(72 * time.Hour), Valid: true},
+			Categories:  categories,
+			EventOffset: 0, EventLimit: 50,
+		})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		return eventTitles(results)
 	}
-	got := eventTitles(results)
-	if !contains(got, music.Title) || contains(got, food.Title) {
+
+	got := list([]string{"music"})
+	if !contains(got, music.Title) || contains(got, food.Title) || contains(got, art.Title) {
 		t.Fatalf("category=music: expected only %q, got %v", music.Title, got)
+	}
+
+	got = list([]string{"music", "food"})
+	if !contains(got, music.Title) || !contains(got, food.Title) || contains(got, art.Title) {
+		t.Fatalf("category=music,food: expected %q and %q only, got %v", music.Title, food.Title, got)
+	}
+
+	got = list(nil)
+	if !contains(got, music.Title) || !contains(got, food.Title) || !contains(got, art.Title) {
+		t.Fatalf("no category: expected all events, got %v", got)
 	}
 }
 

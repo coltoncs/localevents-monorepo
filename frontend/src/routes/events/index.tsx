@@ -5,6 +5,7 @@ import { Rows3, Table2 } from 'lucide-react'
 import { useEvents, eventListOptions, mapEventListOptions } from '#/lib/hooks/useEvents'
 import { useUser } from '#/lib/hooks/useUser'
 import { EventFilters } from '#/components/events/EventFilters'
+import { parseCategoryParam } from '#/components/events/CategoryMultiSelect'
 import { EventTable } from '#/components/events/EventTable'
 import { EventCardList } from '#/components/events/EventListCard'
 import { FullscreenMap, FullscreenMapSkeleton } from '#/components/maps/FullscreenMap'
@@ -259,11 +260,11 @@ function EventsList({
               )}
             </span>
           )}
-          {search.category && (
-            <span className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
-              {search.category}
+          {parseCategoryParam(search.category).map((c) => (
+            <span key={c} className="rounded-full bg-[rgba(123,142,232,0.14)] px-2.5 py-0.5 font-medium text-(--lagoon-deep)">
+              {c}
             </span>
-          )}
+          ))}
           {(search.date || search.category || search.radius || search.search) && (
             <button
               onClick={() =>
